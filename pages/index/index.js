@@ -53,16 +53,18 @@ Page({
       {
         categoryName: '肉类蛋类',
         ingredients: [
-          { name: '鸡肉', selected: false }, { name: '牛肉', selected: false }, { name: '猪肉', selected: false }, { name: '羊肉', selected: false }, { name: '鸭肉', selected: false },
-          { name: '排骨', selected: false }, { name: '五花肉', selected: false }, { name: '肥牛', selected: false }, { name: '鸡翅', selected: false },
-          { name: '鸡蛋', selected: false }, { name: '鹌鹑蛋', selected: false }
+          { name: '鸡胸肉', selected: false }, { name: '鸡腿肉', selected: false }, { name: '鸡翅', selected: false }, { name: '鸡蛋', selected: false }, { name: '鹌鹑蛋', selected: false },
+          { name: '牛腩', selected: false }, { name: '牛腱子', selected: false }, { name: '牛肋条', selected: false }, { name: '牛里脊', selected: false }, { name: '牛排', selected: false }, { name: '瘦牛肉', selected: false }, { name: '肥牛', selected: false },
+          { name: '猪里脊', selected: false }, { name: '五花肉', selected: false }, { name: '排骨', selected: false },
+          { name: '羊肉', selected: false }, { name: '鸭肉', selected: false }
         ]
       },
       {
         categoryName: '水产海鲜',
         ingredients: [
-          { name: '鱼', selected: false }, { name: '虾', selected: false }, { name: '虾仁', selected: false }, { name: '鱿鱼', selected: false },
-          { name: '蛤蜊', selected: false }, { name: '螃蟹', selected: false }, { name: '扇贝', selected: false }, { name: '生蚝', selected: false }
+          { name: '草鱼', selected: false }, { name: '鲫鱼', selected: false }, { name: '鲈鱼', selected: false }, { name: '带鱼', selected: false }, { name: '三文鱼', selected: false }, { name: '鳕鱼', selected: false },
+          { name: '基围虾', selected: false }, { name: '明虾', selected: false }, { name: '虾仁', selected: false },
+          { name: '鱿鱼', selected: false }, { name: '蛤蜊', selected: false }, { name: '螃蟹', selected: false }, { name: '扇贝', selected: false }, { name: '生蚝', selected: false }
         ]
       },
       {
@@ -403,8 +405,8 @@ Page({
       console.log('用户输入内容:', requestData.messages[1].content);
     }
     // 暂时返回，不执行下面的
-    this.setData({ isLoading: false });
-    return;
+    /* this.setData({ isLoading: false });
+    return; */
     wx.request({
       url: app.globalData.openaiApiUrl,
       method: 'POST',
