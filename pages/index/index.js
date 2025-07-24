@@ -223,6 +223,7 @@ Page({
   // 加载最近生成的菜谱
   loadRecentRecipes() {
     const history = wx.getStorageSync('history') || [];
+    console.log('最近生成的菜谱 history:', history);
     this.setData({
       recentRecipes: history.slice(0, 3) // 只显示最近3个
     });
@@ -453,14 +454,17 @@ Page({
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const recipe = JSON.parse(jsonMatch[0]);
-        // 自动汇总总营养
+        // 自动汇总总营养，只统计有数字的食材
         if (recipe.ingredients && Array.isArray(recipe.ingredients)) {
           let totalCalories = 0, totalProtein = 0, totalFat = 0, totalCarbs = 0;
           recipe.ingredients.forEach(item => {
-            totalCalories += Number(item.calories) || 0;
-            totalProtein += Number(item.protein) || 0;
-            totalFat += Number(item.fat) || 0;
-            totalCarbs += Number(item.carbs) || 0;
+            // 只统计 amount 里有“g”或“ml”的
+            if (item.amount && /\d/.test(item.amount) && /(g|ml)/i.test(item.amount)) {
+              totalCalories += Number(item.calories) || 0;
+              totalProtein += Number(item.protein) || 0;
+              totalFat += Number(item.fat) || 0;
+              totalCarbs += Number(item.carbs) || 0;
+            }
           });
           recipe.nutrition = {
             calories: Math.round(totalCalories),

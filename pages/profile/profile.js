@@ -1,179 +1,94 @@
-const app = getApp()
-
+// pages/profile/profile.js
 Page({
   data: {
-    apiStatus: false,
-    favoritesCount: 0,
-    historyCount: 0,
-    storageSize: 0
+    serverUrl: 'http://43.154.185.163:3001', // 替换为你的服务器IP
+    userInfo: null,
+    token: '',
+    localAvatar: ''
   },
 
-  onLoad() {
-    this.loadData();
-  },
-
-  onShow() {
-    this.loadData();
-  },
-
-  // 加载数据
-  loadData() {
-    const apiKey = app.getApiKey();
-    const favorites = wx.getStorageSync('favorites') || [];
-    const history = wx.getStorageSync('history') || [];
-    
-    this.setData({
-      apiStatus: !!apiKey && apiKey !== 'sk-your-openai-api-key-here',
-      favoritesCount: favorites.length,
-      historyCount: history.length
-    });
-    
-    this.calculateStorageSize();
-  },
-
-  // 计算存储大小
-  calculateStorageSize() {
-    try {
-      const info = wx.getStorageInfoSync();
-      this.setData({
-        storageSize: Math.round(info.currentSize / 1024)
-      });
-    } catch (error) {
-      console.error('获取存储信息失败:', error);
+  onLoad: function () {
+    // 读取本地头像
+    const localAvatar = wx.getStorageSync('localAvatar') || '';
+    let token = wx.getStorageSync('token');
+    if (typeof token !== 'string') token = token ? String(token) : '';
+    this.setData({ localAvatar, token });
+    console.log('onLoad token:', this.data.token);
+    if (this.data.token) {
+      this.getUserInfoFromServer();
     }
   },
 
-  // 测试API连接
-  testApiKey() {
-    const apiKey = app.getApiKey();
-    if (!apiKey || apiKey === 'sk-your-openai-api-key-here') {
-      wx.showToast({
-        title: '请先在app.js中配置API密钥',
-        icon: 'none'
-      });
-      return;
+  onShow: function () {
+    // 每次页面显示时都刷新用户信息和本地头像
+    const localAvatar = wx.getStorageSync('localAvatar') || '';
+    let token = wx.getStorageSync('token');
+    if (typeof token !== 'string') token = token ? String(token) : '';
+    this.setData({ localAvatar, token });
+    console.log('onShow token:', this.data.token);
+    if (this.data.token) {
+      this.getUserInfoFromServer();
     }
+  },
 
-    wx.showLoading({
-      title: '测试中...'
-    });
-
-    wx.request({
-      url: app.globalData.openaiApiUrl,
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      data: {
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'user',
-            content: '你好'
-          }
-        ],
-        max_tokens: 10
-      },
+  handleLogin: function() {
+    wx.showLoading({ title: '正在登录...' });
+    wx.login({
       success: (res) => {
-        wx.hideLoading();
-        if (res.statusCode === 200) {
-          wx.showToast({
-            title: 'API连接成功',
-            icon: 'success'
+        if (res.code) {
+          wx.request({
+            url: `${this.data.serverUrl}/api/wx-login`,
+            method: 'POST',
+            data: { code: res.code },
+            success: (loginRes) => {
+              wx.hideLoading();
+              if (loginRes.statusCode === 200 && loginRes.data.token) {
+                wx.setStorageSync('token', loginRes.data.token);
+                this.setData({ token: loginRes.data.token }, () => {
+                  console.log('登录后 token:', this.data.token);
+                  wx.showToast({ title: '登录成功', icon: 'success' });
+                  this.getUserInfoFromServer();
+                });
+              } else {
+                wx.showModal({ title: '登录失败', content: loginRes.data.error || '服务器返回错误', showCancel: false });
+              }
+            },
+            fail: (err) => {
+              wx.hideLoading();
+              wx.showModal({ title: '请求失败', content: '无法连接到服务器，请检查网络或服务器地址是否正确。', showCancel: false });
+              console.error("请求后端失败", err);
+            }
           });
         } else {
-          wx.showToast({
-            title: 'API连接失败',
-            icon: 'none'
-          });
+          wx.hideLoading();
+          console.error('获取用户登录态失败！' + res.errMsg);
         }
       },
-      fail: (error) => {
+      fail: (err) => {
         wx.hideLoading();
-        console.error('API测试失败:', error);
-        wx.showToast({
-          title: 'API连接失败',
-          icon: 'none'
-        });
+        console.error("wx.login 失败", err);
       }
     });
   },
 
-  // 打开OpenAI官网（预留功能）
-  openOpenAI() {
-    wx.setClipboardData({
-      data: 'https://platform.openai.com/api-keys',
-      success: () => {
-        wx.showModal({
-          title: '提示',
-          content: 'OpenAI官网地址已复制到剪贴板，请在浏览器中打开',
-          showCancel: false
-        });
-      }
-    });
-  },
-
-  // 清空收藏
-  clearFavorites() {
-    wx.showModal({
-      title: '确认清空',
-      content: '确定要清空所有收藏的菜谱吗？',
+  getUserInfoFromServer: function() {
+    if (!this.data.token) return;
+    wx.request({
+      url: `${this.data.serverUrl}/api/user-info`,
+      method: 'GET',
+      header: {
+        'Authorization': `Bearer ${this.data.token}`
+      },
       success: (res) => {
-        if (res.confirm) {
-          wx.setStorageSync('favorites', []);
-          this.loadData();
-          wx.showToast({
-            title: '已清空收藏',
-            icon: 'success'
-          });
+        if (res.statusCode === 200) {
+          this.setData({ userInfo: res.data });
+        } else {
+          this.setData({ userInfo: null });
         }
+      },
+      fail: (err) => {
+        this.setData({ userInfo: null });
       }
     });
   },
-
-  // 清空历史
-  clearHistory() {
-    wx.showModal({
-      title: '确认清空',
-      content: '确定要清空所有历史记录吗？',
-      success: (res) => {
-        if (res.confirm) {
-          wx.setStorageSync('history', []);
-          this.loadData();
-          wx.showToast({
-            title: '已清空历史',
-            icon: 'success'
-          });
-        }
-      }
-    });
-  },
-
-  // 清空所有数据
-  clearAllData() {
-    wx.showModal({
-      title: '确认清空',
-      content: '确定要清空所有本地数据吗？这将包括收藏、历史记录等所有数据。',
-      success: (res) => {
-        if (res.confirm) {
-          wx.clearStorageSync();
-          this.loadData();
-          wx.showToast({
-            title: '已清空所有数据',
-            icon: 'success'
-          });
-        }
-      }
-    });
-  },
-
-  // 联系我们
-  contactUs() {
-    wx.showModal({
-      title: '联系我们',
-      content: '如有问题或建议，请通过以下方式联系我们：\n\n邮箱：support@aicaipu.com\n微信：aicaipu_support',
-      showCancel: false
-    });
-  }
-}) 
+}); 

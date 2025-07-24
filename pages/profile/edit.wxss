@@ -1,0 +1,72 @@
+/* pages/profile/edit.wxss */
+.edit-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 30rpx;
+  background: #f7f7f7;
+  min-height: 100vh;
+}
+
+.edit-avatar-box {
+  margin-bottom: 20rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.edit-avatar {
+  width: 180rpx;
+  height: 180rpx;
+  border-radius: 50%;
+  border: 4rpx solid #fff;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.1);
+}
+
+.edit-avatar-tip {
+  font-size: 24rpx;
+  color: #888;
+  margin-top: 10rpx;
+}
+
+.edit-nickname-box {
+  display: flex;
+  align-items: center;
+  margin-bottom: 40rpx;
+  width: 100%;
+}
+
+.edit-label {
+  font-size: 32rpx;
+  color: #333;
+  font-weight: bold;
+  margin-right: 10rpx;
+}
+
+.edit-nickname-input {
+  flex: 1;
+  font-size: 32rpx;
+  color: #1890ff;
+  border: 1rpx solid #e0e0e0;
+  border-radius: 8rpx;
+  padding: 10rpx 20rpx;
+  background: #fff;
+}
+
+.edit-auth-btn {
+  width: 80%;
+  background-color: #07c160;
+  color: white;
+  border-radius: 50rpx;
+  font-size: 32rpx;
+  margin-top: 20rpx;
+}
+
+.edit-save-btn {
+  width: 80%;
+  background-color: #1890ff;
+  color: white;
+  border-radius: 50rpx;
+  font-size: 32rpx;
+  margin-top: 30rpx;
+} 

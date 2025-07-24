@@ -83,6 +83,7 @@ Page({
     const recipe = this.data.recipe;
     let totalCalories = 0, totalProtein = 0, totalFat = 0, totalCarbs = 0;
     recipe.ingredients.forEach(item => {
+      //console.log('食材:', item.name, 'amount:', item.amount, 'nutritionInfo:', item.nutritionInfo);
       // Unify nutrition data source for WXML
       item.nutritionInfo = item.nutrition_per_100g || item.nutrition || {};
 
