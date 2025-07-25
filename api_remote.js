@@ -3,6 +3,7 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
+const { OpenAI } = require('openai');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,9 +15,13 @@ app.use(express.json());
 // --- 微信小程序配置 ---
 // 警告：请勿将AppID和AppSecret硬编码在代码中。
 // 建议使用环境变量或配置文件管理这些敏感信息。
-const WX_APPID = process.env.WX_APPID || 'wx70444a9ab99fdbfd'; // 替换为你的小程序AppID
-const WX_SECRET = process.env.WX_SECRET || '88b74181e554ac83594d02d49fe71bf0'; // 替换为你的小程序AppSecret
-const JWT_SECRET = process.env.JWT_SECRET || 'Fd2252czs2WapfeDRt2k3dSJYbjjxR6J'; // 替换为你的JWT密钥，务必修改
+const WX_APPID = process.env.WX_APPID;
+const WX_SECRET = process.env.WX_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!WX_APPID || !WX_SECRET || !JWT_SECRET) {
+  throw new Error('请配置WX_APPID、WX_SECRET和JWT_SECRET环境变量');
+}
 
 // 数据库连接
 const pool = new Pool({
@@ -246,6 +251,79 @@ app.post('/api/update-user-info', async (req, res) => {
   } catch (error) {
     console.error('更新用户信息出错:', error);
     res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// --- AI访问API ---
+/**
+ * POST /api/ai
+ * body: { prompt: string, model?: string, [其它参数] }
+ * 可选model: 'openai'（默认），后续可扩展其它模型
+ */
+app.post('/api/ai', async (req, res) => {
+  const { prompt, model = 'openai', messages, ...otherParams } = req.body;
+  if (!prompt && !messages) {
+    return res.status(400).json({ error: '缺少prompt或messages参数' });
+  }
+
+  try {
+    let aiResult;
+    if (model === 'openai') {
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.status(500).json({ error: '未配置OpenAI API Key' });
+      }
+      const openai = new OpenAI({ apiKey: openaiApiKey });
+      let chatMessages = messages;
+      if (!Array.isArray(messages)) {
+        chatMessages = [
+          { role: 'system', content: otherParams.system || '你是一个有帮助的AI助手' },
+          { role: 'user', content: prompt }
+        ];
+      }
+      const completionParams = {
+        model: otherParams.openai_model || 'gpt-4o',
+        messages: chatMessages,
+        ...otherParams
+      };
+      const response = await openai.chat.completions.create(completionParams);
+      aiResult = response;
+    } else if (model === 'deepseek') {
+      // DeepSeek API调用
+      const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
+      if (!deepseekApiKey) {
+        return res.status(500).json({ error: '未配置DeepSeek API Key' });
+      }
+      let chatMessages = messages;
+      if (!Array.isArray(messages)) {
+        chatMessages = [
+          { role: 'system', content: otherParams.system || '你是一个有帮助的AI助手' },
+          { role: 'user', content: prompt }
+        ];
+      }
+      const completionParams = {
+        model: otherParams.deepseek_model || 'deepseek-chat',
+        messages: chatMessages,
+        ...otherParams
+      };
+      const response = await axios.post(
+        'https://api.deepseek.com/v1/chat/completions',
+        completionParams,
+        {
+          headers: {
+            'Authorization': `Bearer ${deepseekApiKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      aiResult = response.data;
+    } else {
+      return res.status(400).json({ error: `暂不支持的AI模型: ${model}` });
+    }
+    res.json({ result: aiResult });
+  } catch (error) {
+    console.error('AI接口调用出错:', error);
+    res.status(500).json({ error: 'AI服务调用失败', message: error.message });
   }
 });
 

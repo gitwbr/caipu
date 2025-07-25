@@ -333,9 +333,9 @@ Page({
       });
       return;
     }
-    
     const ingredients = this.data.selectedIngredients.map(item => `${item.name}${item.weight}g`).join('、');
-    this.generateRecipe('ingredients', ingredients);
+    // 直接调用generateRecipeWithParams
+    this.generateRecipeWithParams({ main: ingredients, type: '家常菜', method: '', dishType: '' });
   },
 
   // 根据菜系生成菜谱
@@ -347,26 +347,14 @@ Page({
       });
       return;
     }
-    
-    this.generateRecipe('cuisine', this.data.selectedCuisine);
+    // 直接调用generateRecipeWithParams
+    this.generateRecipeWithParams({ main: this.data.selectedCuisine, type: this.data.selectedCuisine, method: '', dishType: '' });
   },
 
   // 新的生成菜谱方法
   generateRecipeWithParams(params) {
-    const app = getApp();
-    const apiKey = app.getApiKey();
-    if (!apiKey || apiKey === 'sk-your-openai-api-key-here') {
-      wx.showModal({
-        title: '配置提示',
-        content: '请在app.js中配置OpenAI API密钥',
-        showCancel: false
-      });
-      return;
-    }
     this.setData({ isLoading: true });
-    
     const randomSeed = Math.floor(Math.random() * 1000000);
-    
     let prompt = `请用${params.main}为食材，`;
     if (params.method) {
       prompt += `采用${params.method}的方式，`;
@@ -376,47 +364,28 @@ Page({
       prompt += `属于“${params.dishType}”的`;
     }
     prompt += `${params.type}。你收到的随机数是：${randomSeed}，请基于它生成不一样的搭配。要求：1. 食材清单中每个食材都要分别列出用量（如150g）、以及每100g所含的热量(千卡)、蛋白质(g)、脂肪(g)、碳水化合物(g)四项营养值。2. 不要直接给出本次用量的总营养值。3. 包含详细的制作步骤。4. 适合家庭制作。5. 包含烹饪技巧和注意事项。请以JSON格式返回。`;
-
     const requestData = {
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: '你是一个专业的中国菜谱生成助手，请严格按照JSON格式返回菜谱信息。请以JSON格式返回，包含以下字段:name(菜名), description(描述), ingredients(食材数组，包含name和amount), steps(步骤数组), tips(烹饪技巧), tags(标签数组)。'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 1.0,
-      max_tokens: 2000
+      model: 'deepseek',
+      prompt: prompt,
+      system: '你是一个专业的中国菜谱生成助手，请严格按照JSON格式返回菜谱信息。请以JSON格式返回，包含以下字段:name(菜名), description(描述), ingredients(食材数组，包含name和amount), steps(步骤数组), tips(烹饪技巧), tags(标签数组)。'
     };
-    const requestHeaders = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    };
-    /* console.log('API请求参数:', {
-      url: app.globalData.openaiApiUrl,
-      headers: requestHeaders,
-      data: requestData
-    }); */
-    // 打印data中message的第二个里面的content
-    if (requestData && requestData.messages && requestData.messages.length > 1) {
-      console.log('用户输入内容:', requestData.messages[1].content);
-    }
-    // 暂时返回，不执行下面的
-    /* this.setData({ isLoading: false });
-    return; */
+    console.log('请求数据:', requestData);
     wx.request({
-      url: app.globalData.openaiApiUrl,
+      url: getApp().globalData.serverUrl + '/api/ai',
       method: 'POST',
-      header: requestHeaders,
+      header: { 'Content-Type': 'application/json' },
       data: requestData,
       success: (res) => {
-        console.log('API返回内容:', res);
+        let content = '';
+        if (res.data && res.data.result && res.data.result.choices && res.data.result.choices[0] && res.data.result.choices[0].message) {
+          content = res.data.result.choices[0].message.content;
+        } else if (res.data && res.data.choices && res.data.choices[0] && res.data.choices[0].message) {
+          content = res.data.choices[0].message.content;
+        } else if (res.data && res.data.result && res.data.result.content) {
+          content = res.data.result.content;
+        }
+        console.log('API返回内容:', content);
         try {
-          const content = res.data.choices[0].message.content;
           const recipe = this.parseRecipeResponse(content);
           if (recipe) {
             this.saveToHistory(recipe);

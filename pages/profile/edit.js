@@ -1,7 +1,6 @@
 // pages/profile/edit.js
 Page({
   data: {
-    serverUrl: 'http://43.154.185.163:3001', // 替换为你的服务器IP
     userInfo: null,
     token: null,
     nickname: '',
@@ -66,7 +65,7 @@ Page({
       return;
     }
     wx.request({
-      url: `${this.data.serverUrl}/api/update-user-info`,
+      url: `${getApp().globalData.serverUrl}/api/update-user-info`,
       method: 'POST',
       header: {
         'Authorization': `Bearer ${token}`
@@ -91,7 +90,7 @@ Page({
     const token = wx.getStorageSync('token') || this.data.token;
     if (!token) return;
     wx.request({
-      url: `${this.data.serverUrl}/api/user-info`,
+      url: `${getApp().globalData.serverUrl}/api/user-info`,
       method: 'GET',
       header: {
         'Authorization': `Bearer ${token}`
