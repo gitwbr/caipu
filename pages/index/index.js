@@ -17,6 +17,8 @@ Page({
     selectedMethodName: '',
     selectedDishTypeIndex: null,
     selectedDishTypeName: '',
+    ingredientCategoryTabs: ['肉类蛋类', '水产海鲜', '蔬菜菌菇', '豆制品', '主食'],
+    activeIngredientCategoryTab: 0,
   },
 
   onLoad() {
@@ -370,6 +372,9 @@ Page({
       system: '你是一个专业的中国菜谱生成助手，请严格按照JSON格式返回菜谱信息。请以JSON格式返回，包含以下字段:name(菜名), description(描述), ingredients(食材数组，包含name和amount), steps(步骤数组), tips(烹饪技巧), tags(标签数组)。'
     };
     console.log('请求数据:', requestData);
+    // 暂时返回，不做任何处理
+    this.setData({ isLoading: false });
+    return;
     wx.request({
       url: getApp().globalData.serverUrl + '/api/ai',
       method: 'POST',
@@ -524,6 +529,12 @@ Page({
     const recipe = e.currentTarget.dataset.recipe;
     wx.navigateTo({
       url: `/pages/recipe/recipe?recipe=${encodeURIComponent(JSON.stringify(recipe))}`
+    });
+  },
+
+  onIngredientCategoryTabChange(e) {
+    this.setData({
+      activeIngredientCategoryTab: e.currentTarget.dataset.index
     });
   }
 })

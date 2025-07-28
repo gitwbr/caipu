@@ -1,7 +1,7 @@
 <view class="page">
   <!-- 头部标题 -->
   <view class="header">
-    <view class="title">AI菜谱助手</view>
+    <view class="title">健康饮食助手（AI版）</view>
     <view class="subtitle">让AI为您生成美味菜谱</view>
   </view>
 
@@ -16,30 +16,28 @@
   <!-- 选择区域卡片 -->
   <view class="card">
     <view class="card-content">
-      <!-- 食材多选 -->
+      <!-- 食材多选，横向tab切换大类 -->
       <view wx:if="{{activeTab === 0}}">
-        <view class="form-label">选择食材（可任意多选）</view>
-        <view 
-          wx:for="{{categorizedIngredients}}" 
-          wx:for-item="category" 
-          wx:for-index="categoryIndex" 
-          wx:key="categoryName"
-          class="category-group"
-        >
-          <view class="category-title">{{category.categoryName}}</view>
-          <view class="multi-select-list">
-            <view
-              wx:for="{{category.ingredients}}"
-              wx:for-item="ingredient"
-              wx:for-index="ingredientIndex"
-              wx:key="name"
-              class="multi-select-item {{ingredient.selected ? 'selected' : ''}}"
-              bindtap="onIngredientTagTap"
-              data-category-index="{{categoryIndex}}"
-              data-ingredient-index="{{ingredientIndex}}"
-            >
-              {{ingredient.name}}
+        <view class="ingredient-tabs">
+          <block wx:for="{{ingredientCategoryTabs}}" wx:key="index">
+            <view class="ingredient-tab {{activeIngredientCategoryTab == index ? 'active' : ''}}"
+                  data-index="{{index}}"
+                  bindtap="onIngredientCategoryTabChange">
+              {{item}}
             </view>
+          </block>
+        </view>
+        <view class="category-group">
+          <view class="category-title">{{categorizedIngredients[activeIngredientCategoryTab].categoryName}}</view>
+          <view class="multi-select-list">
+            <block wx:for="{{categorizedIngredients[activeIngredientCategoryTab].ingredients}}" wx:key="name">
+              <view class="multi-select-item {{item.selected ? 'selected' : ''}}"
+                    bindtap="onIngredientTagTap"
+                    data-category-index="{{activeIngredientCategoryTab}}"
+                    data-ingredient-index="{{index}}">
+                {{item.name}}
+              </view>
+            </block>
           </view>
         </view>
       </view>
