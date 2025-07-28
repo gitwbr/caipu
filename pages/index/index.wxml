@@ -18,6 +18,7 @@
     <view class="card-content">
       <!-- 食材多选，横向tab切换大类 -->
       <view wx:if="{{activeTab === 0}}">
+        <view class="form-label">选择食材（可不选，随机生成菜谱）</view>
         <view class="ingredient-tabs">
           <block wx:for="{{ingredientCategoryTabs}}" wx:key="index">
             <view class="ingredient-tab {{activeIngredientCategoryTab == index ? 'active' : ''}}"
