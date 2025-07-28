@@ -441,3 +441,67 @@
 .clear-selected-btn .iconfont {
   font-size: 24rpx;
 } 
+
+.add-custom-btn {
+  display: inline-block;
+  margin-left: 12rpx;
+  padding: 8rpx 22rpx;
+  background: #e8eaf6;
+  color: #4a5cff;
+  border-radius: 20rpx;
+  font-size: 26rpx;
+  cursor: pointer;
+  font-weight: 500;
+  border: 1.5px solid #4a5cff;
+  transition: background 0.2s, color 0.2s;
+}
+.add-custom-btn:active {
+  background: #d1d9ff;
+}
+.add-custom-modal {
+  position: fixed;
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.add-custom-modal-content {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 40rpx 30rpx 30rpx 30rpx;
+  max-width: 90vw;
+  min-width: 220rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.add-custom-input {
+  width: 400rpx;
+  height: 30px;
+  padding: 18rpx 20rpx;
+  font-size: 28rpx;
+  border: 1.5px solid #4a5cff;
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
+  background: #fff;
+  box-sizing: border-box;
+}
+.add-custom-confirm, .add-custom-cancel {
+  margin: 0 12rpx;
+  padding: 12rpx 32rpx;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  border: none;
+}
+.add-custom-confirm {
+  background: #4a5cff;
+  color: #fff;
+}
+.add-custom-cancel {
+  background: #f0f0f0;
+  color: #888;
+} 

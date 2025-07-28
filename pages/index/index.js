@@ -19,6 +19,9 @@ Page({
     selectedDishTypeName: '',
     ingredientCategoryTabs: ['肉类蛋类', '水产海鲜', '蔬菜菌菇', '豆制品', '主食'],
     activeIngredientCategoryTab: 0,
+    showAddCustomInput: false,
+    addCustomType: '', // ingredient/dishType/type/method
+    addCustomValue: '',
   },
 
   onLoad() {
@@ -566,5 +569,49 @@ Page({
       selectedMethodIndex: null,
       selectedMethodName: ''
     });
+  },
+  onShowAddCustomInput(e) {
+    this.setData({
+      showAddCustomInput: true,
+      addCustomType: e.currentTarget.dataset.type,
+      addCustomValue: ''
+    });
+  },
+  onAddCustomInput(e) {
+    this.setData({ addCustomValue: e.detail.value });
+  },
+  onAddCustomConfirm() {
+    const { addCustomType, addCustomValue, categorizedIngredients, activeIngredientCategoryTab, dishTypeNames, typeNames, methodNames } = this.data;
+    if (!addCustomValue.trim()) return;
+    if (addCustomType === 'ingredient') {
+      const newIngredients = [...categorizedIngredients];
+      newIngredients[activeIngredientCategoryTab].ingredients.push({ name: addCustomValue.trim(), selected: false });
+      this.setData({
+        categorizedIngredients: newIngredients,
+        showAddCustomInput: false,
+        addCustomValue: ''
+      });
+    } else if (addCustomType === 'dishType') {
+      this.setData({
+        dishTypeNames: [...dishTypeNames, addCustomValue.trim()],
+        showAddCustomInput: false,
+        addCustomValue: ''
+      });
+    } else if (addCustomType === 'type') {
+      this.setData({
+        typeNames: [...typeNames, addCustomValue.trim()],
+        showAddCustomInput: false,
+        addCustomValue: ''
+      });
+    } else if (addCustomType === 'method') {
+      this.setData({
+        methodNames: [...methodNames, addCustomValue.trim()],
+        showAddCustomInput: false,
+        addCustomValue: ''
+      });
+    }
+  },
+  onAddCustomCancel() {
+    this.setData({ showAddCustomInput: false, addCustomValue: '' });
   }
 })

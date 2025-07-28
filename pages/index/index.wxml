@@ -38,6 +38,15 @@
                 {{item.name}}
               </view>
             </block>
+            <view class="add-custom-btn" bindtap="onShowAddCustomInput" data-type="ingredient">+ 新增</view>
+          </view>
+        </view>
+        <!-- 自定义食材输入框弹窗 -->
+        <view wx:if="{{showAddCustomInput && addCustomType === 'ingredient'}}" class="add-custom-modal">
+          <view class="add-custom-modal-content">
+            <input class="add-custom-input" placeholder="请输入自定义食材" value="{{addCustomValue}}" bindinput="onAddCustomInput" />
+            <button class="add-custom-confirm" bindtap="onAddCustomConfirm">添加</button>
+            <button class="add-custom-cancel" bindtap="onAddCustomCancel">取消</button>
           </view>
         </view>
       </view>
@@ -45,14 +54,21 @@
       <view wx:if="{{activeTab === 1}}">
         <view class="form-label">选择大类（可不选）</view>
         <view class="single-select-list">
-          <view
-            wx:for="{{dishTypeNames}}"
-            wx:key="index"
-            class="single-select-item {{selectedDishTypeIndex === index ? 'selected' : ''}}"
-            bindtap="onDishTypeTagTap"
-            data-index="{{index}}"
-          >
-            {{item}}
+          <block wx:for="{{dishTypeNames}}" wx:key="index">
+            <view class="single-select-item {{selectedDishTypeIndex === index ? 'selected' : ''}}"
+                  bindtap="onDishTypeTagTap"
+                  data-index="{{index}}">
+              {{item}}
+            </view>
+          </block>
+          <view class="add-custom-btn" bindtap="onShowAddCustomInput" data-type="dishType">+ 新增</view>
+        </view>
+        <!-- 自定义类型输入框弹窗 -->
+        <view wx:if="{{showAddCustomInput && addCustomType === 'dishType'}}" class="add-custom-modal">
+          <view class="add-custom-modal-content">
+            <input class="add-custom-input" placeholder="请输入自定义类型" value="{{addCustomValue}}" bindinput="onAddCustomInput" />
+            <button class="add-custom-confirm" bindtap="onAddCustomConfirm">添加</button>
+            <button class="add-custom-cancel" bindtap="onAddCustomCancel">取消</button>
           </view>
         </view>
       </view>
@@ -60,14 +76,21 @@
       <view wx:if="{{activeTab === 2}}">
         <view class="form-label">选择菜系（可不选，默认为家常菜）</view>
         <view class="single-select-list">
-          <view
-            wx:for="{{typeNames}}"
-            wx:key="index"
-            class="single-select-item {{selectedTypeIndex === index ? 'selected' : ''}}"
-            bindtap="onTypeTagTap"
-            data-index="{{index}}"
-          >
-            {{item}}
+          <block wx:for="{{typeNames}}" wx:key="index">
+            <view class="single-select-item {{selectedTypeIndex === index ? 'selected' : ''}}"
+                  bindtap="onTypeTagTap"
+                  data-index="{{index}}">
+              {{item}}
+            </view>
+          </block>
+          <view class="add-custom-btn" bindtap="onShowAddCustomInput" data-type="type">+ 新增</view>
+        </view>
+        <!-- 自定义菜系输入框弹窗 -->
+        <view wx:if="{{showAddCustomInput && addCustomType === 'type'}}" class="add-custom-modal">
+          <view class="add-custom-modal-content">
+            <input class="add-custom-input" placeholder="请输入自定义菜系" value="{{addCustomValue}}" bindinput="onAddCustomInput" />
+            <button class="add-custom-confirm" bindtap="onAddCustomConfirm">添加</button>
+            <button class="add-custom-cancel" bindtap="onAddCustomCancel">取消</button>
           </view>
         </view>
       </view>
@@ -75,14 +98,21 @@
       <view wx:if="{{activeTab === 3}}">
         <view class="form-label">选择烹饪方式（可不选）</view>
         <view class="single-select-list">
-          <view
-            wx:for="{{methodNames}}"
-            wx:key="index"
-            class="single-select-item {{selectedMethodIndex === index ? 'selected' : ''}}"
-            bindtap="onMethodTagTap"
-            data-index="{{index}}"
-          >
-            {{item}}
+          <block wx:for="{{methodNames}}" wx:key="index">
+            <view class="single-select-item {{selectedMethodIndex === index ? 'selected' : ''}}"
+                  bindtap="onMethodTagTap"
+                  data-index="{{index}}">
+              {{item}}
+            </view>
+          </block>
+          <view class="add-custom-btn" bindtap="onShowAddCustomInput" data-type="method">+ 新增</view>
+        </view>
+        <!-- 自定义方式输入框弹窗 -->
+        <view wx:if="{{showAddCustomInput && addCustomType === 'method'}}" class="add-custom-modal">
+          <view class="add-custom-modal-content">
+            <input class="add-custom-input" placeholder="请输入自定义方式" value="{{addCustomValue}}" bindinput="onAddCustomInput" />
+            <button class="add-custom-confirm" bindtap="onAddCustomConfirm">添加</button>
+            <button class="add-custom-cancel" bindtap="onAddCustomCancel">取消</button>
           </view>
         </view>
       </view>
