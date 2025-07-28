@@ -89,6 +89,31 @@
     </view>
   </view>
 
+  <!-- 已选内容展示 -->
+  <view wx:if="{{selectedIngredientNames.length > 0 || selectedDishTypeName || selectedTypeName || selectedMethodName}}" class="selected-ingredients-bar">
+    <scroll-view scroll-x="true" class="selected-ingredients-list">
+      <block wx:if="{{selectedIngredientNames.length > 0}}">
+        <view class="selected-ingredients-label">已选食材：</view>
+        <block wx:for="{{selectedIngredientNames}}" wx:key="name">
+          <view class="selected-ingredient-tag">{{item}}</view>
+        </block>
+      </block>
+      <block wx:if="{{selectedDishTypeName}}">
+        <view class="selected-ingredients-label">类型：</view>
+        <view class="selected-ingredient-tag">{{selectedDishTypeName}}</view>
+      </block>
+      <block wx:if="{{selectedTypeName}}">
+        <view class="selected-ingredients-label">菜系：</view>
+        <view class="selected-ingredient-tag">{{selectedTypeName}}</view>
+      </block>
+      <block wx:if="{{selectedMethodName}}">
+        <view class="selected-ingredients-label">方式：</view>
+        <view class="selected-ingredient-tag">{{selectedMethodName}}</view>
+      </block>
+    </scroll-view>
+    <view class="clear-selected-btn" bindtap="onClearAllSelections">🗑️</view>
+  </view>
+
   <!-- 生成按钮 -->
   <view class="generate-btn-wrapper">
     <button class="btn-primary big" bindtap="onGenerateRecipe">生成菜谱</button>

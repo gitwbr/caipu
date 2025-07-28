@@ -536,5 +536,35 @@ Page({
     this.setData({
       activeIngredientCategoryTab: e.currentTarget.dataset.index
     });
+  },
+
+  onClearSelectedIngredients() {
+    // 清空所有已选食材
+    const categorizedIngredients = this.data.categorizedIngredients.map(cat => ({
+      ...cat,
+      ingredients: cat.ingredients.map(ing => ({ ...ing, selected: false }))
+    }));
+    this.setData({
+      categorizedIngredients,
+      selectedIngredientNames: []
+    });
+  },
+
+  onClearAllSelections() {
+    // 清空所有已选内容
+    const categorizedIngredients = this.data.categorizedIngredients.map(cat => ({
+      ...cat,
+      ingredients: cat.ingredients.map(ing => ({ ...ing, selected: false }))
+    }));
+    this.setData({
+      categorizedIngredients,
+      selectedIngredientNames: [],
+      selectedDishTypeIndex: null,
+      selectedDishTypeName: '',
+      selectedTypeIndex: null,
+      selectedTypeName: '',
+      selectedMethodIndex: null,
+      selectedMethodName: ''
+    });
   }
 })

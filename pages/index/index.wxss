@@ -386,3 +386,58 @@
   color: #888;
   padding: 0 10rpx;
 } 
+
+.selected-ingredients-bar {
+  display: flex;
+  align-items: center;
+  margin: 24rpx 0 0 0;
+  padding: 0 30rpx;
+}
+.selected-ingredients-label {
+  font-size: 28rpx;
+  color: #888;
+  margin-right: 10rpx;
+  flex-shrink: 0;
+}
+.selected-ingredients-list {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.selected-ingredient-tag {
+  display: inline-block;
+  background: #6c63ff;
+  color: #fff;
+  border-radius: 20rpx;
+  padding: 8rpx 22rpx;
+  font-size: 26rpx;
+  margin-right: 12rpx;
+  margin-bottom: 4rpx;
+  font-weight: 500;
+  box-shadow: 0 2rpx 8rpx rgba(108,99,255,0.08);
+} 
+
+.clear-selected-btn {
+  margin-left: 10rpx;
+  width: 38rpx;
+  height: 38rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f2f3f5;
+  border-radius: 50%;
+  color: #888;
+  font-size: 24rpx;
+  border: none;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.clear-selected-btn:active {
+  background: #e0e0e0;
+  color: #ff4d4f;
+}
+.clear-selected-btn .iconfont {
+  font-size: 24rpx;
+} 
