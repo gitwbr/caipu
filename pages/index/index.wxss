@@ -16,6 +16,22 @@
 .subtitle {
   font-size: 28rpx;
   opacity: 0.9;
+  margin-bottom: 15rpx;
+}
+
+/* 用户限制信息样式 */
+.user-limits {
+  margin-top: 15rpx;
+  padding: 8rpx 20rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20rpx;
+  display: inline-block;
+}
+
+.limits-text {
+  font-size: 24rpx;
+  color: #fff;
+  font-weight: 500;
 }
 
 /* 快速选项样式 */

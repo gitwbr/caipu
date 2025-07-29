@@ -4,7 +4,8 @@ Page({
   data: {
     recipe: {},
     isFavorite: false,
-    originalNutrition: {}
+    originalNutrition: {},
+    isLoggedIn: false
   },
 
   onLoad(options) {
@@ -35,41 +36,172 @@ Page({
       }, () => {
         this.recalculateNutrition();
       });
+      this.updateLoginStatus();
       this.checkFavoriteStatus();
     }
   },
 
+  // 更新登录状态
+  updateLoginStatus() {
+    this.setData({ isLoggedIn: app.globalData.isLoggedIn });
+  },
+
   // 检查收藏状态
   checkFavoriteStatus() {
-    const favorites = wx.getStorageSync('favorites') || [];
-    const isFavorite = favorites.some(item => item.id === this.data.recipe.id);
-    this.setData({ isFavorite });
+    if (!app.globalData.isLoggedIn) {
+      this.setData({ isFavorite: false });
+      return;
+    }
+
+    // 从云端检查收藏状态
+    wx.request({
+      url: app.globalData.serverUrl + '/api/favorites',
+      method: 'GET',
+      header: {
+        'Authorization': 'Bearer ' + app.globalData.token,
+        'Content-Type': 'application/json'
+      },
+      success: (res) => {
+        if (res.statusCode === 200) {
+          const favorites = res.data;
+          const isFavorite = favorites.some(item => item.recipe_id === this.data.recipe.id);
+          this.setData({ isFavorite });
+        }
+      },
+      fail: () => {
+        this.setData({ isFavorite: false });
+      }
+    });
   },
 
   // 切换收藏状态
   toggleFavorite() {
-    const favorites = wx.getStorageSync('favorites') || [];
+    if (!app.globalData.isLoggedIn) {
+      // 未登录，弹出登录确认
+      app.checkLoginAndShowModal().then(() => {
+        this.updateLoginStatus();
+        this.toggleFavorite();
+      }).catch(() => {
+        // 用户取消登录
+      });
+      return;
+    }
+
     const recipe = this.data.recipe;
     
     if (this.data.isFavorite) {
       // 取消收藏
-      const newFavorites = favorites.filter(item => item.id !== recipe.id);
-      wx.setStorageSync('favorites', newFavorites);
-      this.setData({ isFavorite: false });
-      wx.showToast({
-        title: '已取消收藏',
-        icon: 'success'
-      });
+      this.removeFromFavorites(recipe.id);
     } else {
       // 添加收藏
-      favorites.unshift(recipe);
-      wx.setStorageSync('favorites', favorites);
-      this.setData({ isFavorite: true });
-      wx.showToast({
-        title: '已添加到收藏',
-        icon: 'success'
-      });
+      this.addToFavorites(recipe);
     }
+  },
+
+  // 添加到收藏
+  addToFavorites(recipe) {
+    wx.showLoading({ title: '收藏中...' });
+    
+    wx.request({
+      url: app.globalData.serverUrl + '/api/favorites',
+      method: 'POST',
+      header: {
+        'Authorization': 'Bearer ' + app.globalData.token,
+        'Content-Type': 'application/json'
+      },
+      data: {
+        recipe_id: recipe.id,
+        recipe_name: recipe.name,
+        recipe_data: recipe
+      },
+      success: (res) => {
+        wx.hideLoading();
+        if (res.statusCode === 200) {
+          this.setData({ isFavorite: true });
+          wx.showToast({
+            title: '收藏成功',
+            icon: 'success'
+          });
+        } else {
+          wx.showToast({
+            title: res.data.error || '收藏失败',
+            icon: 'none'
+          });
+        }
+      },
+      fail: () => {
+        wx.hideLoading();
+        wx.showToast({
+          title: '网络错误',
+          icon: 'none'
+        });
+      }
+    });
+  },
+
+  // 取消收藏
+  removeFromFavorites(recipeId) {
+    // 先找到收藏记录
+    wx.request({
+      url: app.globalData.serverUrl + '/api/favorites',
+      method: 'GET',
+      header: {
+        'Authorization': 'Bearer ' + app.globalData.token,
+        'Content-Type': 'application/json'
+      },
+      success: (res) => {
+        if (res.statusCode === 200) {
+          const favorites = res.data;
+          const favorite = favorites.find(item => item.recipe_id === recipeId);
+          
+          if (favorite) {
+            this.deleteFavorite(favorite.id);
+          }
+        }
+      },
+      fail: () => {
+        wx.showToast({
+          title: '网络错误',
+          icon: 'none'
+        });
+      }
+    });
+  },
+
+  // 删除收藏
+  deleteFavorite(favoriteId) {
+    wx.showLoading({ title: '取消收藏中...' });
+    
+    wx.request({
+      url: app.globalData.serverUrl + `/api/favorites/${favoriteId}`,
+      method: 'DELETE',
+      header: {
+        'Authorization': 'Bearer ' + app.globalData.token,
+        'Content-Type': 'application/json'
+      },
+      success: (res) => {
+        wx.hideLoading();
+        if (res.statusCode === 200) {
+          this.setData({ isFavorite: false });
+          wx.showToast({
+            title: '已取消收藏',
+            icon: 'success'
+          });
+        } else {
+          wx.showToast({
+            title: res.data.error || '取消收藏失败',
+            icon: 'none'
+          });
+        }
+      },
+      fail: () => {
+        wx.hideLoading();
+        wx.showToast({
+          title: '网络错误',
+          icon: 'none'
+        });
+      }
+    });
   },
 
   // 重新计算营养信息

@@ -16,6 +16,49 @@
 .page-subtitle {
   font-size: 28rpx;
   opacity: 0.9;
+  margin-bottom: 15rpx;
+}
+
+/* 登录状态样式 */
+.login-status {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20rpx;
+  padding: 10rpx 20rpx;
+  display: inline-block;
+}
+
+.login-status text {
+  font-size: 24rpx;
+  color: #fff;
+}
+
+/* 加载状态样式 */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+}
+
+.loading-icon {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid #f3f3f3;
+  border-top: 4rpx solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20rpx;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #666;
 }
 
 /* 收藏列表样式 */

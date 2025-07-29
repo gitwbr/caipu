@@ -1,22 +1,29 @@
 // pages/profile/edit.js
+const app = getApp();
+
 Page({
   data: {
     userInfo: null,
-    token: null,
     nickname: '',
     avatarPreview: '', // 本地预览
   },
 
   onLoad: function () {
-    // 始终用最新 token
-    const token = wx.getStorageSync('token') || null;
-    this.setData({ token });
+    // 检查登录状态
+    if (!app.globalData.isLoggedIn) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      setTimeout(() => {
+        wx.navigateBack();
+      }, 1500);
+      return;
+    }
+
     // 优先读取本地头像
     const localAvatar = wx.getStorageSync('localAvatar') || '';
     this.setData({ avatarPreview: localAvatar });
-    if (token) {
-      this.getUserInfoFromServer();
-    }
+    
+    // 获取用户信息
+    this.getUserInfoFromServer();
   },
 
   getUserProfile() {
@@ -54,61 +61,44 @@ Page({
   },
 
   saveProfile() {
-    // 始终用最新 token
-    const token = wx.getStorageSync('token') || this.data.token;
     if (!this.data.nickname) {
       wx.showToast({ title: '请输入昵称', icon: 'none' });
       return;
     }
-    if (!token) {
+
+    if (!app.globalData.isLoggedIn) {
       wx.showToast({ title: '请先登录', icon: 'none' });
       return;
     }
-    wx.request({
-      url: `${getApp().globalData.serverUrl}/api/update-user-info`,
-      method: 'POST',
-      header: {
-        'Authorization': `Bearer ${token}`
-      },
-      data: {
-        nickname: this.data.nickname,
-        avatar_url: this.data.userInfo && this.data.userInfo.avatar_url ? this.data.userInfo.avatar_url : ''
-      },
-      success: (res) => {
-        if (res.statusCode === 200) {
-          wx.showToast({ title: '保存成功', icon: 'success' });
-          this.getUserInfoFromServer();
-          setTimeout(() => {
-            wx.navigateBack();
-          }, 500);
-        }
-      }
+
+    wx.showLoading({ title: '保存中...' });
+    
+    // 只更新昵称到服务器，头像保存在本地
+    app.updateUserInfo(this.data.nickname).then(() => {
+      wx.hideLoading();
+      wx.showToast({ title: '保存成功', icon: 'success' });
+      setTimeout(() => {
+        wx.navigateBack();
+      }, 500);
+    }).catch((error) => {
+      wx.hideLoading();
+      wx.showToast({ 
+        title: error.message || '保存失败', 
+        icon: 'none' 
+      });
     });
   },
 
   getUserInfoFromServer: function() {
-    const token = wx.getStorageSync('token') || this.data.token;
-    if (!token) return;
-    wx.request({
-      url: `${getApp().globalData.serverUrl}/api/user-info`,
-      method: 'GET',
-      header: {
-        'Authorization': `Bearer ${token}`
-      },
-      success: (res) => {
-        if (res.statusCode === 200) {
-          // 只更新昵称和数据库头像，不覆盖本地头像
-          this.setData({
-            userInfo: res.data,
-            nickname: res.data.nickname || this.data.nickname,
-          });
-        } else {
-          this.setData({ userInfo: null, nickname: '', avatarPreview: '' });
-        }
-      },
-      fail: (err) => {
-        this.setData({ userInfo: null, nickname: '', avatarPreview: '' });
-      }
-    });
+    if (!app.globalData.isLoggedIn) return;
+    
+    // 使用全局用户信息
+    const userInfo = app.globalData.userInfo;
+    if (userInfo) {
+      this.setData({
+        userInfo: userInfo,
+        nickname: userInfo.nickname || this.data.nickname,
+      });
+    }
   },
 }); 

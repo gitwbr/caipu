@@ -12,6 +12,35 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// --- 数据库表结构说明 ---
+/*
+-- 用户使用限制表 (user_limits) - 只记录每日生成次数
+CREATE TABLE user_limits (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    daily_generation_count INTEGER DEFAULT 0,
+    daily_generation_limit INTEGER DEFAULT 10, -- 每日生成限制
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, date)
+);
+
+-- 菜谱收藏表 (recipe_favorites) - 记录用户收藏的菜谱
+CREATE TABLE recipe_favorites (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipe_id VARCHAR(255) NOT NULL, -- 菜谱唯一标识
+    recipe_name VARCHAR(255) NOT NULL,
+    recipe_data JSONB NOT NULL, -- 完整的菜谱数据
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, recipe_id)
+);
+
+-- 收藏总数限制：100个（通过代码控制，不存储在数据库中）
+*/
+
 // --- 微信小程序配置 ---
 // 警告：请勿将AppID和AppSecret硬编码在代码中。
 // 建议使用环境变量或配置文件管理这些敏感信息。
@@ -223,24 +252,19 @@ app.post('/api/update-user-info', async (req, res) => {
       return res.status(401).json({ error: 'token 无效或已过期' });
     }
 
-    const { nickname, avatar_url } = req.body;
-    if (!nickname || !avatar_url) {
-      return res.status(400).json({ error: '缺少昵称或头像' });
-    }
-
-    // 限制 avatar_url 长度，防止 base64 过大导致数据库异常
-    if (typeof avatar_url === 'string' && avatar_url.length > 1000000) { // 约1MB
-      return res.status(400).json({ error: '头像图片过大，请选择较小的图片' });
+    const { nickname } = req.body;
+    if (!nickname) {
+      return res.status(400).json({ error: '缺少昵称' });
     }
 
     const client = await pool.connect();
     const query = `
       UPDATE users
-      SET nickname = $1, avatar_url = $2, updated_at = NOW()
-      WHERE id = $3
+      SET nickname = $1, updated_at = NOW()
+      WHERE id = $2
       RETURNING id, openid, nickname, avatar_url, last_login_at, created_at;
     `;
-    const result = await client.query(query, [nickname, avatar_url, payload.userId]);
+    const result = await client.query(query, [nickname, payload.userId]);
     client.release();
 
     if (result.rows.length === 0) {
@@ -324,6 +348,230 @@ app.post('/api/ai', async (req, res) => {
   } catch (error) {
     console.error('AI接口调用出错:', error);
     res.status(500).json({ error: 'AI服务调用失败', message: error.message });
+  }
+});
+
+// GET /api/user-limits 检查用户限制接口
+app.get('/api/user-limits', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+    
+    const client = await pool.connect();
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 获取或创建今日限制记录（只用于生成次数）
+    let query = `
+      INSERT INTO user_limits (user_id, date, daily_generation_count)
+      VALUES ($1, $2, 0)
+      ON CONFLICT (user_id, date) DO NOTHING
+      RETURNING *;
+    `;
+    await client.query(query, [payload.userId, today]);
+    
+    // 获取生成限制信息和收藏总数
+    query = `
+      SELECT 
+        ul.daily_generation_count,
+        ul.daily_generation_limit,
+        (SELECT COUNT(*) FROM recipe_favorites WHERE user_id = $1) as total_favorites_count,
+        100 as total_favorites_limit
+      FROM user_limits ul
+      WHERE ul.user_id = $1 AND ul.date = $2
+    `;
+    
+    const result = await client.query(query, [payload.userId, today]);
+    client.release();
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: '限制信息不存在' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('获取用户限制出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// POST /api/favorites 收藏菜谱接口
+app.post('/api/favorites', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+    
+    const { recipe_id, recipe_name, recipe_data } = req.body;
+    if (!recipe_id || !recipe_name || !recipe_data) {
+      return res.status(400).json({ error: '缺少必要参数' });
+    }
+    
+    const client = await pool.connect();
+    
+    // 检查收藏总数限制
+    const favoritesCount = await client.query(
+      'SELECT COUNT(*) FROM recipe_favorites WHERE user_id = $1',
+      [payload.userId]
+    );
+    
+    const currentCount = parseInt(favoritesCount.rows[0].count);
+    const totalLimit = 100; // 总收藏限制
+    
+    if (currentCount >= totalLimit) {
+      client.release();
+      return res.status(400).json({ 
+        error: `收藏数量已达上限(${totalLimit}个)`,
+        currentCount: currentCount,
+        totalLimit: totalLimit
+      });
+    }
+    
+    // 添加收藏
+    const query = `
+      INSERT INTO recipe_favorites (user_id, recipe_id, recipe_name, recipe_data)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (user_id, recipe_id) DO UPDATE SET
+        recipe_name = EXCLUDED.recipe_name,
+        recipe_data = EXCLUDED.recipe_data,
+        updated_at = NOW()
+      RETURNING *;
+    `;
+    
+    const result = await client.query(query, [
+      payload.userId, recipe_id, recipe_name, recipe_data
+    ]);
+    
+    client.release();
+    res.json({ 
+      message: '收藏成功', 
+      favorite: result.rows[0],
+      currentCount: currentCount + 1,
+      totalLimit: totalLimit
+    });
+  } catch (error) {
+    console.error('收藏菜谱出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// GET /api/favorites 获取收藏列表接口
+app.get('/api/favorites', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+    
+    const client = await pool.connect();
+    const query = `
+      SELECT id, recipe_id, recipe_name, recipe_data, created_at
+      FROM recipe_favorites
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+    `;
+    
+    const result = await client.query(query, [payload.userId]);
+    client.release();
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('获取收藏列表出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// DELETE /api/favorites/:id 删除收藏接口
+app.delete('/api/favorites/:id', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+    
+    const { id } = req.params;
+    
+    const client = await pool.connect();
+    
+    // 删除收藏
+    const deleteQuery = `
+      DELETE FROM recipe_favorites
+      WHERE id = $1 AND user_id = $2
+      RETURNING id;
+    `;
+    
+    const deleteResult = await client.query(deleteQuery, [id, payload.userId]);
+    
+    if (deleteResult.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error: '收藏不存在或无权限删除' });
+    }
+    
+    // 获取删除后的收藏总数
+    const countQuery = 'SELECT COUNT(*) FROM recipe_favorites WHERE user_id = $1';
+    const countResult = await client.query(countQuery, [payload.userId]);
+    const currentCount = parseInt(countResult.rows[0].count);
+    
+    client.release();
+    
+    res.json({ 
+      message: '删除成功',
+      currentCount: currentCount,
+      totalLimit: 100
+    });
+  } catch (error) {
+    console.error('删除收藏出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// POST /api/increment-generation 增加生成次数接口
+app.post('/api/increment-generation', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+    
+    const client = await pool.connect();
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 增加今日生成次数
+    const query = `
+      UPDATE user_limits 
+      SET daily_generation_count = daily_generation_count + 1
+      WHERE user_id = $1 AND date = $2
+      RETURNING daily_generation_count, daily_generation_limit;
+    `;
+    
+    const result = await client.query(query, [payload.userId, today]);
+    client.release();
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: '用户限制记录不存在' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('增加生成次数出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
   }
 });
 

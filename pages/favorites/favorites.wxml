@@ -3,13 +3,23 @@
   <view class="page-header">
     <view class="page-title">我的收藏</view>
     <view class="page-subtitle">收藏的菜谱都在这里</view>
+    <!-- 登录状态显示 -->
+    <view class="login-status" wx:if="{{!isLoggedIn}}">
+      <text>请先登录查看收藏</text>
+    </view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading" wx:if="{{isLoading}}">
+    <view class="loading-icon"></view>
+    <view class="loading-text">加载中...</view>
   </view>
 
   <!-- 收藏列表 -->
-  <view class="favorites-list" wx:if="{{favorites.length > 0}}">
+  <view class="favorites-list" wx:if="{{favorites.length > 0 && !isLoading}}">
     <view 
       wx:for="{{favorites}}" 
-      wx:key="id"
+      wx:key="favoriteId"
       class="favorite-item"
       bindtap="viewRecipe"
       data-recipe="{{item}}"
@@ -28,7 +38,7 @@
         </view>
       </view>
       <view class="recipe-actions">
-        <view class="action-btn" bindtap="removeFavorite" data-id="{{item.id}}" catchtap="true">
+        <view class="action-btn" bindtap="removeFavorite" data-id="{{item.favoriteId}}" catchtap="true">
           <text class="action-icon">🗑️</text>
         </view>
         <view class="recipe-arrow">></view>
@@ -37,15 +47,23 @@
   </view>
 
   <!-- 空状态 -->
-  <view class="empty-state" wx:if="{{favorites.length === 0}}">
+  <view class="empty-state" wx:if="{{favorites.length === 0 && !isLoading && isLoggedIn}}">
     <view class="empty-icon">❤️</view>
     <view class="empty-title">还没有收藏的菜谱</view>
     <view class="empty-desc">去首页生成一些美味的菜谱吧</view>
     <button class="btn-primary" bindtap="goToHome">去生成菜谱</button>
   </view>
 
+  <!-- 未登录状态 -->
+  <view class="empty-state" wx:if="{{!isLoggedIn && !isLoading}}">
+    <view class="empty-icon">🔐</view>
+    <view class="empty-title">需要登录</view>
+    <view class="empty-desc">登录后才能查看和管理收藏</view>
+    <button class="btn-primary" bindtap="showLoginModal">微信一键登录</button>
+  </view>
+
   <!-- 批量操作 -->
-  <view class="batch-actions" wx:if="{{favorites.length > 0}}">
+  <view class="batch-actions" wx:if="{{favorites.length > 0 && isLoggedIn}}">
     <button class="btn-secondary" bindtap="selectAll">全选</button>
     <button class="btn-secondary" bindtap="clearSelection">取消全选</button>
     <button class="btn-primary" bindtap="deleteSelected" wx:if="{{selectedItems.length > 0}}">

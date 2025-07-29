@@ -22,6 +22,9 @@ Page({
     showAddCustomInput: false,
     addCustomType: '', // ingredient/dishType/type/method
     addCustomValue: '',
+    // 用户限制信息
+    userLimits: null,
+    isLoggedIn: false,
   },
 
   onLoad() {
@@ -31,6 +34,34 @@ Page({
 
   onShow() {
     this.loadRecentRecipes();
+    this.updateLoginStatus();
+  },
+
+  // 更新登录状态和限制信息
+  updateLoginStatus() {
+    const app = getApp();
+    const isLoggedIn = app.globalData.isLoggedIn;
+    
+    this.setData({ isLoggedIn });
+    
+    if (isLoggedIn) {
+      // 如果已登录，获取最新的限制信息
+      app.checkUserLimits().then((limits) => {
+        this.setData({ userLimits: limits });
+        wx.setStorageSync('userLimits', limits);
+      }).catch((error) => {
+        console.error('获取用户限制失败:', error);
+        // 如果获取失败，尝试使用本地缓存
+        const cachedLimits = wx.getStorageSync('userLimits');
+        if (cachedLimits) {
+          this.setData({ userLimits: cachedLimits });
+        }
+      });
+    } else {
+      // 如果未登录，清除限制信息
+      this.setData({ userLimits: null });
+      wx.removeStorageSync('userLimits');
+    }
   },
 
   // 初始化数据
@@ -358,70 +389,115 @@ Page({
 
   // 新的生成菜谱方法
   generateRecipeWithParams(params) {
-    this.setData({ isLoading: true });
-    const randomSeed = Math.floor(Math.random() * 1000000);
-    let prompt = `请用${params.main}为食材，`;
-    if (params.method) {
-      prompt += `采用${params.method}的方式，`;
-    }
-    prompt += `做一道`;
-    if (params.dishType) {
-      prompt += `属于“${params.dishType}”的`;
-    }
-    prompt += `${params.type}。你收到的随机数是：${randomSeed}，请基于它生成不一样的搭配。要求：1. 食材清单中每个食材都要分别列出用量（如150g）、以及每100g所含的热量(千卡)、蛋白质(g)、脂肪(g)、碳水化合物(g)四项营养值。2. 不要直接给出本次用量的总营养值。3. 包含详细的制作步骤。4. 适合家庭制作。5. 包含烹饪技巧和注意事项。请以JSON格式返回。`;
-    const requestData = {
-      model: 'deepseek',
-      prompt: prompt,
-      system: '你是一个专业的中国菜谱生成助手，请严格按照JSON格式返回菜谱信息。请以JSON格式返回，包含以下字段:name(菜名), description(描述), ingredients(食材数组，包含name和amount), steps(步骤数组), tips(烹饪技巧), tags(标签数组)。'
-    };
-    console.log('请求数据:', requestData);
-    // 暂时返回，不做任何处理
-    this.setData({ isLoading: false });
-    return;
-    wx.request({
-      url: getApp().globalData.serverUrl + '/api/ai',
-      method: 'POST',
-      header: { 'Content-Type': 'application/json' },
-      data: requestData,
-      success: (res) => {
-        let content = '';
-        if (res.data && res.data.result && res.data.result.choices && res.data.result.choices[0] && res.data.result.choices[0].message) {
-          content = res.data.result.choices[0].message.content;
-        } else if (res.data && res.data.choices && res.data.choices[0] && res.data.choices[0].message) {
-          content = res.data.choices[0].message.content;
-        } else if (res.data && res.data.result && res.data.result.content) {
-          content = res.data.result.content;
-        }
-        console.log('API返回内容:', content);
-        try {
-          const recipe = this.parseRecipeResponse(content);
-          if (recipe) {
-            this.saveToHistory(recipe);
-            wx.navigateTo({
-              url: `/pages/recipe/recipe?recipe=${encodeURIComponent(JSON.stringify(recipe))}`
-            });
-          } else {
+    const app = getApp();
+    
+    // 检查登录状态
+    app.checkLoginAndShowModal().then(() => {
+      // 检查用户限制
+      return app.checkUserLimits();
+    }).then((limits) => {
+      // 检查是否超过每日生成限制
+      if (limits.daily_generation_count >= limits.daily_generation_limit) {
+        wx.showModal({
+          title: '生成次数已达上限',
+          content: `今日已生成 ${limits.daily_generation_count} 次菜谱，每日限制 ${limits.daily_generation_limit} 次。明天再来吧！`,
+          showCancel: false
+        });
+        return Promise.reject(new Error('生成次数已达上限'));
+      }
+      
+      // 显示剩余次数
+      const remaining = limits.daily_generation_limit - limits.daily_generation_count;
+      wx.showToast({
+        title: `今日剩余 ${remaining} 次`,
+        icon: 'none',
+        duration: 2000
+      });
+      
+      // 开始生成菜谱
+      this.setData({ isLoading: true });
+      const randomSeed = Math.floor(Math.random() * 1000000);
+      let prompt = `请用${params.main}为食材，`;
+      if (params.method) {
+        prompt += `采用${params.method}的方式，`;
+      }
+      prompt += `做一道`;
+      if (params.dishType) {
+        prompt += `属于"${params.dishType}"的`;
+      }
+      prompt += `${params.type}。你收到的随机数是：${randomSeed}，请基于它生成不一样的搭配。要求：1. 食材清单中每个食材都要分别列出用量（如150g）、以及每100g所含的热量(千卡)、蛋白质(g)、脂肪(g)、碳水化合物(g)四项营养值。2. 不要直接给出本次用量的总营养值。3. 包含详细的制作步骤。4. 适合家庭制作。5. 包含烹饪技巧和注意事项。请以JSON格式返回。`;
+      
+      const requestData = {
+        model: 'deepseek',
+        prompt: prompt,
+        system: '你是一个专业的中国菜谱生成助手，请严格按照JSON格式返回菜谱信息。请以JSON格式返回，包含以下字段:name(菜名), description(描述), ingredients(食材数组，包含name和amount), steps(步骤数组), tips(烹饪技巧), tags(标签数组)。'
+      };
+      
+      console.log('请求数据:', requestData);
+      
+      // 暂时返回，不做任何处理
+      /* this.setData({ isLoading: false });
+      return; */
+      
+      wx.request({
+        url: app.globalData.serverUrl + '/api/ai',
+        method: 'POST',
+        header: { 'Content-Type': 'application/json' },
+        data: requestData,
+        success: (res) => {
+          let content = '';
+          if (res.data && res.data.result && res.data.result.choices && res.data.result.choices[0] && res.data.result.choices[0].message) {
+            content = res.data.result.choices[0].message.content;
+          } else if (res.data && res.data.choices && res.data.choices[0] && res.data.choices[0].message) {
+            content = res.data.choices[0].message.content;
+          } else if (res.data && res.data.result && res.data.result.content) {
+            content = res.data.result.content;
+          }
+          console.log('API返回内容:', content);
+          try {
+            const recipe = this.parseRecipeResponse(content);
+            if (recipe) {
+              // 增加生成次数
+              app.incrementGenerationCount().then(() => {
+                this.saveToHistory(recipe);
+                wx.navigateTo({
+                  url: `/pages/recipe/recipe?recipe=${encodeURIComponent(JSON.stringify(recipe))}`
+                });
+              }).catch((error) => {
+                console.error('增加生成次数失败:', error);
+                // 即使增加次数失败，也继续显示菜谱
+                this.saveToHistory(recipe);
+                wx.navigateTo({
+                  url: `/pages/recipe/recipe?recipe=${encodeURIComponent(JSON.stringify(recipe))}`
+                });
+              });
+            } else {
+              wx.showToast({
+                title: '生成失败，请重试',
+                icon: 'none'
+              });
+            }
+          } catch (error) {
             wx.showToast({
               title: '生成失败，请重试',
               icon: 'none'
             });
           }
-        } catch (error) {
+        },
+        fail: (error) => {
           wx.showToast({
-            title: '生成失败，请重试',
+            title: '网络错误，请重试',
             icon: 'none'
           });
+        },
+        complete: () => {
+          this.setData({ isLoading: false });
         }
-      },
-      fail: (error) => {
-        wx.showToast({
-          title: '网络错误，请重试',
-          icon: 'none'
-        });
-      },
-      complete: () => {
-        this.setData({ isLoading: false });
-      }
+      });
+    }).catch((error) => {
+      console.error('生成菜谱失败:', error);
+      this.setData({ isLoading: false });
+      // 错误已经在各个步骤中处理了，这里不需要额外处理
     });
   },
 

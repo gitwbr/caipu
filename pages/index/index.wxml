@@ -3,6 +3,13 @@
   <view class="header">
     <view class="title">健康饮食助手（AI版）</view>
     <view class="subtitle">让AI为您生成美味菜谱</view>
+    <!-- 用户限制信息 -->
+    <view class="user-limits" wx:if="{{isLoggedIn && userLimits}}">
+      <text class="limits-text">今日剩余: {{userLimits.daily_generation_limit - userLimits.daily_generation_count}}/{{userLimits.daily_generation_limit}} 次 | 收藏: {{userLimits.total_favorites_count}}/{{userLimits.total_favorites_limit}}</text>
+    </view>
+    <view class="user-limits" wx:if="{{!isLoggedIn}}">
+      <text class="limits-text">请登录后使用</text>
+    </view>
   </view>
 
   <!-- 顶部标签页 -->
@@ -147,7 +154,12 @@
 
   <!-- 生成按钮 -->
   <view class="generate-btn-wrapper">
-    <button class="btn-primary big" bindtap="onGenerateRecipe">生成菜谱</button>
+    <button class="btn-primary big" bindtap="onGenerateRecipe" wx:if="{{isLoggedIn}}">
+      {{isLoading ? '生成中...' : '生成菜谱'}}
+    </button>
+    <button class="btn-primary big" bindtap="onGenerateRecipe" wx:if="{{!isLoggedIn}}">
+      登录后生成菜谱
+    </button>
   </view>
 
   <!-- 加载状态 -->

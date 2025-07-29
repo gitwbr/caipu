@@ -1,21 +1,25 @@
 <!--pages/profile/profile.wxml-->
 <view class="container">
   <view class="profile-header">
-    <navigator url="/pages/profile/edit" open-type="navigate" wx:if="{{token}}">
-      <button class="edit-btn" type="default" size="mini">编辑个人资料</button>
-    </navigator>
+    <button class="edit-btn" type="default" size="mini" bindtap="editUserInfo" wx:if="{{isLoggedIn}}">编辑个人资料</button>
   </view>
+  
   <view class="profile-info">
-    <image class="avatar" src="{{localAvatar || (token && userInfo && userInfo.avatar_url) || '/images/profile.png'}}" mode="aspectFit"></image>
+    <image class="avatar" src="{{localAvatar || '/images/profile.png'}}" mode="aspectFit"></image>
     <text class="nickname">
       {{
-        !token ? '未登录' :
+        !isLoggedIn ? '未登录' :
         (userInfo && userInfo.nickname ? userInfo.nickname : '微信用户')
       }}
     </text>
+    <text class="login-status" wx:if="{{isLoggedIn}}">已登录</text>
   </view>
 
-  <button type="primary" class="login-btn" bindtap="handleLogin" wx:if="{{!token || token === ''}}">微信一键登录</button>
+  <!-- 登录/登出按钮 -->
+  <view class="auth-buttons">
+    <button type="primary" class="login-btn" bindtap="handleLogin" wx:if="{{!isLoggedIn}}">微信一键登录</button>
+    <button type="warn" class="logout-btn" bindtap="handleLogout" wx:if="{{isLoggedIn}}">退出登录</button>
+  </view>
 
   <view class="menu-list">
     <view class="menu-item">

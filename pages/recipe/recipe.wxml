@@ -9,11 +9,11 @@
   </view>
 
   <!-- 收藏按钮 -->
-  <view class="favorite-btn" bindtap="toggleFavorite">
-    <image 
-      class="favorite-icon" 
-      src="{{isFavorite ? '/images/heart-filled.png' : '/images/heart.png'}}"
-    ></image>
+  <view class="favorite-btn {{isFavorite ? 'favorited' : ''}}" bindtap="toggleFavorite">
+    <view class="favorite-icon">
+      {{isFavorite ? '❤️' : '🤍'}}
+    </view>
+    <text class="favorite-text">{{isFavorite ? '已收藏' : '收藏'}}</text>
   </view>
 
   <!-- 营养信息 -->
@@ -112,6 +112,8 @@
   <!-- 操作按钮 -->
   <view class="action-buttons">
     <button class="btn-primary" bindtap="shareRecipe">分享菜谱</button>
-    <button class="btn-secondary" bindtap="saveToServer">保存到云端</button>
+    <button class="btn-secondary" bindtap="toggleFavorite">
+      {{isFavorite ? '取消收藏' : '收藏'}}
+    </button>
   </view>
 </view> 
