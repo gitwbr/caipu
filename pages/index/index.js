@@ -389,6 +389,10 @@ Page({
 
   // 新的生成菜谱方法
   generateRecipeWithParams(params) {
+    if (this.data.isLoading) {
+      wx.showToast({ title: '正在生成中...', icon: 'none' });
+      return;
+    }
     const app = getApp();
     
     // 检查登录状态
