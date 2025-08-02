@@ -1,13 +1,55 @@
 <!--pages/record/record-detail-list.wxml-->
-<view class="container">
-  <!-- 日期选择器 -->
-  <view class="date-selector">
-    <picker mode="date" value="{{selectedDate}}" bindchange="onDateChange">
-      <view class="date-picker">
-        <text class="date-text">{{selectedDate}}</text>
-        <text class="date-icon">📅</text>
+<!-- 自定义导航栏 -->
+<view class="custom-navbar">
+  <view class="navbar-content">
+    <view class="navbar-left">
+      <text class="back-btn" bindtap="goBack">‹</text>
+    </view>
+    <view class="navbar-center" bindtap="showCalendar">
+      <view class="date-display">
+        <text class="date-text">{{formattedDate}}</text>
+        <text class="weekday-text">{{weekdayText}}</text>
       </view>
-    </picker>
+      <text class="calendar-icon">▼</text>
+    </view>
+    <view class="navbar-right">
+      <text class="menu-btn">⋯</text>
+    </view>
+  </view>
+</view>
+
+<view class="container">
+  <!-- 悬浮日历 -->
+  <view class="calendar-overlay" wx:if="{{showCalendar}}" bindtap="hideCalendar">
+    <view class="calendar-popup" catchtap="stopPropagation">
+      <view class="calendar-header">
+        <view class="calendar-nav">
+          <text class="nav-arrow" bindtap="prevMonth">‹</text>
+          <text class="calendar-title">{{currentYear}}年{{currentMonth}}月</text>
+          <text class="nav-arrow" bindtap="nextMonth">›</text>
+        </view>
+        <view class="weekdays">
+          <text class="weekday">日</text>
+          <text class="weekday">一</text>
+          <text class="weekday">二</text>
+          <text class="weekday">三</text>
+          <text class="weekday">四</text>
+          <text class="weekday">五</text>
+          <text class="weekday">六</text>
+        </view>
+      </view>
+      
+      <view class="calendar-grid">
+        <view class="calendar-day {{item.isOtherMonth ? 'other-month' : ''}} {{item.isSelected ? 'selected' : ''}} {{item.hasRecord ? 'has-record' : ''}}" 
+              wx:for="{{calendarDays}}" 
+              wx:key="date" 
+              bindtap="selectDate" 
+              data-date="{{item.date}}">
+          <text class="day-number">{{item.day}}</text>
+          <view class="record-dot" wx:if="{{item.hasRecord}}"></view>
+        </view>
+      </view>
+    </view>
   </view>
 
   <!-- 卡路里汇总 -->
@@ -37,7 +79,7 @@
   <!-- 记录列表 -->
   <view class="records-section">
     <view class="section-title">
-      <text class="title-text">今日记录</text>
+      <text class="title-text">{{selectedDate}} 记录</text>
       <text class="record-count">({{records.length}})</text>
     </view>
 
@@ -59,7 +101,7 @@
     <!-- 空状态 -->
     <view class="empty-state" wx:if="{{records.length === 0 && !loading}}">
       <text class="empty-icon">📝</text>
-      <text class="empty-text">今天还没有记录</text>
+      <text class="empty-text">{{selectedDate}} 还没有记录</text>
       <text class="empty-hint">点击上方按钮添加第一条记录</text>
     </view>
 

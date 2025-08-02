@@ -1,33 +1,217 @@
 /* pages/record/record-detail-list.wxss */
-.container {
-  padding: 20rpx;
-  background-color: #f5f5f5;
-  min-height: 100vh;
+
+/* 自定义导航栏 */
+.custom-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 88rpx;
+  background-color: #ffffff;
+  border-bottom: 1rpx solid #e5e5e5;
+  z-index: 999;
+  padding-top: 44rpx; /* 状态栏高度 */
 }
 
-/* 日期选择器 */
-.date-selector {
-  background: white;
-  border-radius: 16rpx;
-  padding: 20rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
-}
-
-.date-picker {
+.navbar-content {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  height: 88rpx;
+  padding: 0 30rpx;
+}
+
+.navbar-left {
+  width: 80rpx;
+}
+
+.back-btn {
+  font-size: 40rpx;
+  color: #333;
+  font-weight: 300;
+}
+
+.navbar-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.date-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 10rpx;
 }
 
 .date-text {
   font-size: 32rpx;
-  font-weight: 500;
+  font-weight: 600;
+  color: #333;
+  line-height: 1;
+}
+
+.weekday-text {
+  font-size: 20rpx;
+  color: #666;
+  line-height: 1;
+  margin-top: 2rpx;
+}
+
+.calendar-icon {
+  font-size: 20rpx;
+  color: #999;
+  margin-left: 8rpx;
+}
+
+.navbar-right {
+  width: 80rpx;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.menu-btn {
+  font-size: 32rpx;
   color: #333;
 }
 
-.date-icon {
+.container {
+  padding: 20rpx;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+  padding-top: 132rpx; /* 导航栏高度 + 状态栏高度 + 间距 */
+}
+
+
+
+/* 悬浮日历 */
+.calendar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 200rpx;
+}
+
+.calendar-popup {
+  background: white;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  width: 90%;
+  max-width: 600rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.3);
+}
+
+/* 日历头部 */
+.calendar-header {
+  margin-bottom: 20rpx;
+}
+
+.calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.nav-arrow {
+  font-size: 40rpx;
+  color: #666;
+  padding: 10rpx;
+  cursor: pointer;
+}
+
+.calendar-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+/* 星期标题 */
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10rpx;
+  margin-bottom: 10rpx;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 24rpx;
+  color: #999;
+  padding: 10rpx 0;
+}
+
+/* 日历网格 */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8rpx;
+}
+
+.calendar-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 80rpx;
+  border-radius: 8rpx;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.calendar-day:active {
+  background-color: #f0f0f0;
+}
+
+.day-number {
   font-size: 28rpx;
+  color: #333;
+}
+
+.calendar-day.other-month .day-number {
+  color: #ccc;
+}
+
+.calendar-day.selected {
+  background-color: #4ecdc4;
+}
+
+.calendar-day.selected .day-number {
+  color: white;
+  font-weight: 600;
+}
+
+.calendar-day.has-record .day-number {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.calendar-day.selected.has-record .day-number {
+  color: white;
+}
+
+/* 记录点 */
+.record-dot {
+  position: absolute;
+  bottom: 8rpx;
+  width: 8rpx;
+  height: 8rpx;
+  background-color: #ff6b6b;
+  border-radius: 50%;
+}
+
+.calendar-day.selected .record-dot {
+  background-color: white;
 }
 
 /* 卡路里汇总 */
