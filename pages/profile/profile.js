@@ -6,7 +6,9 @@ Page({
     userInfo: null,
     isLoggedIn: false,
     localAvatar: '',
-    bmr: 0
+    bmr: 0,
+    calculatedAge: null, // 新增：用于存储计算出的年龄
+    formattedBirthday: null // 新增：用于存储格式化后的生日
   },
 
   onLoad: function () {
@@ -26,32 +28,47 @@ Page({
   // 更新登录状态
   updateLoginStatus() {
     const userInfo = app.globalData.userInfo;
-    const bmr = this.calculateBMR(userInfo);
+    
+    console.log('=== 个人资料页面数据更新 ===');
+    console.log('全局用户信息:', userInfo);
+    console.log('登录状态:', app.globalData.isLoggedIn);
+    console.log('BMR值:', userInfo ? userInfo.bmr || 1500 : 1500);
+    
+    // 计算年龄（如果生日存在）
+    let calculatedAge = null;
+    let formattedBirthday = null;
+    if (userInfo && userInfo.birthday) {
+      // 格式化生日显示
+      const birthDate = new Date(userInfo.birthday);
+      formattedBirthday = birthDate.toISOString().split('T')[0]; // 转换为 YYYY-MM-DD 格式
+      calculatedAge = this.calculateAge(userInfo.birthday);
+    }
     
     this.setData({
       isLoggedIn: app.globalData.isLoggedIn,
       userInfo: userInfo,
-      bmr: bmr
+      bmr: userInfo ? userInfo.bmr || 1500 : 1500,
+      calculatedAge: calculatedAge,
+      formattedBirthday: formattedBirthday
     });
+    
+    console.log('页面数据已更新:', this.data);
   },
 
-  // 计算基础代谢率 (BMR)
-  calculateBMR(userInfo) {
-    if (!userInfo || !userInfo.height || !userInfo.weight || !userInfo.age || !userInfo.gender) {
-      return 0;
-    }
-
-    const { height, weight, age, gender } = userInfo;
+  // 从生日计算年龄
+  calculateAge(birthday) {
+    if (!birthday) return null;
     
-    // Mifflin-St Jeor 公式
-    let bmr;
-    if (gender === 'male') {
-      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
-    } else {
-      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+    const birthDate = new Date(birthday);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
     }
-
-    return Math.round(bmr);
+    
+    return age;
   },
 
   // 处理登录
@@ -88,10 +105,13 @@ Page({
 
   // 编辑用户信息
   editUserInfo: function() {
+    console.log('点击编辑按钮');
+    
     if (!this.data.isLoggedIn) {
       wx.showToast({ title: '请先登录', icon: 'none' });
       return;
     }
+    
     wx.navigateTo({
       url: '/pages/profile/edit'
     });

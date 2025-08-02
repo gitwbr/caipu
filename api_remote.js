@@ -302,9 +302,13 @@ app.post('/api/wx-login', async (req, res) => {
 // --- 获取当前用户信息接口 ---
 app.get('/api/user-info', async (req, res) => {
   try {
+    console.log('=== 获取用户信息API调试 ===');
+    console.log('Authorization header:', req.headers['authorization']);
+    
     // 1. 解析 Authorization 头部
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Token格式错误');
       return res.status(401).json({ error: '未提供有效的 token' });
     }
     const token = authHeader.replace('Bearer ', '');
@@ -313,21 +317,30 @@ app.get('/api/user-info', async (req, res) => {
     let payload;
     try {
       payload = jwt.verify(token, JWT_SECRET);
+      console.log('JWT payload:', payload);
     } catch (err) {
+      console.log('JWT 校验失败:', err.message);
       return res.status(401).json({ error: 'token 无效或已过期' });
     }
 
     // 3. 查询数据库
     const client = await pool.connect();
     const query = 'SELECT id, openid, nickname, avatar_url, birthday, height_cm, weight_kg, gender, last_login_at, created_at FROM users WHERE id = $1';
+    console.log('SQL查询:', query);
+    console.log('查询参数:', [payload.userId]);
+    
     const result = await client.query(query, [payload.userId]);
     client.release();
 
+    console.log('数据库查询结果:', result.rows);
+
     if (result.rows.length === 0) {
+      console.log('用户不存在');
       return res.status(404).json({ error: '用户不存在' });
     }
 
     // 4. 返回用户信息
+    console.log('返回用户信息:', result.rows[0]);
     res.json(result.rows[0]);
   } catch (error) {
     console.error('获取用户信息出错:', error);
@@ -338,17 +351,19 @@ app.get('/api/user-info', async (req, res) => {
 // --- 更新用户昵称和头像接口 ---
 app.post('/api/update-user-info', async (req, res) => {
   try {
-    // 关键日志：打印 Authorization 头部
+    console.log('=== 更新用户信息API调试 ===');
+    console.log('请求体:', req.body);
     console.log('Authorization header:', req.headers['authorization']);
+    
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Token格式错误');
       return res.status(401).json({ error: '未提供有效的 token' });
     }
     const token = authHeader.replace('Bearer ', '');
     let payload;
     try {
       payload = jwt.verify(token, JWT_SECRET);
-      // 关键日志：打印 token payload
       console.log('JWT payload:', payload);
     } catch (err) {
       console.log('JWT 校验失败:', err.message);
@@ -356,6 +371,7 @@ app.post('/api/update-user-info', async (req, res) => {
     }
 
     const { nickname, birthday, height_cm, weight_kg, gender } = req.body;
+    console.log('解析的字段:', { nickname, birthday, height_cm, weight_kg, gender });
     
     // 构建动态更新查询
     let updateFields = [];
@@ -383,7 +399,11 @@ app.post('/api/update-user-info', async (req, res) => {
       values.push(gender);
     }
     
+    console.log('更新字段:', updateFields);
+    console.log('参数值:', values);
+    
     if (updateFields.length === 0) {
+      console.log('没有需要更新的字段');
       return res.status(400).json({ error: '缺少更新参数' });
     }
     
@@ -397,13 +417,20 @@ app.post('/api/update-user-info', async (req, res) => {
       WHERE id = $${paramIndex}
       RETURNING id, openid, nickname, avatar_url, birthday, height_cm, weight_kg, gender, last_login_at, created_at;
     `;
+    console.log('SQL查询:', query);
+    console.log('SQL参数:', values);
+    
     const result = await client.query(query, values);
     client.release();
 
+    console.log('数据库更新结果:', result.rows);
+
     if (result.rows.length === 0) {
+      console.log('用户不存在或更新失败');
       return res.status(404).json({ error: '用户不存在' });
     }
 
+    console.log('更新成功，返回数据:', result.rows[0]);
     res.json(result.rows[0]);
   } catch (error) {
     console.error('更新用户信息出错:', error);

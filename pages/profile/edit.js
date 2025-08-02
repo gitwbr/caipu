@@ -8,7 +8,6 @@ Page({
     avatarPreview: '', // 本地预览
     height: '',
     weight: '',
-    age: '',
     gender: '',
     birthday: ''
   },
@@ -60,10 +59,6 @@ Page({
     this.setData({ weight: e.detail.value });
   },
 
-  onAgeInput(e) {
-    this.setData({ age: e.detail.value });
-  },
-
   onGenderChange(e) {
     const genderMap = ['male', 'female'];
     this.setData({ gender: genderMap[e.detail.value] });
@@ -102,20 +97,43 @@ Page({
     // 更新用户信息到服务器
     const updateData = {
       nickname: this.data.nickname,
-      height: parseFloat(this.data.height) || null,
-      weight: parseFloat(this.data.weight) || null,
-      age: parseInt(this.data.age) || null,
+      height_cm: parseFloat(this.data.height) || null,
+      weight_kg: parseFloat(this.data.weight) || null,
       gender: this.data.gender || null,
       birthday: this.data.birthday || null
     };
     
-    app.updateUserInfo(updateData).then(() => {
+    console.log('=== 保存个人资料调试 ===');
+    console.log('当前页面数据:', this.data);
+    console.log('准备发送的更新数据:', updateData);
+    console.log('登录状态:', app.globalData.isLoggedIn);
+    console.log('Token:', app.globalData.token);
+    
+    app.updateUserInfo(updateData).then((result) => {
+      console.log('保存成功，服务器返回:', result);
       wx.hideLoading();
       wx.showToast({ title: '保存成功', icon: 'success' });
+      
+      // 延迟返回，确保Toast显示完成
       setTimeout(() => {
-        wx.navigateBack();
-      }, 500);
+        // 尝试多种返回方式
+        wx.navigateBack({
+          fail: () => {
+            // 如果navigateBack失败，尝试switchTab到个人资料页面
+            wx.switchTab({
+              url: '/pages/profile/profile',
+              fail: () => {
+                // 最后的备选方案，使用redirectTo
+                wx.redirectTo({
+                  url: '/pages/profile/profile'
+                });
+              }
+            });
+          }
+        });
+      }, 1500);
     }).catch((error) => {
+      console.error('保存失败:', error);
       wx.hideLoading();
       wx.showToast({ 
         title: error.message || '保存失败', 
@@ -130,14 +148,31 @@ Page({
     // 使用全局用户信息
     const userInfo = app.globalData.userInfo;
     if (userInfo) {
+      console.log('=== 编辑页面加载用户信息 ===');
+      console.log('原始用户信息:', userInfo);
+      
+      // 格式化生日显示
+      let formattedBirthday = null;
+      if (userInfo.birthday) {
+        const birthDate = new Date(userInfo.birthday);
+        formattedBirthday = birthDate.toISOString().split('T')[0];
+      }
+      
       this.setData({
         userInfo: userInfo,
         nickname: userInfo.nickname || this.data.nickname,
-        height: userInfo.height ? userInfo.height.toString() : '',
-        weight: userInfo.weight ? userInfo.weight.toString() : '',
-        age: userInfo.age ? userInfo.age.toString() : '',
+        height: userInfo.height_cm ? userInfo.height_cm.toString() : '',
+        weight: userInfo.weight_kg ? userInfo.weight_kg.toString() : '',
         gender: userInfo.gender || '',
-        birthday: userInfo.birthday || ''
+        birthday: formattedBirthday || ''
+      });
+      
+      console.log('设置到页面的数据:', {
+        nickname: userInfo.nickname || this.data.nickname,
+        height: userInfo.height_cm ? userInfo.height_cm.toString() : '',
+        weight: userInfo.weight_kg ? userInfo.weight_kg.toString() : '',
+        gender: userInfo.gender || '',
+        birthday: formattedBirthday || ''
       });
     }
   },

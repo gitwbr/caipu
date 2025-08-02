@@ -69,7 +69,7 @@ Page({
     // 获取用户基础代谢率
     const userInfo = wx.getStorageSync('userInfo') || {};
     console.log('用户信息:', userInfo);
-    const bmr = this.calculateBMR(userInfo);
+    const bmr = userInfo.bmr || 1500; // 直接使用存储的BMR
     console.log('基础代谢率:', bmr);
     
     // 获取当日卡路里汇总
@@ -92,26 +92,6 @@ Page({
     });
     
     console.log('页面数据已更新:', this.data);
-  },
-
-  // 计算基础代谢率 (BMR)
-  calculateBMR(userInfo) {
-    const { gender, age, height, weight } = userInfo;
-    
-    if (!gender || !age || !height || !weight) {
-      // 用户没有设置身体数据时，返回1500作为基础值
-      return 1500;
-    }
-
-    // Mifflin-St Jeor 公式
-    let bmr;
-    if (gender === 'male') {
-      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
-    } else {
-      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
-    }
-
-    return Math.round(bmr);
   },
 
   // 点击整个区域进入记录详情页面

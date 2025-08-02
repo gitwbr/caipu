@@ -28,15 +28,15 @@
       <view class="info-grid">
         <view class="info-item">
           <text class="info-label">身高</text>
-          <text class="info-value">{{userInfo.height || '未设置'}} cm</text>
+          <text class="info-value">{{userInfo.height_cm || '未设置'}} cm</text>
         </view>
         <view class="info-item">
           <text class="info-label">体重</text>
-          <text class="info-value">{{userInfo.weight || '未设置'}} kg</text>
+          <text class="info-value">{{userInfo.weight_kg || '未设置'}} kg</text>
         </view>
         <view class="info-item">
-          <text class="info-label">年龄</text>
-          <text class="info-value">{{userInfo.age || '未设置'}} 岁</text>
+          <text class="info-label">生日</text>
+          <text class="info-value">{{formattedBirthday || '未设置'}}{{calculatedAge ? ' (' + calculatedAge + '岁)' : ''}}</text>
         </view>
         <view class="info-item">
           <text class="info-label">性别</text>
@@ -45,7 +45,7 @@
       </view>
     </view>
     
-    <view class="bmr-section" wx:if="{{userInfo.height && userInfo.weight && userInfo.age && userInfo.gender}}">
+    <view class="bmr-section" wx:if="{{userInfo.height_cm && userInfo.weight_kg && userInfo.birthday && userInfo.gender}}">
       <text class="section-title">基础代谢率 (BMR)</text>
       <text class="bmr-value">{{bmr}} kcal/天</text>
       <text class="bmr-desc">这是您每日的基础卡路里需求</text>

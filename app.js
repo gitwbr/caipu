@@ -187,9 +187,28 @@ App({
         },
         success: (res) => {
           if (res.statusCode === 200) {
-            this.globalData.userInfo = res.data;
-            wx.setStorageSync('userInfo', res.data);
-            resolve(res.data);
+            console.log('=== 获取用户信息调试 ===');
+            console.log('服务器返回的原始数据:', res.data);
+            
+            // 计算BMR并添加到用户信息中
+            const userInfo = res.data;
+            const bmr = this.calculateBMR(userInfo.birthday, userInfo.height_cm, userInfo.weight_kg, userInfo.gender);
+            
+            // 转换为本地使用的字段名
+            const userInfoWithBMR = { 
+              ...userInfo,
+              height: userInfo.height_cm, // 转换为本地使用的字段名
+              weight: userInfo.weight_kg, // 转换为本地使用的字段名
+              bmr: bmr 
+            };
+            
+            console.log('转换后的用户信息:', userInfoWithBMR);
+            
+            this.globalData.userInfo = userInfoWithBMR;
+            wx.setStorageSync('userInfo', userInfoWithBMR);
+            
+            console.log('用户信息获取成功，BMR:', bmr);
+            resolve(userInfoWithBMR);
           } else {
             reject(new Error(res.data.error || '获取用户信息失败'));
           }
@@ -199,27 +218,88 @@ App({
     });
   },
 
+  // 计算基础代谢率 (BMR) - 统一方法
+  calculateBMR(birthday, height, weight, gender) {
+    if (!birthday || !height || !weight || !gender) {
+      return 1500; // 默认值
+    }
+
+    // 从生日计算年龄
+    const birthDate = new Date(birthday);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    // Mifflin-St Jeor 公式
+    let bmr;
+    if (gender === 'male') {
+      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+    } else {
+      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+    }
+
+    return Math.round(bmr);
+  },
+
   // 更新用户信息
   updateUserInfo(userData) {
     return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) {
+        reject(new Error('请先登录'));
+        return;
+      }
+
+      console.log('=== updateUserInfo 调试 ===');
+      console.log('接收到的用户数据:', userData);
+      console.log('当前Token:', this.globalData.token);
+      console.log('服务器URL:', this.globalData.serverUrl);
+
+      // 计算基础代谢率
+      const bmr = this.calculateBMR(userData.birthday, userData.height_cm, userData.weight_kg, userData.gender);
+      console.log('计算的BMR:', bmr);
+      
+      // 更新本地用户信息（包含BMR）- 使用正确的字段名
+      const updatedUserInfo = { 
+        ...this.globalData.userInfo, 
+        nickname: userData.nickname,
+        height: userData.height_cm, // 转换为本地使用的字段名
+        weight: userData.weight_kg, // 转换为本地使用的字段名
+        gender: userData.gender,
+        birthday: userData.birthday,
+        bmr: bmr 
+      };
+      console.log('更新后的本地用户信息:', updatedUserInfo);
+      
+      this.globalData.userInfo = updatedUserInfo;
+      wx.setStorageSync('userInfo', updatedUserInfo);
+
       wx.request({
         url: this.globalData.serverUrl + '/api/update-user-info',
         method: 'POST',
+        data: userData,
         header: {
           'Authorization': 'Bearer ' + this.globalData.token,
           'Content-Type': 'application/json'
         },
-        data: userData,
         success: (res) => {
+          console.log('服务器响应状态码:', res.statusCode);
+          console.log('服务器响应数据:', res.data);
           if (res.statusCode === 200) {
-            this.globalData.userInfo = res.data;
-            wx.setStorageSync('userInfo', res.data);
+            console.log('用户信息更新成功，BMR:', bmr);
             resolve(res.data);
           } else {
+            console.error('服务器返回错误状态码:', res.statusCode);
             reject(new Error(res.data.error || '更新用户信息失败'));
           }
         },
-        fail: reject
+        fail: (error) => {
+          console.error('网络请求失败:', error);
+          reject(error);
+        }
       });
     });
   },
@@ -598,15 +678,6 @@ App({
       const summary = this.calculateDailyCalorieSummary(date);
       resolve(summary);
     });
-  },
-
-  // 计算基础代谢率(BMR) - Mifflin-St Jeor公式
-  calculateBMR(weight, height, age, gender) {
-    if (gender === 'male') {
-      return 10 * weight + 6.25 * height - 5 * age + 5;
-    } else {
-      return 10 * weight + 6.25 * height - 5 * age - 161;
-    }
   },
 
   // 加载本地饮食记录数据
