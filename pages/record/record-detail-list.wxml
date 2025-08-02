@@ -1,0 +1,71 @@
+<!--pages/record/record-detail-list.wxml-->
+<view class="container">
+  <!-- 日期选择器 -->
+  <view class="date-selector">
+    <picker mode="date" value="{{selectedDate}}" bindchange="onDateChange">
+      <view class="date-picker">
+        <text class="date-text">{{selectedDate}}</text>
+        <text class="date-icon">📅</text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- 卡路里汇总 -->
+  <view class="calorie-summary">
+    <view class="summary-item">
+      <text class="summary-label">基础代谢</text>
+      <text class="summary-value">{{calorieBudget}} kcal</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-label">已摄入</text>
+      <text class="summary-value consumed">{{consumedCalories}} kcal</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-label">还可摄入</text>
+      <text class="summary-value remaining">{{remainingCalories}} kcal</text>
+    </view>
+  </view>
+
+  <!-- 添加记录按钮 -->
+  <view class="add-record-section">
+    <button class="add-record-btn" bindtap="addRecord">
+      <text class="add-icon">+</text>
+      <text class="add-text">添加记录</text>
+    </button>
+  </view>
+
+  <!-- 记录列表 -->
+  <view class="records-section">
+    <view class="section-title">
+      <text class="title-text">今日记录</text>
+      <text class="record-count">({{records.length}})</text>
+    </view>
+
+    <view class="records-list" wx:if="{{records.length > 0}}">
+      <view class="record-item" wx:for="{{records}}" wx:key="id" bindtap="onRecordTap" data-id="{{item.id}}">
+        <view class="record-info">
+          <text class="food-name">{{item.food_name}}</text>
+          <text class="food-quantity">{{item.quantity_g}}g</text>
+        </view>
+        <view class="record-calories">
+          <text class="calories-value">{{item.calculated_calories}} kcal</text>
+        </view>
+        <view class="record-actions">
+          <button class="delete-btn" catchtap="deleteRecord" data-id="{{item.id}}">删除</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{records.length === 0 && !loading}}">
+      <text class="empty-icon">📝</text>
+      <text class="empty-text">今天还没有记录</text>
+      <text class="empty-hint">点击上方按钮添加第一条记录</text>
+    </view>
+
+    <!-- 加载状态 -->
+    <view class="loading-state" wx:if="{{loading}}">
+      <text class="loading-text">加载中...</text>
+    </view>
+  </view>
+</view> 

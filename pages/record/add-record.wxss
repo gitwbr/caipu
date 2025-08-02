@@ -1,0 +1,208 @@
+/* pages/record/add-record.wxss */
+.container {
+  padding: 20rpx;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+/* 搜索框 */
+.search-box {
+  position: relative;
+  background: white;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+  overflow: hidden;
+}
+
+.search-input {
+  width: 100%;
+  padding: 30rpx 80rpx 30rpx 30rpx;
+  font-size: 30rpx;
+  border: none;
+  outline: none;
+}
+
+.search-icon {
+  position: absolute;
+  right: 30rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+  font-size: 32rpx;
+}
+
+/* 标签页 */
+.tabs {
+  display: flex;
+  background: white;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+  overflow: hidden;
+}
+
+.tab-item {
+  flex: 1;
+  padding: 30rpx;
+  text-align: center;
+  border-bottom: 4rpx solid transparent;
+  transition: all 0.3s ease;
+}
+
+.tab-item.active {
+  border-bottom-color: #667eea;
+  background: #f8f9ff;
+}
+
+.tab-text {
+  color: #666;
+  font-size: 30rpx;
+  font-weight: 500;
+}
+
+.tab-item.active .tab-text {
+  color: #667eea;
+  font-weight: bold;
+}
+
+/* 区块标题 */
+.section-title {
+  color: #333;
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-bottom: 20rpx;
+  padding: 0 10rpx;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding: 0 10rpx;
+}
+
+.add-custom-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8rpx;
+  padding: 15rpx 30rpx;
+  font-size: 26rpx;
+  line-height: 1;
+}
+
+/* 食物列表 */
+.food-list {
+  background: white;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.food-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #f5f5f5;
+  transition: background-color 0.2s ease;
+}
+
+.food-item:last-child {
+  border-bottom: none;
+}
+
+.food-item:active {
+  background-color: #f8f9ff;
+}
+
+.food-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.food-name {
+  color: #333;
+  font-size: 30rpx;
+  font-weight: 500;
+  margin-bottom: 8rpx;
+}
+
+.food-type {
+  color: #999;
+  font-size: 24rpx;
+  background: #f0f0f0;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  align-self: flex-start;
+}
+
+.food-calories {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-right: 20rpx;
+}
+
+.calories-text {
+  color: #ff6b35;
+  font-size: 26rpx;
+  font-weight: 500;
+}
+
+/* 自定义食物操作 */
+.custom-food-item {
+  position: relative;
+}
+
+.food-actions {
+  display: flex;
+  gap: 10rpx;
+}
+
+.action-btn {
+  border: none;
+  border-radius: 6rpx;
+  padding: 8rpx 16rpx;
+  font-size: 22rpx;
+  line-height: 1;
+}
+
+.edit-btn {
+  background: #667eea;
+  color: white;
+}
+
+.delete-btn {
+  background: #ff4757;
+  color: white;
+}
+
+/* 空状态 */
+.empty-state {
+  background: white;
+  border-radius: 12rpx;
+  padding: 80rpx 30rpx;
+  text-align: center;
+}
+
+.empty-text {
+  color: #999;
+  font-size: 32rpx;
+  display: block;
+  margin-bottom: 15rpx;
+}
+
+.empty-hint {
+  color: #ccc;
+  font-size: 26rpx;
+  display: block;
+}
+
+/* 加载状态 */
+.loading {
+  text-align: center;
+  padding: 40rpx;
+  color: #999;
+  font-size: 28rpx;
+}

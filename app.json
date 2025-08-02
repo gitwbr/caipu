@@ -4,7 +4,12 @@
     "pages/recipe/recipe",
     "pages/favorites/favorites",
     "pages/profile/profile",
-    "pages/profile/edit"
+    "pages/profile/edit",
+    "pages/ingredients/ingredients",
+    "pages/record/record",
+    "pages/record/add-record",
+    "pages/record/record-detail",
+    "pages/record/record-detail-list"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -23,6 +28,12 @@
         "iconPath": "images/home.png",
         "selectedIconPath": "images/home-active.png",
         "text": "首页"
+      },
+      {
+        "pagePath": "pages/record/record",
+        "iconPath": "images/favorite.png",
+        "selectedIconPath": "images/favorite-active.png",
+        "text": "记录"
       },
       {
         "pagePath": "pages/favorites/favorites",

@@ -152,13 +152,16 @@
     <view class="clear-selected-btn" bindtap="onClearAllSelections">🗑️</view>
   </view>
 
-  <!-- 生成按钮 -->
-  <view class="generate-btn-wrapper">
+  <!-- 功能按钮区域 -->
+  <view class="function-buttons">
     <button class="btn-primary big" bindtap="onGenerateRecipe" wx:if="{{isLoggedIn}}">
       {{isLoading ? '生成中...' : '生成菜谱'}}
     </button>
     <button class="btn-primary big" bindtap="onGenerateRecipe" wx:if="{{!isLoggedIn}}">
       登录后生成菜谱
+    </button>
+    <button class="btn-secondary" bindtap="onGoToFoodNutrition">
+      🍎 食物营养
     </button>
   </view>
 

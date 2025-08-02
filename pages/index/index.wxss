@@ -365,6 +365,14 @@
   font-weight: bold;
 }
 
+.function-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 40rpx 0 0 0;
+  gap: 20rpx;
+}
+
 .generate-btn-wrapper {
   display: flex;
   justify-content: center;
@@ -379,6 +387,24 @@
   color: #fff;
   font-weight: bold;
   box-shadow: 0 8rpx 24rpx rgba(102,126,234,0.12);
+}
+
+.btn-secondary {
+  font-size: 30rpx;
+  padding: 20rpx 40rpx;
+  width: 60vw;
+  border-radius: 30rpx;
+  background: #f8f9fa;
+  color: #333;
+  font-weight: 500;
+  border: 2rpx solid #e9ecef;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.08);
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:active {
+  background: #e9ecef;
+  transform: scale(0.98);
 } 
 
 .unit-text {

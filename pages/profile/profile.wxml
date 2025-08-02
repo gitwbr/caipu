@@ -21,6 +21,37 @@
     <button type="warn" class="logout-btn" bindtap="handleLogout" wx:if="{{isLoggedIn}}">退出登录</button>
   </view>
 
+  <!-- 身体信息 -->
+  <view class="body-info" wx:if="{{isLoggedIn && userInfo}}">
+    <view class="info-section">
+      <text class="section-title">身体信息</text>
+      <view class="info-grid">
+        <view class="info-item">
+          <text class="info-label">身高</text>
+          <text class="info-value">{{userInfo.height || '未设置'}} cm</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">体重</text>
+          <text class="info-value">{{userInfo.weight || '未设置'}} kg</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">年龄</text>
+          <text class="info-value">{{userInfo.age || '未设置'}} 岁</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">性别</text>
+          <text class="info-value">{{userInfo.gender === 'male' ? '男' : (userInfo.gender === 'female' ? '女' : '未设置')}}</text>
+        </view>
+      </view>
+    </view>
+    
+    <view class="bmr-section" wx:if="{{userInfo.height && userInfo.weight && userInfo.age && userInfo.gender}}">
+      <text class="section-title">基础代谢率 (BMR)</text>
+      <text class="bmr-value">{{bmr}} kcal/天</text>
+      <text class="bmr-desc">这是您每日的基础卡路里需求</text>
+    </view>
+  </view>
+
   <view class="menu-list">
     <view class="menu-item">
       <text>关于我们</text>

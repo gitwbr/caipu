@@ -69,4 +69,68 @@
   border-radius: 50rpx;
   font-size: 32rpx;
   margin-top: 30rpx;
+}
+
+/* 身体信息编辑 */
+.edit-body-info {
+  width: 100%;
+  background: white;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 40rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+}
+
+.edit-section-title {
+  color: #333;
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-bottom: 30rpx;
+  display: block;
+}
+
+.edit-form-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30rpx;
+}
+
+.edit-form-item:last-child {
+  margin-bottom: 0;
+}
+
+.edit-input {
+  flex: 1;
+  font-size: 32rpx;
+  color: #333;
+  border: 1rpx solid #e0e0e0;
+  border-radius: 8rpx;
+  padding: 15rpx 20rpx;
+  background: #fafafa;
+}
+
+.edit-input:focus {
+  border-color: #1890ff;
+  background: white;
+}
+
+.edit-picker {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15rpx 20rpx;
+  border: 1rpx solid #e0e0e0;
+  border-radius: 8rpx;
+  background: #fafafa;
+}
+
+.picker-text {
+  color: #333;
+  font-size: 32rpx;
+}
+
+.picker-arrow {
+  color: #999;
+  font-size: 24rpx;
 } 

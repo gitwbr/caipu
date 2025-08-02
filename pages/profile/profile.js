@@ -5,7 +5,8 @@ Page({
   data: {
     userInfo: null,
     isLoggedIn: false,
-    localAvatar: ''
+    localAvatar: '',
+    bmr: 0
   },
 
   onLoad: function () {
@@ -24,10 +25,33 @@ Page({
 
   // 更新登录状态
   updateLoginStatus() {
+    const userInfo = app.globalData.userInfo;
+    const bmr = this.calculateBMR(userInfo);
+    
     this.setData({
       isLoggedIn: app.globalData.isLoggedIn,
-      userInfo: app.globalData.userInfo
+      userInfo: userInfo,
+      bmr: bmr
     });
+  },
+
+  // 计算基础代谢率 (BMR)
+  calculateBMR(userInfo) {
+    if (!userInfo || !userInfo.height || !userInfo.weight || !userInfo.age || !userInfo.gender) {
+      return 0;
+    }
+
+    const { height, weight, age, gender } = userInfo;
+    
+    // Mifflin-St Jeor 公式
+    let bmr;
+    if (gender === 'male') {
+      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+    } else {
+      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+    }
+
+    return Math.round(bmr);
   },
 
   // 处理登录

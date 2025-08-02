@@ -1,0 +1,159 @@
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input-container">
+      <input 
+        class="search-input" 
+        placeholder="搜索食物名称..." 
+        value="{{searchKeyword}}"
+        bindinput="onSearchInput"
+      />
+      <view class="search-icon">🔍</view>
+      <view wx:if="{{searchKeyword}}" class="clear-btn" bindtap="clearSearch">✕</view>
+    </view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view wx:if="{{isLoading}}" class="loading">
+    <text>搜索中...</text>
+  </view>
+
+  <!-- 搜索结果 -->
+  <view wx:if="{{showSearchResults && searchResults.length > 0}}" class="search-results">
+    <view class="results-header">
+      <text>搜索结果 ({{searchResults.length}})</text>
+    </view>
+    <view class="food-list">
+      <view 
+        wx:for="{{searchResults}}" 
+        wx:key="id" 
+        class="food-item"
+        bindtap="selectFood"
+        data-food="{{item}}"
+      >
+        <view class="food-name">{{item.food_name}}</view>
+        <view class="food-nutrition">
+          <text>能量: {{item.energy_kcal}}kcal</text>
+          <text>蛋白质: {{item.protein_g}}g</text>
+          <text>脂肪: {{item.fat_g}}g</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 无搜索结果 -->
+  <view wx:if="{{showSearchResults && searchResults.length === 0 && !isLoading}}" class="no-results">
+    <text>未找到相关食物</text>
+  </view>
+
+  <!-- 食物详情弹窗 -->
+  <view wx:if="{{showFoodDetail && selectedFood}}" class="food-detail-modal">
+    <view class="modal-overlay" bindtap="closeFoodDetail"></view>
+    <view class="modal-content">
+      <view class="modal-header">
+        <text class="modal-title">{{selectedFood.food_name}}</text>
+        <view class="close-btn" bindtap="closeFoodDetail">✕</view>
+      </view>
+      
+      <scroll-view class="modal-body" scroll-y>
+        <view class="nutrition-section">
+          <view class="section-title">基本信息</view>
+          <view class="nutrition-grid">
+            <view class="nutrition-item">
+              <text class="label">可食部分</text>
+              <text class="value">{{selectedFood.edible_pct}}%</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">能量</text>
+              <text class="value">{{selectedFood.energy_kcal}} kcal</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">水分</text>
+              <text class="value">{{formatNutritionValue(selectedFood.moisture_g, 'g')}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="nutrition-section">
+          <view class="section-title">宏量营养素</view>
+          <view class="nutrition-grid">
+            <view class="nutrition-item">
+              <text class="label">蛋白质</text>
+              <text class="value">{{formatNutritionValue(selectedFood.protein_g, 'g')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">脂肪</text>
+              <text class="value">{{formatNutritionValue(selectedFood.fat_g, 'g')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">碳水化合物</text>
+              <text class="value">{{formatNutritionValue(selectedFood.carbohydrate_g, 'g')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">膳食纤维</text>
+              <text class="value">{{formatNutritionValue(selectedFood.fiber_g, 'g')}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="nutrition-section">
+          <view class="section-title">维生素</view>
+          <view class="nutrition-grid">
+            <view class="nutrition-item">
+              <text class="label">维生素A</text>
+              <text class="value">{{formatNutritionValue(selectedFood.vitamin_a_ug, 'μg')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">维生素B₁</text>
+              <text class="value">{{formatNutritionValue(selectedFood.vitamin_b1_mg, 'mg')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">维生素B₂</text>
+              <text class="value">{{formatNutritionValue(selectedFood.vitamin_b2_mg, 'mg')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">维生素B₃</text>
+              <text class="value">{{formatNutritionValue(selectedFood.vitamin_b3_mg, 'mg')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">维生素C</text>
+              <text class="value">{{formatNutritionValue(selectedFood.vitamin_c_mg, 'mg')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">维生素E</text>
+              <text class="value">{{formatNutritionValue(selectedFood.vitamin_e_mg, 'mg')}}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="nutrition-section">
+          <view class="section-title">矿物质</view>
+          <view class="nutrition-grid">
+            <view class="nutrition-item">
+              <text class="label">钙</text>
+              <text class="value">{{formatNutritionValue(selectedFood.ca_mg, 'mg')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">铁</text>
+              <text class="value">{{formatNutritionValue(selectedFood.fe_mg, 'mg')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">钠</text>
+              <text class="value">{{formatNutritionValue(selectedFood.na_mg, 'mg')}}</text>
+            </view>
+            <view class="nutrition-item">
+              <text class="label">胆固醇</text>
+              <text class="value">{{formatNutritionValue(selectedFood.cholesterol_mg, 'mg')}}</text>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- 默认提示 -->
+  <view wx:if="{{!showSearchResults && !showFoodDetail}}" class="default-tip">
+    <text>在搜索框中输入食物名称开始搜索</text>
+    <text>数据来源：中国常见食品营养成分表</text>
+  </view>
+</view> 

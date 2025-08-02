@@ -8,6 +8,47 @@
     <text class="edit-label">昵称：</text>
     <input class="edit-nickname-input" value="{{nickname}}" placeholder="请输入昵称" bindinput="onNicknameInput" />
   </view>
+  
+  <!-- 身体信息 -->
+  <view class="edit-body-info">
+    <text class="edit-section-title">身体信息</text>
+    
+    <view class="edit-form-item">
+      <text class="edit-label">身高 (cm)：</text>
+      <input class="edit-input" type="digit" value="{{height}}" placeholder="请输入身高" bindinput="onHeightInput" />
+    </view>
+    
+    <view class="edit-form-item">
+      <text class="edit-label">体重 (kg)：</text>
+      <input class="edit-input" type="digit" value="{{weight}}" placeholder="请输入体重" bindinput="onWeightInput" />
+    </view>
+    
+    <view class="edit-form-item">
+      <text class="edit-label">年龄：</text>
+      <input class="edit-input" type="number" value="{{age}}" placeholder="请输入年龄" bindinput="onAgeInput" />
+    </view>
+    
+    <view class="edit-form-item">
+      <text class="edit-label">性别：</text>
+      <picker mode="selector" range="{{['男', '女']}}" value="{{gender === 'male' ? 0 : (gender === 'female' ? 1 : -1)}}" bindchange="onGenderChange">
+        <view class="edit-picker">
+          <text class="picker-text">{{gender === 'male' ? '男' : (gender === 'female' ? '女' : '请选择性别')}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </picker>
+    </view>
+    
+    <view class="edit-form-item">
+      <text class="edit-label">生日：</text>
+      <picker mode="date" value="{{birthday}}" bindchange="onBirthdayChange">
+        <view class="edit-picker">
+          <text class="picker-text">{{birthday || '请选择生日'}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </picker>
+    </view>
+  </view>
+  
   <button type="primary" class="edit-auth-btn" bindtap="getUserProfile">获取微信头像昵称</button>
   <button type="primary" class="edit-save-btn" bindtap="saveProfile">保存</button>
 </view> 

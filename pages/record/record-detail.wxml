@@ -1,0 +1,116 @@
+<!--pages/record/record-detail.wxml-->
+<view class="container">
+  <!-- 食物信息 -->
+  <view class="food-info" wx:if="{{food}}">
+    <view class="food-header">
+      <text class="food-name">{{food.display_name}}</text>
+      <text class="food-type">{{food.type === 'standard' ? '标准' : '自定义'}}</text>
+    </view>
+    <view class="food-nutrition">
+      <view class="nutrition-item">
+        <text class="nutrition-label">卡路里</text>
+        <text class="nutrition-value">{{food.display_energy_kcal}} kcal/100g</text>
+      </view>
+      <view class="nutrition-item" wx:if="{{food.protein_g !== undefined}}">
+        <text class="nutrition-label">蛋白质</text>
+        <text class="nutrition-value">{{food.protein_g}}g/100g</text>
+      </view>
+      <view class="nutrition-item" wx:if="{{food.fat_g !== undefined}}">
+        <text class="nutrition-label">脂肪</text>
+        <text class="nutrition-value">{{food.fat_g}}g/100g</text>
+      </view>
+      <view class="nutrition-item" wx:if="{{food.carbohydrate_g !== undefined}}">
+        <text class="nutrition-label">碳水化合物</text>
+        <text class="nutrition-value">{{food.carbohydrate_g}}g/100g</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 输入表单 -->
+  <view class="form-section">
+    <view class="form-item">
+      <text class="form-label">摄入数量 (g)</text>
+      <input 
+        class="form-input" 
+        type="digit" 
+        placeholder="请输入数量" 
+        value="{{quantity}}"
+        bindinput="onQuantityInput"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">记录时间</text>
+      <picker mode="time" value="{{recordTime}}" bindchange="onTimeChange">
+        <view class="picker-content">
+          <text class="picker-value">{{recordTime}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">备注</text>
+      <textarea 
+        class="form-textarea" 
+        placeholder="可选备注信息" 
+        value="{{notes}}"
+        bindinput="onNotesInput"
+        maxlength="200"
+      />
+    </view>
+  </view>
+
+  <!-- 计算结果 -->
+  <view class="calculation-section" wx:if="{{food && quantity && calculatedNutrition}}">
+    <view class="calculation-title">计算结果</view>
+    <view class="calculation-content">
+      <view class="calc-item">
+        <text class="calc-label">摄入量</text>
+        <text class="calc-value">{{quantity}}g</text>
+      </view>
+      <view class="calc-item">
+        <text class="calc-label">卡路里</text>
+        <text class="calc-value">{{calculatedNutrition.calories}} kcal</text>
+      </view>
+      <view class="calc-item" wx:if="{{food.protein_g !== undefined}}">
+        <text class="calc-label">蛋白质</text>
+        <text class="calc-value">{{calculatedNutrition.protein}}g</text>
+      </view>
+      <view class="calc-item" wx:if="{{food.fat_g !== undefined}}">
+        <text class="calc-label">脂肪</text>
+        <text class="calc-value">{{calculatedNutrition.fat}}g</text>
+      </view>
+      <view class="calc-item" wx:if="{{food.carbohydrate_g !== undefined}}">
+        <text class="calc-label">碳水化合物</text>
+        <text class="calc-value">{{calculatedNutrition.carbohydrate}}g</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-buttons">
+    <button 
+      class="save-btn" 
+      bindtap="saveRecord" 
+      loading="{{loading}}"
+      disabled="{{!food || !quantity}}"
+    >
+      {{isEdit ? '更新记录' : '保存记录'}}
+    </button>
+    
+    <button 
+      class="delete-btn" 
+      bindtap="deleteRecord" 
+      wx:if="{{isEdit}}"
+      loading="{{loading}}"
+    >
+      删除记录
+    </button>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading" wx:if="{{loading && !food}}">
+    <text>加载中...</text>
+  </view>
+</view>

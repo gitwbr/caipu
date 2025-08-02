@@ -693,5 +693,12 @@ Page({
   },
   onAddCustomCancel() {
     this.setData({ showAddCustomInput: false, addCustomValue: '' });
+  },
+
+  // 跳转到食物营养页面
+  onGoToFoodNutrition() {
+    wx.navigateTo({
+      url: '/pages/ingredients/ingredients'
+    });
   }
 })

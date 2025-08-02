@@ -6,6 +6,11 @@ Page({
     userInfo: null,
     nickname: '',
     avatarPreview: '', // 本地预览
+    height: '',
+    weight: '',
+    age: '',
+    gender: '',
+    birthday: ''
   },
 
   onLoad: function () {
@@ -47,6 +52,27 @@ Page({
     this.setData({ nickname: e.detail.value });
   },
 
+  onHeightInput(e) {
+    this.setData({ height: e.detail.value });
+  },
+
+  onWeightInput(e) {
+    this.setData({ weight: e.detail.value });
+  },
+
+  onAgeInput(e) {
+    this.setData({ age: e.detail.value });
+  },
+
+  onGenderChange(e) {
+    const genderMap = ['male', 'female'];
+    this.setData({ gender: genderMap[e.detail.value] });
+  },
+
+  onBirthdayChange(e) {
+    this.setData({ birthday: e.detail.value });
+  },
+
   chooseAvatar() {
     wx.chooseImage({
       count: 1,
@@ -73,8 +99,17 @@ Page({
 
     wx.showLoading({ title: '保存中...' });
     
-    // 只更新昵称到服务器，头像保存在本地
-    app.updateUserInfo(this.data.nickname).then(() => {
+    // 更新用户信息到服务器
+    const updateData = {
+      nickname: this.data.nickname,
+      height: parseFloat(this.data.height) || null,
+      weight: parseFloat(this.data.weight) || null,
+      age: parseInt(this.data.age) || null,
+      gender: this.data.gender || null,
+      birthday: this.data.birthday || null
+    };
+    
+    app.updateUserInfo(updateData).then(() => {
       wx.hideLoading();
       wx.showToast({ title: '保存成功', icon: 'success' });
       setTimeout(() => {
@@ -98,6 +133,11 @@ Page({
       this.setData({
         userInfo: userInfo,
         nickname: userInfo.nickname || this.data.nickname,
+        height: userInfo.height ? userInfo.height.toString() : '',
+        weight: userInfo.weight ? userInfo.weight.toString() : '',
+        age: userInfo.age ? userInfo.age.toString() : '',
+        gender: userInfo.gender || '',
+        birthday: userInfo.birthday || ''
       });
     }
   },
