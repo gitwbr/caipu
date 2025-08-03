@@ -75,8 +75,24 @@ App({
     
     if (token && userInfo) {
       this.globalData.token = token;
-      this.globalData.userInfo = userInfo;
       this.globalData.isLoggedIn = true;
+      
+      // 检查本地存储的用户信息是否包含BMR，如果没有则重新计算
+      if (!userInfo.bmr && userInfo.birthday && userInfo.height_cm && userInfo.weight_kg && userInfo.gender) {
+        console.log('本地用户信息缺少BMR，重新计算...');
+        const bmr = this.calculateBMR(userInfo.birthday, userInfo.height_cm, userInfo.weight_kg, userInfo.gender);
+        const userInfoWithBMR = { 
+          ...userInfo,
+          height: userInfo.height_cm,
+          weight: userInfo.weight_kg,
+          bmr: bmr 
+        };
+        this.globalData.userInfo = userInfoWithBMR;
+        wx.setStorageSync('userInfo', userInfoWithBMR);
+        console.log('本地用户信息BMR已更新:', bmr);
+      } else {
+        this.globalData.userInfo = userInfo;
+      }
       
       // 验证token是否有效
       this.validateToken();
@@ -94,9 +110,22 @@ App({
       },
       success: (res) => {
         if (res.statusCode === 200) {
-          // token有效，更新用户信息
-          this.globalData.userInfo = res.data;
-          wx.setStorageSync('userInfo', res.data);
+          // token有效，更新用户信息并重新计算BMR
+          const userInfo = res.data;
+          const bmr = this.calculateBMR(userInfo.birthday, userInfo.height_cm, userInfo.weight_kg, userInfo.gender);
+          
+          // 转换为本地使用的字段名并添加BMR
+          const userInfoWithBMR = { 
+            ...userInfo,
+            height: userInfo.height_cm, // 转换为本地使用的字段名
+            weight: userInfo.weight_kg, // 转换为本地使用的字段名
+            bmr: bmr 
+          };
+          
+          this.globalData.userInfo = userInfoWithBMR;
+          wx.setStorageSync('userInfo', userInfoWithBMR);
+          
+          console.log('Token验证成功，用户信息已更新，BMR:', bmr);
         } else {
           // token无效，清除登录状态
           console.log('Token验证失败，状态码:', res.statusCode);
