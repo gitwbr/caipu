@@ -4,8 +4,8 @@ const app = getApp();
 Page({
   data: {
     selectedDate: '',
-    currentYear: 2025,
-    currentMonth: 8,
+    currentYear: new Date().getFullYear(),
+    currentMonth: new Date().getMonth() + 1,
     calendarDays: [],
     showCalendar: false,
     formattedDate: '',

@@ -30,17 +30,17 @@
         "text": "首页"
       },
       {
-        "pagePath": "pages/record/record",
-        "iconPath": "images/favorite.png",
-        "selectedIconPath": "images/favorite-active.png",
-        "text": "记录"
-      },
-      {
         "pagePath": "pages/favorites/favorites",
         "iconPath": "images/favorite.png",
         "selectedIconPath": "images/favorite-active.png",
         "text": "收藏"
       },
+      {
+        "pagePath": "pages/record/record",
+        "iconPath": "images/favorite.png",
+        "selectedIconPath": "images/favorite-active.png",
+        "text": "记录"
+      },     
       {
         "pagePath": "pages/profile/profile",
         "iconPath": "images/profile.png",
