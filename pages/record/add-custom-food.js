@@ -42,14 +42,23 @@ Page({
   onLoad(options) {
     console.log('=== 自定义食物页面加载 ===');
     
-    // 检查是否为编辑模式
-    if (options.food) {
-      try {
-        const food = JSON.parse(decodeURIComponent(options.food));
-        console.log('编辑的食物数据:', food);
-        this.setData({ isEditMode: true });
-        this.loadFoodData(food);
-      } catch (error) {
+         // 检查是否为编辑模式
+     if (options.food) {
+       try {
+         const food = JSON.parse(decodeURIComponent(options.food));
+         console.log('传入的食物数据:', food);
+         
+         // 检查是否有id字段来判断是否为编辑模式
+         if (food.id) {
+           console.log('编辑模式：有id字段');
+           this.setData({ isEditMode: true });
+         } else {
+           console.log('新增模式：从OCR或其他来源传入数据');
+           this.setData({ isEditMode: false });
+         }
+         
+         this.loadFoodData(food);
+       } catch (error) {
         console.error('解析食物数据失败:', error);
         wx.showToast({
           title: '数据加载失败',
@@ -66,18 +75,22 @@ Page({
 
   // 加载食物数据到表单（编辑模式）
   loadFoodData(food) {
+    console.log('=== 加载食物数据到表单 ===');
+    console.log('传入的food对象:', food);
+    console.log('food.id:', food.id);
+    
     // 计算能量值和单位
     let energyValue = food.energy_kcal || 0;
     let energyUnitIndex = 0; // 默认kcal
     
-    // 如果能量值很大，可能是kJ，尝试转换
+    // 如果能量值很大（>1000），且没有明确指定单位，假设是kJ
+    // 但这里我们直接使用传入的值，因为OCR传入的就是千焦
     if (energyValue > 1000) {
-      energyValue = energyValue * 4.184; // 转换为kJ
       energyUnitIndex = 1; // kJ
     }
     
     this.setData({
-      food_id: food.id,
+      food_id: food.id || null, // 确保food_id不为undefined
       food_name: food.food_name || '',
       energy_value: energyValue.toString(),
       energy_unit_index: energyUnitIndex,
@@ -97,6 +110,8 @@ Page({
       vitamin_c_mg: (food.vitamin_c_mg || 0).toString(),
       cholesterol_mg: (food.cholesterol_mg || 0).toString()
     });
+    
+    console.log('设置后的food_id:', this.data.food_id);
   },
 
   // 输入框事件处理
@@ -179,22 +194,26 @@ Page({
     
     console.log('表单数据:', formData);
     
-    // 显示确认对话框
-    const originalEnergy = this.data.energy_value;
-    const originalUnit = this.data.energy_units[this.data.energy_unit_index];
-    const action = this.data.isEditMode ? '更新' : '添加';
+         // 显示确认对话框
+     const originalEnergy = this.data.energy_value;
+     const originalUnit = this.data.energy_units[this.data.energy_unit_index];
+     // 根据是否有food_id判断是编辑还是新增
+     const action = (this.data.isEditMode && this.data.food_id) ? '更新' : '添加';
     wx.showModal({
       title: `确认${action}`,
       content: `确定要${action}"${formData.food_name}"吗？\n\n能量: ${originalEnergy} ${originalUnit}/100g (${energyKcal.toFixed(1)} kcal)\n蛋白质: ${formData.protein_g}g\n脂肪: ${formData.fat_g}g\n碳水化合物: ${formData.carbohydrate_g}g`,
-      success: (res) => {
-        if (res.confirm) {
-          if (this.data.isEditMode) {
-            this.updateCustomFood(formData);
-          } else {
-            this.saveCustomFood(formData);
-          }
-        }
-      }
+             success: (res) => {
+         if (res.confirm) {
+           // 检查是否为编辑模式且有food_id
+           if (this.data.isEditMode && this.data.food_id) {
+             console.log('执行更新操作');
+             this.updateCustomFood(formData);
+           } else {
+             console.log('执行新增操作');
+             this.saveCustomFood(formData);
+           }
+         }
+       }
     });
   },
 
@@ -271,6 +290,18 @@ Page({
   updateCustomFood(formData) {
     console.log('=== 更新自定义食物 ===');
     console.log('更新的数据:', formData);
+    console.log('当前food_id:', this.data.food_id);
+    
+    // 检查food_id是否存在
+    if (!this.data.food_id) {
+      console.error('food_id不存在，无法更新');
+      wx.showModal({
+        title: '更新失败',
+        content: '食物ID不存在，无法更新',
+        showCancel: false
+      });
+      return;
+    }
     
     this.setData({ submitting: true });
     

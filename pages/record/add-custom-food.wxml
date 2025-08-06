@@ -2,7 +2,7 @@
 <view class="container">
   <!-- 页面头部 -->
   <view class="header">
-    <text class="page-title">{{isEditMode ? '编辑自定义食物' : '添加自定义食物'}}</text>
+    <text class="page-title">{{(isEditMode && food_id) ? '编辑自定义食物' : '添加自定义食物'}}</text>
     <button class="clear-btn" bindtap="onClear">清空</button>
   </view>
 
@@ -270,7 +270,7 @@
       bindtap="onSubmit"
       disabled="{{submitting}}"
     >
-      {{submitting ? (isEditMode ? '更新中...' : '添加中...') : (isEditMode ? '更新食物' : '添加食物')}}
+      {{submitting ? ((isEditMode && food_id) ? '更新中...' : '添加中...') : ((isEditMode && food_id) ? '更新食物' : '添加食物')}}
     </button>
   </view>
 </view> 

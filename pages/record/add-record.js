@@ -33,20 +33,25 @@ Page({
 
   // 加载自定义食物
   loadCustomFoods() {
-    app.getCustomFoods().then(customFoods => {
-      // 更新本地缓存
-      app.saveCustomFoodsToLocal(customFoods || []);
-      this.setData({
-        customFoods: customFoods || []
-      });
-    }).catch(error => {
-      console.error('加载自定义食物失败:', error);
-      // 如果网络请求失败，使用本地缓存的数据
-      const localFoods = app.globalData.customFoods || [];
-      this.setData({
-        customFoods: localFoods
-      });
+    // 只使用本地数据，不进行网络请求
+    const localFoods = app.globalData.customFoods || [];
+    this.setData({
+      customFoods: localFoods
     });
+    
+    // 可选：在后台静默同步（不影响用户体验）
+    setTimeout(() => {
+      app.getCustomFoods().then(customFoods => {
+        // 更新本地缓存
+        app.saveCustomFoodsToLocal(customFoods || []);
+        this.setData({
+          customFoods: customFoods || []
+        });
+      }).catch(error => {
+        // 静默失败，不影响用户
+        console.log('后台同步失败，继续使用本地数据');
+      });
+    }, 1000); // 延迟1秒执行，避免阻塞页面加载
   },
 
   // 切换标签页
@@ -333,28 +338,46 @@ Page({
         // 合并所有识别的文字
         const fullText = data.texts.join('\n');
         
-        // 显示识别结果
-        wx.showModal({
-          title: 'OCR识别结果',
-          content: `识别到以下文字内容：\n\n${fullText.substring(0, 500)}${fullText.length > 500 ? '...' : ''}`,
-          showCancel: true,
-          cancelText: '关闭',
-          confirmText: '复制文字',
-          success: (modalRes) => {
-            if (modalRes.confirm) {
-              // 复制到剪贴板
-              wx.setClipboardData({
-                data: fullText,
-                success: () => {
-                  wx.showToast({
-                    title: '已复制到剪贴板',
-                    icon: 'success'
-                  });
-                }
-              });
+        // 尝试解析营养成分数据
+        const nutritionData = this.parseNutritionData(data.texts);
+        console.log('=== 营养成分解析结果 ===');
+        console.log('nutritionData:', nutritionData);
+        console.log('nutritionData类型:', typeof nutritionData);
+        console.log('nutritionData是否为null:', nutritionData === null);
+        console.log('nutritionData是否为undefined:', nutritionData === undefined);
+        
+        console.log('=== 条件判断 ===');
+        console.log('if (nutritionData) 的结果:', !!nutritionData);
+        console.log('nutritionData的布尔值:', Boolean(nutritionData));
+        
+        if (nutritionData) {
+          console.log('=== 营养成分解析成功，直接跳转到自定义食物页面 ===');
+          // 直接跳转到自定义食物页面并填入数据
+          this.navigateToCustomFoodWithData(nutritionData);
+        } else {
+          // 无法解析营养成分，显示原始文字
+          wx.showModal({
+            title: 'OCR识别结果',
+            content: `识别到以下文字内容：\n\n${fullText.substring(0, 500)}${fullText.length > 500 ? '...' : ''}`,
+            showCancel: true,
+            cancelText: '关闭',
+            confirmText: '复制文字',
+            success: (modalRes) => {
+              if (modalRes.confirm) {
+                // 复制到剪贴板
+                wx.setClipboardData({
+                  data: fullText,
+                  success: () => {
+                    wx.showToast({
+                      title: '已复制到剪贴板',
+                      icon: 'success'
+                    });
+                  }
+                });
+              }
             }
-          }
-        });
+          });
+        }
       } else {
         console.log('识别失败或无文字内容');
         wx.showToast({
@@ -370,6 +393,118 @@ Page({
         icon: 'error'
       });
     }
+  },
+
+  // 解析营养成分数据
+  parseNutritionData(texts) {
+    try {
+      const text = texts.join(' ');
+      console.log('解析文本:', text);
+      
+      // 初始化营养数据
+      const nutritionData = {
+        food_name: '',
+        energy_kcal: 0,
+        protein_g: 0,
+        fat_g: 0,
+        carbohydrate_g: 0,
+        na_mg: 0
+      };
+      
+             // 解析能量 (保持千焦单位)
+       const energyMatch = text.match(/(\d+(?:\.\d+)?)\s*千焦\s*\(kJ\)/);
+       if (energyMatch) {
+         const energyKj = parseFloat(energyMatch[1]);
+         nutritionData.energy_kcal = energyKj; // 保持千焦单位
+         console.log('解析到能量:', energyKj, 'kJ');
+       }
+      
+      // 解析蛋白质
+      const proteinMatch = text.match(/蛋白质[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)/);
+      if (proteinMatch) {
+        nutritionData.protein_g = parseFloat(proteinMatch[1]);
+        console.log('解析到蛋白质:', nutritionData.protein_g, 'g');
+      }
+      
+      // 解析脂肪
+      const fatMatch = text.match(/脂肪[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)/);
+      if (fatMatch) {
+        nutritionData.fat_g = parseFloat(fatMatch[1]);
+        console.log('解析到脂肪:', nutritionData.fat_g, 'g');
+      }
+      
+      // 解析碳水化合物
+      const carbMatch = text.match(/碳水化合物[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)/);
+      if (carbMatch) {
+        nutritionData.carbohydrate_g = parseFloat(carbMatch[1]);
+        console.log('解析到碳水化合物:', nutritionData.carbohydrate_g, 'g');
+      }
+      
+      // 解析钠
+      const naMatch = text.match(/钠[^\d]*(\d+(?:\.\d+)?)\s*毫克\s*\(mg\)/);
+      if (naMatch) {
+        nutritionData.na_mg = parseFloat(naMatch[1]);
+        console.log('解析到钠:', nutritionData.na_mg, 'mg');
+      }
+      
+      // 检查是否至少解析到了能量数据
+      if (nutritionData.energy_kcal > 0) {
+        console.log('解析成功:', nutritionData);
+        return nutritionData;
+      } else {
+        console.log('未能解析到有效的营养成分数据');
+        return null;
+      }
+    } catch (error) {
+      console.error('解析营养成分数据失败:', error);
+      return null;
+    }
+  },
+
+  // 跳转到自定义食物页面并填入数据
+  navigateToCustomFoodWithData(nutritionData) {
+    console.log('=== 准备跳转到自定义食物页面并填入数据 ===');
+    console.log('待填入的营养数据:', nutritionData);
+    
+         // 将营养数据转换为页面需要的格式
+     const foodData = {
+       food_name: nutritionData.food_name,
+       energy_kcal: nutritionData.energy_kcal, // 这里保持千焦单位
+       protein_g: nutritionData.protein_g,
+       fat_g: nutritionData.fat_g,
+       carbohydrate_g: nutritionData.carbohydrate_g,
+       na_mg: nutritionData.na_mg,
+       // 其他字段设为0
+       fiber_g: 0,
+       moisture_g: 0,
+       vitamin_a_ug: 0,
+       vitamin_b1_mg: 0,
+       vitamin_b2_mg: 0,
+       vitamin_b3_mg: 0,
+       vitamin_e_mg: 0,
+       ca_mg: 0,
+       fe_mg: 0,
+       vitamin_c_mg: 0,
+       cholesterol_mg: 0
+     };
+    
+    // 跳转到自定义食物页面
+    const targetUrl = `/pages/record/add-custom-food?food=${encodeURIComponent(JSON.stringify(foodData))}`;
+    console.log('=== 准备跳转 ===');
+    console.log('目标URL:', targetUrl);
+    console.log('foodData:', foodData);
+    
+    wx.navigateTo({
+      url: targetUrl,
+      success: (res) => {
+        console.log('=== 跳转成功 ===');
+        console.log('跳转结果:', res);
+      },
+      fail: (err) => {
+        console.error('=== 跳转失败 ===');
+        console.error('跳转错误:', err);
+      }
+    });
   },
 
   // 处理上传错误
