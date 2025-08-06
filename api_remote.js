@@ -113,22 +113,8 @@ CREATE TABLE users (
 -- ALTER TABLE users ADD COLUMN weight_kg DECIMAL(5,2);
 -- ALTER TABLE users ADD COLUMN gender VARCHAR(10) CHECK (gender IN ('male', 'female', 'other'));
 
--- 个人自定义食物表 (user_custom_foods) - 用户自定义的食物营养信息
-CREATE TABLE user_custom_foods (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    food_name VARCHAR(255) NOT NULL, -- 食物名称
-    energy_kcal DECIMAL(8,2) NOT NULL, -- 每100g卡路里
-    protein_g DECIMAL(8,2) DEFAULT 0, -- 每100g蛋白质
-    fat_g DECIMAL(8,2) DEFAULT 0, -- 每100g脂肪
-    carbohydrate_g DECIMAL(8,2) DEFAULT 0, -- 每100g碳水化合物
-    fiber_g DECIMAL(8,2) DEFAULT 0, -- 每100g膳食纤维
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, food_name) -- 同一用户不能有重名的自定义食物
-);
 
--- 个人自定义食物表
+-- 更新后的 user_custom_foods 表结构
 CREATE TABLE user_custom_foods (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -138,6 +124,17 @@ CREATE TABLE user_custom_foods (
     fat_g DECIMAL(8,2) DEFAULT 0, -- 每100g脂肪
     carbohydrate_g DECIMAL(8,2) DEFAULT 0, -- 每100g碳水化合物
     fiber_g DECIMAL(8,2) DEFAULT 0, -- 每100g膳食纤维
+    moisture_g DECIMAL(10,2) DEFAULT 0, -- 水分 (g/100 g)
+    vitamin_a_ug DECIMAL(10,2) DEFAULT 0, -- 维生素A (µg RAE/100 g)
+    vitamin_b1_mg DECIMAL(10,2) DEFAULT 0, -- 维生素B₁ (mg/100 g)
+    vitamin_b2_mg DECIMAL(10,2) DEFAULT 0, -- 维生素B₂ (mg/100 g)
+    vitamin_b3_mg DECIMAL(10,2) DEFAULT 0, -- 维生素B₃/烟酸 (mg/100 g)
+    vitamin_e_mg DECIMAL(10,2) DEFAULT 0, -- 维生素E (mg/100 g)
+    na_mg DECIMAL(10,2) DEFAULT 0, -- 钠 (mg/100 g)
+    ca_mg DECIMAL(10,2) DEFAULT 0, -- 钙 (mg/100 g)
+    fe_mg DECIMAL(10,2) DEFAULT 0, -- 铁 (mg/100 g)
+    vitamin_c_mg DECIMAL(10,2) DEFAULT 0, -- 维生素C (mg/100 g)
+    cholesterol_mg DECIMAL(10,2) DEFAULT 0, -- 胆固醇 (mg/100 g)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, food_name) -- 同一用户不能有重名的自定义食物
@@ -1207,7 +1204,9 @@ app.get('/api/user-custom-foods', async (req, res) => {
     
     const client = await pool.connect();
     const query = `
-      SELECT id, food_name, energy_kcal, protein_g, fat_g, carbohydrate_g, fiber_g, created_at, updated_at
+      SELECT id, food_name, energy_kcal, protein_g, fat_g, carbohydrate_g, fiber_g,
+             moisture_g, vitamin_a_ug, vitamin_b1_mg, vitamin_b2_mg, vitamin_b3_mg, vitamin_e_mg,
+             na_mg, ca_mg, fe_mg, vitamin_c_mg, cholesterol_mg, created_at, updated_at
       FROM user_custom_foods
       WHERE user_id = $1
       ORDER BY updated_at DESC
@@ -1237,7 +1236,25 @@ app.post('/api/user-custom-foods', async (req, res) => {
     const token = authHeader.replace('Bearer ', '');
     const payload = jwt.verify(token, JWT_SECRET);
     
-    const { food_name, energy_kcal, protein_g, fat_g, carbohydrate_g, fiber_g } = req.body;
+    const { 
+      food_name, 
+      energy_kcal, 
+      protein_g, 
+      fat_g, 
+      carbohydrate_g, 
+      fiber_g,
+      moisture_g,
+      vitamin_a_ug,
+      vitamin_b1_mg,
+      vitamin_b2_mg,
+      vitamin_b3_mg,
+      vitamin_e_mg,
+      na_mg,
+      ca_mg,
+      fe_mg,
+      vitamin_c_mg,
+      cholesterol_mg
+    } = req.body;
     
     if (!food_name || !energy_kcal) {
       return res.status(400).json({ error: '缺少必要参数：食物名称和卡路里' });
@@ -1245,13 +1262,34 @@ app.post('/api/user-custom-foods', async (req, res) => {
     
     const client = await pool.connect();
     const query = `
-      INSERT INTO user_custom_foods (user_id, food_name, energy_kcal, protein_g, fat_g, carbohydrate_g, fiber_g)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO user_custom_foods (
+        user_id, food_name, energy_kcal, protein_g, fat_g, carbohydrate_g, fiber_g,
+        moisture_g, vitamin_a_ug, vitamin_b1_mg, vitamin_b2_mg, vitamin_b3_mg, vitamin_e_mg,
+        na_mg, ca_mg, fe_mg, vitamin_c_mg, cholesterol_mg
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING *;
     `;
     
     const result = await client.query(query, [
-      payload.userId, food_name, energy_kcal, protein_g || 0, fat_g || 0, carbohydrate_g || 0, fiber_g || 0
+      payload.userId, 
+      food_name, 
+      energy_kcal, 
+      protein_g || 0, 
+      fat_g || 0, 
+      carbohydrate_g || 0, 
+      fiber_g || 0,
+      moisture_g || 0,
+      vitamin_a_ug || 0,
+      vitamin_b1_mg || 0,
+      vitamin_b2_mg || 0,
+      vitamin_b3_mg || 0,
+      vitamin_e_mg || 0,
+      na_mg || 0,
+      ca_mg || 0,
+      fe_mg || 0,
+      vitamin_c_mg || 0,
+      cholesterol_mg || 0
     ]);
     client.release();
     
@@ -1281,7 +1319,25 @@ app.put('/api/user-custom-foods/:id', async (req, res) => {
     const payload = jwt.verify(token, JWT_SECRET);
     
     const { id } = req.params;
-    const { food_name, energy_kcal, protein_g, fat_g, carbohydrate_g, fiber_g } = req.body;
+    const { 
+      food_name, 
+      energy_kcal, 
+      protein_g, 
+      fat_g, 
+      carbohydrate_g, 
+      fiber_g,
+      moisture_g,
+      vitamin_a_ug,
+      vitamin_b1_mg,
+      vitamin_b2_mg,
+      vitamin_b3_mg,
+      vitamin_e_mg,
+      na_mg,
+      ca_mg,
+      fe_mg,
+      vitamin_c_mg,
+      cholesterol_mg
+    } = req.body;
     
     if (!food_name || !energy_kcal) {
       return res.status(400).json({ error: '缺少必要参数：食物名称和卡路里' });
@@ -1290,13 +1346,17 @@ app.put('/api/user-custom-foods/:id', async (req, res) => {
     const client = await pool.connect();
     const query = `
       UPDATE user_custom_foods
-      SET food_name = $1, energy_kcal = $2, protein_g = $3, fat_g = $4, carbohydrate_g = $5, fiber_g = $6, updated_at = NOW()
-      WHERE id = $7 AND user_id = $8
+      SET food_name = $1, energy_kcal = $2, protein_g = $3, fat_g = $4, carbohydrate_g = $5, fiber_g = $6,
+          moisture_g = $7, vitamin_a_ug = $8, vitamin_b1_mg = $9, vitamin_b2_mg = $10, vitamin_b3_mg = $11, vitamin_e_mg = $12,
+          na_mg = $13, ca_mg = $14, fe_mg = $15, vitamin_c_mg = $16, cholesterol_mg = $17, updated_at = NOW()
+      WHERE id = $18 AND user_id = $19
       RETURNING *;
     `;
     
     const result = await client.query(query, [
-      food_name, energy_kcal, protein_g || 0, fat_g || 0, carbohydrate_g || 0, fiber_g || 0, id, payload.userId
+      food_name, energy_kcal, protein_g || 0, fat_g || 0, carbohydrate_g || 0, fiber_g || 0,
+      moisture_g || 0, vitamin_a_ug || 0, vitamin_b1_mg || 0, vitamin_b2_mg || 0, vitamin_b3_mg || 0, vitamin_e_mg || 0,
+      na_mg || 0, ca_mg || 0, fe_mg || 0, vitamin_c_mg || 0, cholesterol_mg || 0, id, payload.userId
     ]);
     client.release();
     

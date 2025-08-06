@@ -18,6 +18,11 @@ Page({
     this.loadCustomFoods();
   },
 
+  onShow() {
+    // 页面显示时刷新自定义食物列表
+    this.loadCustomFoods();
+  },
+
   // 加载最近食物
   loadRecentFoods() {
     const recentFoods = app.globalData.recentFoods || [];
@@ -28,9 +33,19 @@ Page({
 
   // 加载自定义食物
   loadCustomFoods() {
-    const customFoods = app.getCustomFoods();
-    this.setData({
-      customFoods: customFoods
+    app.getCustomFoods().then(customFoods => {
+      // 更新本地缓存
+      app.saveCustomFoodsToLocal(customFoods || []);
+      this.setData({
+        customFoods: customFoods || []
+      });
+    }).catch(error => {
+      console.error('加载自定义食物失败:', error);
+      // 如果网络请求失败，使用本地缓存的数据
+      const localFoods = app.globalData.customFoods || [];
+      this.setData({
+        customFoods: localFoods
+      });
     });
   },
 
@@ -163,7 +178,7 @@ Page({
   editCustomFood(e) {
     const { food } = e.currentTarget.dataset;
     wx.navigateTo({
-      url: `/pages/record/edit-custom-food?food=${encodeURIComponent(JSON.stringify(food))}`
+      url: `/pages/record/add-custom-food?food=${encodeURIComponent(JSON.stringify(food))}`
     });
   },
 

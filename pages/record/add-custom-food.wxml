@@ -1,0 +1,276 @@
+<!--pages/record/add-custom-food.wxml-->
+<view class="container">
+  <!-- 页面头部 -->
+  <view class="header">
+    <text class="page-title">{{isEditMode ? '编辑自定义食物' : '添加自定义食物'}}</text>
+    <button class="clear-btn" bindtap="onClear">清空</button>
+  </view>
+
+  <!-- 表单内容 -->
+  <scroll-view class="form-container" scroll-y="true">
+    <!-- 基本信息 -->
+    <view class="form-section">
+      <view class="section-title">基本信息</view>
+      
+      <view class="form-item">
+        <text class="label required">食物名称</text>
+        <input 
+          class="input" 
+          placeholder="请输入食物名称" 
+          value="{{food_name}}"
+          data-field="food_name"
+          bindinput="onInputChange"
+        />
+      </view>
+      
+      <view class="form-item">
+        <text class="label required">能量</text>
+        <view class="energy-input-group">
+          <input 
+            class="input energy-input" 
+            type="digit" 
+            placeholder="请输入能量值" 
+            value="{{energy_value}}"
+            data-field="energy_value"
+            bindinput="onInputChange"
+          />
+          <picker 
+            class="unit-picker" 
+            range="{{energy_units}}" 
+            value="{{energy_unit_index}}"
+            bindchange="onEnergyUnitChange"
+          >
+            <view class="picker-text">{{energy_units[energy_unit_index]}}</view>
+          </picker>
+        </view>
+        <text class="unit-hint">/100g</text>
+      </view>
+    </view>
+
+    <!-- 宏量营养素 -->
+    <view class="form-section">
+      <view class="section-title">宏量营养素 (g/100g)</view>
+      
+      <view class="form-row">
+        <view class="form-item half">
+          <text class="label">蛋白质</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{protein_g}}"
+            data-field="protein_g"
+            bindinput="onInputChange"
+          />
+        </view>
+        
+        <view class="form-item half">
+          <text class="label">脂肪</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{fat_g}}"
+            data-field="fat_g"
+            bindinput="onInputChange"
+          />
+        </view>
+      </view>
+      
+      <view class="form-row">
+        <view class="form-item half">
+          <text class="label">碳水化合物</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{carbohydrate_g}}"
+            data-field="carbohydrate_g"
+            bindinput="onInputChange"
+          />
+        </view>
+        
+        <view class="form-item half">
+          <text class="label">膳食纤维</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{fiber_g}}"
+            data-field="fiber_g"
+            bindinput="onInputChange"
+          />
+        </view>
+      </view>
+      
+      <view class="form-item">
+        <text class="label">水分</text>
+        <input 
+          class="input" 
+          type="digit" 
+          placeholder="0.0" 
+          value="{{moisture_g}}"
+          data-field="moisture_g"
+          bindinput="onInputChange"
+        />
+      </view>
+    </view>
+
+    <!-- 维生素 -->
+    <view class="form-section">
+      <view class="section-title">维生素</view>
+      
+      <view class="form-row">
+        <view class="form-item half">
+          <text class="label">维生素A (µg RAE)</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{vitamin_a_ug}}"
+            data-field="vitamin_a_ug"
+            bindinput="onInputChange"
+          />
+        </view>
+        
+        <view class="form-item half">
+          <text class="label">维生素C (mg)</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{vitamin_c_mg}}"
+            data-field="vitamin_c_mg"
+            bindinput="onInputChange"
+          />
+        </view>
+      </view>
+      
+      <view class="form-row">
+        <view class="form-item half">
+          <text class="label">维生素B₁ (mg)</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{vitamin_b1_mg}}"
+            data-field="vitamin_b1_mg"
+            bindinput="onInputChange"
+          />
+        </view>
+        
+        <view class="form-item half">
+          <text class="label">维生素B₂ (mg)</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{vitamin_b2_mg}}"
+            data-field="vitamin_b2_mg"
+            bindinput="onInputChange"
+          />
+        </view>
+      </view>
+      
+      <view class="form-row">
+        <view class="form-item half">
+          <text class="label">维生素B₃ (mg)</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{vitamin_b3_mg}}"
+            data-field="vitamin_b3_mg"
+            bindinput="onInputChange"
+          />
+        </view>
+        
+        <view class="form-item half">
+          <text class="label">维生素E (mg)</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{vitamin_e_mg}}"
+            data-field="vitamin_e_mg"
+            bindinput="onInputChange"
+          />
+        </view>
+      </view>
+    </view>
+
+    <!-- 矿物质 -->
+    <view class="form-section">
+      <view class="section-title">矿物质 (mg/100g)</view>
+      
+      <view class="form-row">
+        <view class="form-item half">
+          <text class="label">钠</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{na_mg}}"
+            data-field="na_mg"
+            bindinput="onInputChange"
+          />
+        </view>
+        
+        <view class="form-item half">
+          <text class="label">钙</text>
+          <input 
+            class="input" 
+            type="digit" 
+            placeholder="0.0" 
+            value="{{ca_mg}}"
+            data-field="ca_mg"
+            bindinput="onInputChange"
+          />
+        </view>
+      </view>
+      
+      <view class="form-item">
+        <text class="label">铁</text>
+        <input 
+          class="input" 
+          type="digit" 
+          placeholder="0.0" 
+          value="{{fe_mg}}"
+          data-field="fe_mg"
+          bindinput="onInputChange"
+        />
+      </view>
+    </view>
+
+    <!-- 其他 -->
+    <view class="form-section">
+      <view class="section-title">其他</view>
+      
+      <view class="form-item">
+        <text class="label">胆固醇 (mg/100g)</text>
+        <input 
+          class="input" 
+          type="digit" 
+          placeholder="0.0" 
+          value="{{cholesterol_mg}}"
+          data-field="cholesterol_mg"
+          bindinput="onInputChange"
+        />
+      </view>
+    </view>
+
+    <!-- 底部间距 -->
+    <view class="bottom-spacing"></view>
+  </scroll-view>
+
+  <!-- 底部按钮 -->
+  <view class="bottom-actions">
+    <button 
+      class="submit-btn {{submitting ? 'loading' : ''}}" 
+      bindtap="onSubmit"
+      disabled="{{submitting}}"
+    >
+      {{submitting ? (isEditMode ? '更新中...' : '添加中...') : (isEditMode ? '更新食物' : '添加食物')}}
+    </button>
+  </view>
+</view> 

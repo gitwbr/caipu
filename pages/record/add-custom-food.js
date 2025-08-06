@@ -1,0 +1,379 @@
+// pages/record/add-custom-food.js
+const app = getApp();
+
+Page({
+  data: {
+    // 基本信息
+    food_id: null, // 编辑模式时使用
+    isEditMode: false, // 是否为编辑模式
+    food_name: '',
+    energy_value: '',
+    energy_units: ['kcal', 'kJ'],
+    energy_unit_index: 0, // 默认选择kcal
+    
+    // 宏量营养素
+    protein_g: '',
+    fat_g: '',
+    carbohydrate_g: '',
+    fiber_g: '',
+    moisture_g: '',
+    
+    // 维生素
+    vitamin_a_ug: '',
+    vitamin_b1_mg: '',
+    vitamin_b2_mg: '',
+    vitamin_b3_mg: '',
+    vitamin_e_mg: '',
+    vitamin_c_mg: '',
+    
+    // 矿物质
+    na_mg: '',
+    ca_mg: '',
+    fe_mg: '',
+    
+    // 其他
+    cholesterol_mg: '',
+    
+    // 表单状态
+    loading: false,
+    submitting: false
+  },
+
+  onLoad(options) {
+    console.log('=== 自定义食物页面加载 ===');
+    
+    // 检查是否为编辑模式
+    if (options.food) {
+      try {
+        const food = JSON.parse(decodeURIComponent(options.food));
+        console.log('编辑的食物数据:', food);
+        this.setData({ isEditMode: true });
+        this.loadFoodData(food);
+      } catch (error) {
+        console.error('解析食物数据失败:', error);
+        wx.showToast({
+          title: '数据加载失败',
+          icon: 'error'
+        });
+        setTimeout(() => {
+          wx.navigateBack();
+        }, 1500);
+      }
+    } else {
+      console.log('新增模式');
+    }
+  },
+
+  // 加载食物数据到表单（编辑模式）
+  loadFoodData(food) {
+    // 计算能量值和单位
+    let energyValue = food.energy_kcal || 0;
+    let energyUnitIndex = 0; // 默认kcal
+    
+    // 如果能量值很大，可能是kJ，尝试转换
+    if (energyValue > 1000) {
+      energyValue = energyValue * 4.184; // 转换为kJ
+      energyUnitIndex = 1; // kJ
+    }
+    
+    this.setData({
+      food_id: food.id,
+      food_name: food.food_name || '',
+      energy_value: energyValue.toString(),
+      energy_unit_index: energyUnitIndex,
+      protein_g: (food.protein_g || 0).toString(),
+      fat_g: (food.fat_g || 0).toString(),
+      carbohydrate_g: (food.carbohydrate_g || 0).toString(),
+      fiber_g: (food.fiber_g || 0).toString(),
+      moisture_g: (food.moisture_g || 0).toString(),
+      vitamin_a_ug: (food.vitamin_a_ug || 0).toString(),
+      vitamin_b1_mg: (food.vitamin_b1_mg || 0).toString(),
+      vitamin_b2_mg: (food.vitamin_b2_mg || 0).toString(),
+      vitamin_b3_mg: (food.vitamin_b3_mg || 0).toString(),
+      vitamin_e_mg: (food.vitamin_e_mg || 0).toString(),
+      na_mg: (food.na_mg || 0).toString(),
+      ca_mg: (food.ca_mg || 0).toString(),
+      fe_mg: (food.fe_mg || 0).toString(),
+      vitamin_c_mg: (food.vitamin_c_mg || 0).toString(),
+      cholesterol_mg: (food.cholesterol_mg || 0).toString()
+    });
+  },
+
+  // 输入框事件处理
+  onInputChange(e) {
+    const { field } = e.currentTarget.dataset;
+    const { value } = e.detail;
+    
+    console.log(`输入字段 ${field}:`, value);
+    
+    this.setData({
+      [field]: value
+    });
+  },
+
+  // 能量单位选择
+  onEnergyUnitChange(e) {
+    const index = e.detail.value;
+    this.setData({
+      energy_unit_index: index
+    });
+    console.log('选择能量单位:', this.data.energy_units[index]);
+  },
+
+  // 验证表单
+  validateForm() {
+    const { food_name, energy_value } = this.data;
+    
+    if (!food_name || food_name.trim() === '') {
+      wx.showToast({
+        title: '请输入食物名称',
+        icon: 'none'
+      });
+      return false;
+    }
+    
+    if (!energy_value || isNaN(parseFloat(energy_value))) {
+      wx.showToast({
+        title: '请输入有效的能量数值',
+        icon: 'none'
+      });
+      return false;
+    }
+    
+    return true;
+  },
+
+  // 提交表单
+  onSubmit() {
+    console.log('=== 提交自定义食物表单 ===');
+    
+    if (!this.validateForm()) {
+      return;
+    }
+    
+    // 计算能量值（统一转换为kcal）
+    const energyValue = parseFloat(this.data.energy_value) || 0;
+    const energyUnit = this.data.energy_units[this.data.energy_unit_index];
+    const energyKcal = energyUnit === 'kJ' ? energyValue / 4.184 : energyValue; // 1 kcal = 4.184 kJ
+    
+    // 收集表单数据
+    const formData = {
+      food_name: this.data.food_name.trim(),
+      energy_kcal: energyKcal,
+      protein_g: parseFloat(this.data.protein_g) || 0,
+      fat_g: parseFloat(this.data.fat_g) || 0,
+      carbohydrate_g: parseFloat(this.data.carbohydrate_g) || 0,
+      fiber_g: parseFloat(this.data.fiber_g) || 0,
+      moisture_g: parseFloat(this.data.moisture_g) || 0,
+      vitamin_a_ug: parseFloat(this.data.vitamin_a_ug) || 0,
+      vitamin_b1_mg: parseFloat(this.data.vitamin_b1_mg) || 0,
+      vitamin_b2_mg: parseFloat(this.data.vitamin_b2_mg) || 0,
+      vitamin_b3_mg: parseFloat(this.data.vitamin_b3_mg) || 0,
+      vitamin_e_mg: parseFloat(this.data.vitamin_e_mg) || 0,
+      na_mg: parseFloat(this.data.na_mg) || 0,
+      ca_mg: parseFloat(this.data.ca_mg) || 0,
+      fe_mg: parseFloat(this.data.fe_mg) || 0,
+      vitamin_c_mg: parseFloat(this.data.vitamin_c_mg) || 0,
+      cholesterol_mg: parseFloat(this.data.cholesterol_mg) || 0
+    };
+    
+    console.log('表单数据:', formData);
+    
+    // 显示确认对话框
+    const originalEnergy = this.data.energy_value;
+    const originalUnit = this.data.energy_units[this.data.energy_unit_index];
+    const action = this.data.isEditMode ? '更新' : '添加';
+    wx.showModal({
+      title: `确认${action}`,
+      content: `确定要${action}"${formData.food_name}"吗？\n\n能量: ${originalEnergy} ${originalUnit}/100g (${energyKcal.toFixed(1)} kcal)\n蛋白质: ${formData.protein_g}g\n脂肪: ${formData.fat_g}g\n碳水化合物: ${formData.carbohydrate_g}g`,
+      success: (res) => {
+        if (res.confirm) {
+          if (this.data.isEditMode) {
+            this.updateCustomFood(formData);
+          } else {
+            this.saveCustomFood(formData);
+          }
+        }
+      }
+    });
+  },
+
+  // 保存自定义食物
+  saveCustomFood(formData) {
+    console.log('=== 保存自定义食物 ===');
+    console.log('保存的数据:', formData);
+    
+    this.setData({ submitting: true });
+    
+    // 检查登录状态
+    if (!app.globalData.isLoggedIn || !app.globalData.token) {
+      this.setData({ submitting: false });
+      wx.showModal({
+        title: '需要登录',
+        content: '请先登录后再添加自定义食物',
+        showCancel: false
+      });
+      return;
+    }
+    
+    // 调用API保存数据
+    wx.request({
+      url: `${app.globalData.serverUrl}/api/user-custom-foods`,
+      method: 'POST',
+      header: {
+        'Authorization': `Bearer ${app.globalData.token}`,
+        'Content-Type': 'application/json'
+      },
+      data: formData,
+      success: (res) => {
+        console.log('API响应:', res);
+        
+        if (res.statusCode === 200) {
+          // 保存成功后，同时更新本地数据
+          const newCustomFood = res.data.custom_food;
+          const localFoods = [...app.globalData.customFoods, newCustomFood];
+          app.globalData.customFoods = localFoods;
+          app.saveCustomFoodsToLocal(localFoods);
+          
+          wx.showToast({
+            title: '添加成功',
+            icon: 'success'
+          });
+          
+          // 返回上一页
+          setTimeout(() => {
+            wx.navigateBack();
+          }, 1500);
+        } else {
+          console.error('API错误:', res.data);
+          wx.showModal({
+            title: '添加失败',
+            content: res.data.error || '网络错误，请重试',
+            showCancel: false
+          });
+        }
+      },
+      fail: (error) => {
+        console.error('请求失败:', error);
+        wx.showModal({
+          title: '网络错误',
+          content: '请检查网络连接后重试',
+          showCancel: false
+        });
+      },
+      complete: () => {
+        this.setData({ submitting: false });
+      }
+    });
+  },
+
+  // 更新自定义食物
+  updateCustomFood(formData) {
+    console.log('=== 更新自定义食物 ===');
+    console.log('更新的数据:', formData);
+    
+    this.setData({ submitting: true });
+    
+    // 检查登录状态
+    if (!app.globalData.isLoggedIn || !app.globalData.token) {
+      this.setData({ submitting: false });
+      wx.showModal({
+        title: '需要登录',
+        content: '请先登录后再编辑自定义食物',
+        showCancel: false
+      });
+      return;
+    }
+    
+    // 调用API更新数据
+    wx.request({
+      url: `${app.globalData.serverUrl}/api/user-custom-foods/${this.data.food_id}`,
+      method: 'PUT',
+      header: {
+        'Authorization': `Bearer ${app.globalData.token}`,
+        'Content-Type': 'application/json'
+      },
+      data: formData,
+      success: (res) => {
+        console.log('API响应:', res);
+        
+        if (res.statusCode === 200) {
+          // 更新成功后，同时更新本地数据
+          const updatedCustomFood = res.data.custom_food;
+          const localFoods = app.globalData.customFoods.map(food => 
+            food.id === this.data.food_id ? updatedCustomFood : food
+          );
+          app.globalData.customFoods = localFoods;
+          app.saveCustomFoodsToLocal(localFoods);
+          
+          wx.showToast({
+            title: '更新成功',
+            icon: 'success'
+          });
+          
+          // 返回上一页
+          setTimeout(() => {
+            wx.navigateBack();
+          }, 1500);
+        } else {
+          console.error('API错误:', res.data);
+          wx.showModal({
+            title: '更新失败',
+            content: res.data.error || '网络错误，请重试',
+            showCancel: false
+          });
+        }
+      },
+      fail: (error) => {
+        console.error('请求失败:', error);
+        wx.showModal({
+          title: '网络错误',
+          content: '请检查网络连接后重试',
+          showCancel: false
+        });
+      },
+      complete: () => {
+        this.setData({ submitting: false });
+      }
+    });
+  },
+
+  // 清空表单
+  onClear() {
+    wx.showModal({
+      title: '确认清空',
+      content: '确定要清空所有输入内容吗？',
+      success: (res) => {
+        if (res.confirm) {
+                     this.setData({
+             food_name: '',
+             energy_value: '',
+             energy_unit_index: 0,
+            protein_g: '',
+            fat_g: '',
+            carbohydrate_g: '',
+            fiber_g: '',
+            moisture_g: '',
+            vitamin_a_ug: '',
+            vitamin_b1_mg: '',
+            vitamin_b2_mg: '',
+            vitamin_b3_mg: '',
+            vitamin_e_mg: '',
+            na_mg: '',
+            ca_mg: '',
+            fe_mg: '',
+            vitamin_c_mg: '',
+            cholesterol_mg: ''
+          });
+          
+          wx.showToast({
+            title: '已清空',
+            icon: 'success'
+          });
+        }
+      }
+    });
+  },
+
+
+}); 

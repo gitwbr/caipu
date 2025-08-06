@@ -8,6 +8,7 @@
     "pages/ingredients/ingredients",
     "pages/record/record",
     "pages/record/add-record",
+    "pages/record/add-custom-food",
     "pages/record/record-detail",
     "pages/record/record-detail-list"
   ],
