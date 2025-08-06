@@ -1,14 +1,19 @@
 <!--pages/record/add-record.wxml-->
 <view class="container">
-  <!-- 搜索框 -->
-  <view class="search-box">
-    <input 
-      class="search-input" 
-      placeholder="搜索食物..." 
-      value="{{searchKeyword}}"
-      bindinput="onSearchInput"
-    />
-    <text class="search-icon">🔍</text>
+  <!-- 搜索框和拍照按钮 -->
+  <view class="search-section">
+    <view class="search-box">
+      <input 
+        class="search-input" 
+        placeholder="搜索食物..." 
+        value="{{searchKeyword}}"
+        bindinput="onSearchInput"
+      />
+      <text class="search-icon">🔍</text>
+    </view>
+    <button class="camera-btn" bindtap="takePhoto">
+      <text class="camera-icon">📷</text>
+    </button>
   </view>
 
   <!-- 标签页 -->

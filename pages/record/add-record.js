@@ -9,7 +9,8 @@ Page({
     recentFoods: [],
     customFoods: [],
     loading: false,
-    searching: false
+    searching: false,
+    processingImage: false
   },
 
   onLoad() {
@@ -190,6 +191,182 @@ Page({
           });
         }
       }
+    });
+  },
+
+  // 拍照功能
+  takePhoto() {
+    console.log('=== 拍照功能调试 ===');
+    
+    // 检查相机权限
+    wx.getSetting({
+      success: (res) => {
+        if (!res.authSetting['scope.camera']) {
+          // 没有相机权限，请求权限
+          wx.authorize({
+            scope: 'scope.camera',
+            success: () => {
+              this.startCamera();
+            },
+            fail: () => {
+              wx.showModal({
+                title: '需要相机权限',
+                content: '拍照功能需要相机权限，请在设置中开启',
+                showCancel: false
+              });
+            }
+          });
+        } else {
+          // 已有权限，直接拍照
+          this.startCamera();
+        }
+      }
+    });
+  },
+
+  // 启动相机拍照
+  startCamera() {
+    console.log('启动相机拍照');
+    
+    this.setData({ processingImage: true });
+    
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['camera'],
+      camera: 'back',
+      success: (res) => {
+        console.log('拍照成功:', res);
+        const tempFilePath = res.tempFiles[0].tempFilePath;
+        console.log('图片路径:', tempFilePath);
+        
+        // 上传图片到服务器
+        this.uploadImage(tempFilePath);
+      },
+      fail: (err) => {
+        console.error('拍照失败:', err);
+        this.setData({ processingImage: false });
+        wx.showToast({
+          title: '拍照失败',
+          icon: 'error'
+        });
+      }
+    });
+  },
+
+  // 上传图片到服务器
+  uploadImage(filePath) {
+    console.log('=== 开始上传图片 ===');
+    console.log('图片路径:', filePath);
+    
+    // 检查登录状态
+    if (!app.globalData.isLoggedIn || !app.globalData.token) {
+      wx.showModal({
+        title: '需要登录',
+        content: '请先登录后再使用OCR功能',
+        showCancel: false
+      });
+      return;
+    }
+    
+    // 显示上传中提示
+    wx.showLoading({
+      title: '识别中...',
+      mask: true
+    });
+    
+    // 上传图片到服务器
+    wx.uploadFile({
+      url: `${app.globalData.serverUrl}/api/baidu-ocr/upload`, // 新的OCR端点
+      filePath: filePath,
+      name: 'image',
+      header: {
+        'Authorization': `Bearer ${app.globalData.token}` // 添加认证头
+      },
+      success: (res) => {
+        console.log('上传成功:', res);
+        this.handleUploadResult(res);
+      },
+      fail: (err) => {
+        console.error('上传失败:', err);
+        this.handleUploadError(err);
+      }
+    });
+  },
+
+  // 处理上传结果
+  handleUploadResult(res) {
+    console.log('=== 处理上传结果 ===');
+    console.log('完整响应:', res);
+    
+    // 隐藏加载提示
+    wx.hideLoading();
+    this.setData({ processingImage: false });
+    
+    try {
+      // 解析返回的JSON数据
+      const data = JSON.parse(res.data);
+      console.log('解析后的数据:', data);
+      
+      // 检查响应状态
+      if (data.success && data.texts && data.texts.length > 0) {
+        console.log('识别到的文字:');
+        console.log('=== 开始文字内容 ===');
+        console.log(data.texts);
+        console.log('=== 结束文字内容 ===');
+        
+        // 合并所有识别的文字
+        const fullText = data.texts.join('\n');
+        
+        // 显示识别结果
+        wx.showModal({
+          title: 'OCR识别结果',
+          content: `识别到以下文字内容：\n\n${fullText.substring(0, 500)}${fullText.length > 500 ? '...' : ''}`,
+          showCancel: true,
+          cancelText: '关闭',
+          confirmText: '复制文字',
+          success: (modalRes) => {
+            if (modalRes.confirm) {
+              // 复制到剪贴板
+              wx.setClipboardData({
+                data: fullText,
+                success: () => {
+                  wx.showToast({
+                    title: '已复制到剪贴板',
+                    icon: 'success'
+                  });
+                }
+              });
+            }
+          }
+        });
+      } else {
+        console.log('识别失败或无文字内容');
+        wx.showToast({
+          title: '未识别到文字',
+          icon: 'none'
+        });
+      }
+    } catch (error) {
+      console.error('解析响应数据失败:', error);
+      console.log('原始响应数据:', res.data);
+      wx.showToast({
+        title: '解析结果失败',
+        icon: 'error'
+      });
+    }
+  },
+
+  // 处理上传错误
+  handleUploadError(error) {
+    console.error('上传错误处理:', error);
+    wx.hideLoading();
+    this.setData({ processingImage: false });
+    
+    wx.showModal({
+      title: '上传失败',
+      content: '图片上传失败，请检查网络连接或重试。\n\n错误信息: ' + (error.errMsg || error),
+      showCancel: false
     });
   }
 });

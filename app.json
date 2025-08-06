@@ -50,5 +50,10 @@
     ]
   },
   "style": "v2",
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "permission": {
+    "scope.camera": {
+      "desc": "用于拍摄食物营养成分表进行文字识别"
+    }
+  }
 } 

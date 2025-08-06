@@ -4,6 +4,8 @@ const cors = require('cors');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const { OpenAI } = require('openai');
+const multer = require('multer');
+const FormData = require('form-data');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -11,6 +13,30 @@ const port = process.env.PORT || 3000;
 // 中间件
 app.use(cors());
 app.use(express.json());
+
+// 配置multer用于文件上传
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 限制10MB
+  },
+  fileFilter: (req, file, cb) => {
+    // 只允许图片文件
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('只允许上传图片文件'), false);
+    }
+  }
+});
+
+// 百度OCR配置
+const BAIDU_OCR_CONFIG = {
+  API_KEY: process.env.BAIDU_OCR_API_KEY,
+  SECRET_KEY: process.env.BAIDU_OCR_SECRET_KEY,
+  BASE_URL: 'https://aip.baidubce.com',
+  OCR_URL: 'https://aip.baidubce.com/rest/2.0/ocr/v1'
+};
 
 // --- 数据库表结构说明 ---
 /*
@@ -1323,6 +1349,214 @@ app.delete('/api/user-custom-foods/:id', async (req, res) => {
   } catch (error) {
     console.error('删除自定义食物出错:', error);
     res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// --- 百度OCR文字识别相关接口 ---
+
+// 百度OCR访问令牌管理
+let baiduAccessToken = null;
+let tokenExpireTime = 0;
+
+async function getBaiduAccessToken() {
+  // 检查令牌是否还有效
+  if (baiduAccessToken && Date.now() < tokenExpireTime) {
+    return baiduAccessToken;
+  }
+  
+  try {
+    const url = `${BAIDU_OCR_CONFIG.BASE_URL}/oauth/2.0/token`;
+    const params = {
+      grant_type: 'client_credentials',
+      client_id: BAIDU_OCR_CONFIG.API_KEY,
+      client_secret: BAIDU_OCR_CONFIG.SECRET_KEY
+    };
+    
+    const response = await axios.post(url, null, { params });
+    
+    if (response.data.access_token) {
+      baiduAccessToken = response.data.access_token;
+      tokenExpireTime = Date.now() + (response.data.expires_in * 1000) - 60000; // 提前1分钟过期
+      console.log('百度OCR访问令牌获取成功');
+      return baiduAccessToken;
+    } else {
+      throw new Error('获取访问令牌失败');
+    }
+  } catch (error) {
+    console.error('获取百度OCR访问令牌失败:', error.message);
+    throw error;
+  }
+}
+
+// POST /api/baidu-ocr/upload 百度OCR图片识别
+app.post('/api/baidu-ocr/upload', upload.single('image'), async (req, res) => {
+  try {
+    console.log('=== 百度OCR图片识别API调试 ===');
+    
+    // 验证用户身份
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    let payload;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ error: 'token 无效或已过期' });
+    }
+    
+    // 检查是否有文件上传
+    if (!req.file) {
+      return res.status(400).json({ error: '请上传图片文件' });
+    }
+    
+    console.log('接收到图片文件:', req.file.originalname, '大小:', req.file.size);
+    
+    // 检查百度OCR配置
+    if (!BAIDU_OCR_CONFIG.API_KEY || !BAIDU_OCR_CONFIG.SECRET_KEY) {
+      return res.status(500).json({ error: '百度OCR配置未完成，请检查环境变量' });
+    }
+    
+    // 获取访问令牌
+    const accessToken = await getBaiduAccessToken();
+    
+    // 将图片转为base64
+    const imageBase64 = req.file.buffer.toString('base64');
+    
+    // 调用百度OCR API（高精度版）
+    const ocrUrl = `${BAIDU_OCR_CONFIG.OCR_URL}/accurate_basic`;
+    const ocrParams = {
+      access_token: accessToken
+    };
+    
+    const ocrData = {
+      image: imageBase64,
+      language_type: 'CHN_ENG',      // 中英文混合
+      detect_direction: 'true',       // 检测图像朝向
+      detect_language: 'true',        // 检测语言
+      vertexes_location: 'true',      // 返回文字外接多边形顶点位置
+      probability: 'true'             // 返回识别结果中每一行的置信度
+    };
+    
+    console.log('调用百度OCR API...');
+    const ocrResponse = await axios.post(ocrUrl, ocrData, {
+      params: ocrParams,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      timeout: 30000 // 30秒超时
+    });
+    
+    console.log('百度OCR API返回结果');
+    
+    // 检查API响应
+    if (ocrResponse.data.error_code) {
+      console.error('百度OCR API错误:', ocrResponse.data);
+      return res.status(500).json({
+        error: '百度OCR识别失败',
+        message: ocrResponse.data.error_msg || '未知错误'
+      });
+    }
+    
+    // 处理识别结果
+    const wordsResult = ocrResponse.data.words_result || [];
+    const texts = wordsResult.map(item => item.words);
+    const totalChars = texts.reduce((sum, text) => sum + text.length, 0);
+    
+    // 计算平均置信度
+    const confidences = wordsResult.map(item => item.probability?.average || 0);
+    const avgConfidence = confidences.length > 0 ? 
+      confidences.reduce((sum, conf) => sum + conf, 0) / confidences.length : 0;
+    
+    const result = {
+      success: true,
+      engine: 'BaiduOCR',
+      method: 'accurate_basic',
+      texts: texts,
+      words_result: wordsResult,
+      statistics: {
+        total_lines: wordsResult.length,
+        total_chars: totalChars,
+        avg_confidence: avgConfidence,
+        direction: ocrResponse.data.direction || 0
+      },
+      user_id: payload.userId,
+      filename: req.file.originalname,
+      file_size: req.file.size
+    };
+    
+    console.log('识别完成:', {
+      total_lines: result.statistics.total_lines,
+      total_chars: result.statistics.total_chars,
+      avg_confidence: result.statistics.avg_confidence.toFixed(3)
+    });
+    
+    res.json(result);
+    
+  } catch (error) {
+    console.error('百度OCR识别出错:', error);
+    
+    if (error.response) {
+      // API返回的错误
+      res.status(error.response.status).json({
+        error: '百度OCR识别失败',
+        message: error.response.data?.error_msg || error.response.data?.message || 'API调用失败'
+      });
+    } else if (error.code === 'ECONNABORTED') {
+      res.status(408).json({ error: '请求超时，请稍后重试' });
+    } else {
+      res.status(500).json({ error: '服务器内部错误', message: error.message });
+    }
+  }
+});
+
+// GET /api/baidu-ocr/health 百度OCR健康检查
+app.get('/api/baidu-ocr/health', async (req, res) => {
+  try {
+    // 检查配置
+    const configStatus = {
+      api_key: !!BAIDU_OCR_CONFIG.API_KEY,
+      secret_key: !!BAIDU_OCR_CONFIG.SECRET_KEY
+    };
+    
+    if (!configStatus.api_key || !configStatus.secret_key) {
+      return res.status(503).json({
+        success: false,
+        error: '百度OCR配置不完整',
+        config_status: configStatus,
+        message: '请检查BAIDU_OCR_API_KEY和BAIDU_OCR_SECRET_KEY环境变量'
+      });
+    }
+    
+    // 尝试获取访问令牌
+    try {
+      const accessToken = await getBaiduAccessToken();
+      res.json({
+        success: true,
+        service: 'BaiduOCR',
+        status: 'healthy',
+        config_status: configStatus,
+        access_token: accessToken ? 'valid' : 'invalid',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(503).json({
+        success: false,
+        error: '百度OCR服务不可用',
+        config_status: configStatus,
+        message: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error('百度OCR健康检查失败:', error);
+    res.status(500).json({
+      success: false,
+      error: '健康检查失败',
+      message: error.message
+    });
   }
 });
 
