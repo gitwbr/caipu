@@ -21,7 +21,13 @@ Page({
     console.log('record-detail-list onLoad, options:', options);
     
     // 获取传递过来的日期，如果没有则使用今天
-    const selectedDate = options.date || new Date().toISOString().split('T')[0];
+    let selectedDate = options.date || new Date().toISOString().split('T')[0];
+    
+    // 确保日期格式为 YYYY-MM-DD
+    if (selectedDate && selectedDate.includes('T')) {
+      // 如果是ISO时间戳格式，提取日期部分
+      selectedDate = selectedDate.split('T')[0];
+    }
     
     // 解析当前年月
     const dateParts = selectedDate.split('-');
@@ -55,8 +61,15 @@ Page({
     console.log('=== 格式化日期调试 ===');
     console.log('当前selectedDate:', this.data.selectedDate);
     
+    // 确保日期格式正确
+    let dateStr = this.data.selectedDate;
+    if (dateStr && dateStr.includes('T')) {
+      // 如果是ISO时间戳格式，提取日期部分
+      dateStr = dateStr.split('T')[0];
+    }
+    
     // 使用本地时间处理，避免时区问题
-    const dateParts = this.data.selectedDate.split('-');
+    const dateParts = dateStr.split('-');
     const year = parseInt(dateParts[0]);
     const month = parseInt(dateParts[1]);
     const day = parseInt(dateParts[2]);

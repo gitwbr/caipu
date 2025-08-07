@@ -22,7 +22,13 @@ Page({
     const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // 只取 HH:MM 格式
     
     // 获取传递过来的日期，如果没有则使用当前日期
-    const recordDate = options.date || new Date().toISOString().split('T')[0];
+    let recordDate = options.date || new Date().toISOString().split('T')[0];
+    
+    // 确保日期格式为 YYYY-MM-DD
+    if (recordDate && recordDate.includes('T')) {
+      // 如果是ISO时间戳格式，提取日期部分
+      recordDate = recordDate.split('T')[0];
+    }
     
     this.setData({
       recordTime: timeStr,
@@ -104,11 +110,18 @@ Page({
         }
       }
 
+      // 确保日期格式为 YYYY-MM-DD
+      let recordDate = record.record_date;
+      if (recordDate && typeof recordDate === 'string' && recordDate.includes('T')) {
+        // 如果是ISO时间戳格式，提取日期部分
+        recordDate = recordDate.split('T')[0];
+      }
+
       this.setData({
         food: food,
         quantity: record.record_type === 'quick' ? '0' : record.quantity_g.toString(),
         recordTime: record.record_time ? record.record_time.substring(0, 5) : record.record_time, // 不显示秒
-        recordDate: record.record_date, // 添加记录日期
+        recordDate: recordDate, // 添加记录日期
         notes: record.notes || '',
         loading: false
       });

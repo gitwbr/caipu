@@ -635,7 +635,11 @@ App({
         },
         success: (res) => {
           if (res.statusCode === 200) {
-            resolve(res.data);
+            // 后端返回格式: { message: '更新成功', record: {...} }
+            // 我们需要返回记录对象本身
+            const record = res.data.record || res.data;
+            console.log('更新记录成功，返回数据:', record);
+            resolve(record);
           } else {
             reject(new Error(res.data.error || '更新饮食记录失败'));
           }
@@ -771,7 +775,13 @@ App({
 
   // 本地计算每日卡路里汇总
   calculateDailyCalorieSummary(date) {
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    let targetDate = date || new Date().toISOString().split('T')[0];
+    
+    // 确保日期格式为 YYYY-MM-DD
+    if (targetDate && targetDate.includes('T')) {
+      // 如果是ISO时间戳格式，提取日期部分
+      targetDate = targetDate.split('T')[0];
+    }
     
     // 检查数据格式，确保是数组
     let records = this.globalData.dietRecords || [];
@@ -985,10 +995,25 @@ App({
   updateDietRecordWithSync(recordId, recordData) {
     return new Promise((resolve, reject) => {
       this.updateDietRecord(recordId, recordData).then(updatedRecord => {
-        // 更新本地记录
-        const localRecords = this.globalData.dietRecords.map(record => 
-          record.id === recordId ? updatedRecord : record
-        );
+        console.log('=== 更新饮食记录同步调试 ===');
+        console.log('记录ID:', recordId, '类型:', typeof recordId);
+        console.log('更新后的记录:', updatedRecord);
+        console.log('本地记录数量:', this.globalData.dietRecords.length);
+        
+        // 更新本地记录，确保类型匹配
+        const localRecords = this.globalData.dietRecords.map(record => {
+          const recordIdStr = String(record.id);
+          const targetIdStr = String(recordId);
+          const isMatch = recordIdStr === targetIdStr;
+          
+          if (isMatch) {
+            console.log('找到匹配记录:', record.id, '-> 更新为:', updatedRecord);
+          }
+          
+          return isMatch ? updatedRecord : record;
+        });
+        
+        console.log('更新后的本地记录数量:', localRecords.length);
         this.saveDietRecordsToLocal(localRecords);
         resolve(updatedRecord);
       }).catch(reject);
@@ -999,8 +1024,24 @@ App({
   deleteDietRecordWithSync(recordId) {
     return new Promise((resolve, reject) => {
       this.deleteDietRecord(recordId).then(() => {
-        // 从本地记录中删除
-        const localRecords = this.globalData.dietRecords.filter(record => record.id !== recordId);
+        console.log('=== 删除饮食记录同步调试 ===');
+        console.log('记录ID:', recordId, '类型:', typeof recordId);
+        console.log('删除前本地记录数量:', this.globalData.dietRecords.length);
+        
+        // 从本地记录中删除，确保类型匹配
+        const localRecords = this.globalData.dietRecords.filter(record => {
+          const recordIdStr = String(record.id);
+          const targetIdStr = String(recordId);
+          const isMatch = recordIdStr === targetIdStr;
+          
+          if (isMatch) {
+            console.log('找到要删除的记录:', record.id);
+          }
+          
+          return !isMatch; // 保留不匹配的记录
+        });
+        
+        console.log('删除后本地记录数量:', localRecords.length);
         this.saveDietRecordsToLocal(localRecords);
         resolve();
       }).catch(reject);

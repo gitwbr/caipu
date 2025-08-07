@@ -838,7 +838,8 @@ app.get('/api/food-nutrition', async (req, res) => {
         fe_mg,
         food_group,
         vitamin_c_mg,
-        cholesterol_mg
+        cholesterol_mg,
+        image_url
       FROM food_nutrition_cn
       ORDER BY food_name
     `;
@@ -893,7 +894,8 @@ app.get('/api/food-nutrition/search', async (req, res) => {
         fe_mg,
         food_group,
         vitamin_c_mg,
-        cholesterol_mg
+        cholesterol_mg,
+        image_url
       FROM food_nutrition_cn
       WHERE 1=1
     `;
@@ -1139,7 +1141,11 @@ app.get('/api/diet-records', async (req, res) => {
           CASE 
             WHEN dr.record_type = 'quick' THEN dr.quick_carbohydrate_g
             ELSE COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g)
-          END as display_carbohydrate_g
+          END as display_carbohydrate_g,
+          CASE 
+            WHEN dr.record_type = 'quick' THEN dr.quick_image_url
+            ELSE COALESCE(fn.image_url, ucf.image_url)
+          END as display_image_url
         FROM diet_records dr
         LEFT JOIN food_nutrition_cn fn ON dr.food_id = fn.id
         LEFT JOIN user_custom_foods ucf ON dr.custom_food_id = ucf.id
@@ -1185,7 +1191,11 @@ app.get('/api/diet-records', async (req, res) => {
           CASE 
             WHEN dr.record_type = 'quick' THEN dr.quick_carbohydrate_g
             ELSE COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g)
-          END as display_carbohydrate_g
+          END as display_carbohydrate_g,
+          CASE 
+            WHEN dr.record_type = 'quick' THEN dr.quick_image_url
+            ELSE COALESCE(fn.image_url, ucf.image_url)
+          END as display_image_url
         FROM diet_records dr
         LEFT JOIN food_nutrition_cn fn ON dr.food_id = fn.id
         LEFT JOIN user_custom_foods ucf ON dr.custom_food_id = ucf.id
@@ -1222,42 +1232,90 @@ app.put('/api/diet-records/:id', async (req, res) => {
     const payload = jwt.verify(token, JWT_SECRET);
     
     const { id } = req.params;
-    const { food_id, custom_food_id, quantity_g, record_date, record_time, notes } = req.body;
-    
-    if (!quantity_g) {
-      return res.status(400).json({ error: '缺少必要参数：摄入量' });
-    }
-    
-    // 验证食物信息：要么有food_id，要么有custom_food_id
-    if (!food_id && !custom_food_id) {
-      return res.status(400).json({ error: '缺少食物信息：需要food_id或custom_food_id' });
-    }
-    
-    if (food_id && custom_food_id) {
-      return res.status(400).json({ error: '不能同时指定标准食物和自定义食物' });
-    }
+    const { 
+      food_id, 
+      custom_food_id, 
+      quantity_g, 
+      record_date, 
+      record_time, 
+      notes,
+      record_type,
+      quick_food_name,
+      quick_energy_kcal,
+      quick_protein_g,
+      quick_fat_g,
+      quick_carbohydrate_g,
+      quick_image_url
+    } = req.body;
     
     const client = await pool.connect();
     let query, values;
     
-    if (food_id) {
-      // 标准食物
+    if (record_type === 'quick') {
+      // 快速记录更新
       query = `
         UPDATE diet_records
-        SET food_id = $1, custom_food_id = NULL, quantity_g = $2, record_date = $3, record_time = $4, notes = $5, updated_at = NOW()
-        WHERE id = $6 AND user_id = $7
+        SET 
+          quick_food_name = $1,
+          quick_energy_kcal = $2,
+          quick_protein_g = $3,
+          quick_fat_g = $4,
+          quick_carbohydrate_g = $5,
+          quick_image_url = $6,
+          record_date = $7,
+          record_time = $8,
+          notes = $9,
+          updated_at = NOW()
+        WHERE id = $10 AND user_id = $11
         RETURNING *;
       `;
-      values = [food_id, quantity_g, record_date, record_time ? record_time.substring(0, 5) : record_time, notes, id, payload.userId];
+      values = [
+        quick_food_name || '快速记录',
+        quick_energy_kcal,
+        quick_protein_g,
+        quick_fat_g,
+        quick_carbohydrate_g,
+        quick_image_url,
+        record_date,
+        record_time ? record_time.substring(0, 5) : record_time,
+        notes,
+        id,
+        payload.userId
+      ];
     } else {
-      // 自定义食物
-      query = `
-        UPDATE diet_records
-        SET food_id = NULL, custom_food_id = $1, quantity_g = $2, record_date = $3, record_time = $4, notes = $5, updated_at = NOW()
-        WHERE id = $6 AND user_id = $7
-        RETURNING *;
-      `;
-      values = [custom_food_id, quantity_g, record_date, record_time ? record_time.substring(0, 5) : record_time, notes, id, payload.userId];
+      // 标准食物或自定义食物更新
+      if (!quantity_g) {
+        return res.status(400).json({ error: '缺少必要参数：摄入量' });
+      }
+      
+      // 验证食物信息：要么有food_id，要么有custom_food_id
+      if (!food_id && !custom_food_id) {
+        return res.status(400).json({ error: '缺少食物信息：需要food_id或custom_food_id' });
+      }
+      
+      if (food_id && custom_food_id) {
+        return res.status(400).json({ error: '不能同时指定标准食物和自定义食物' });
+      }
+      
+      if (food_id) {
+        // 标准食物
+        query = `
+          UPDATE diet_records
+          SET food_id = $1, custom_food_id = NULL, quantity_g = $2, record_date = $3, record_time = $4, notes = $5, updated_at = NOW()
+          WHERE id = $6 AND user_id = $7
+          RETURNING *;
+        `;
+        values = [food_id, quantity_g, record_date, record_time ? record_time.substring(0, 5) : record_time, notes, id, payload.userId];
+      } else {
+        // 自定义食物
+        query = `
+          UPDATE diet_records
+          SET food_id = NULL, custom_food_id = $1, quantity_g = $2, record_date = $3, record_time = $4, notes = $5, updated_at = NOW()
+          WHERE id = $6 AND user_id = $7
+          RETURNING *;
+        `;
+        values = [custom_food_id, quantity_g, record_date, record_time ? record_time.substring(0, 5) : record_time, notes, id, payload.userId];
+      }
     }
     
     const result = await client.query(query, values);
@@ -1345,22 +1403,23 @@ app.delete('/api/diet-records/:id', async (req, res) => {
     const deleteResult = await client.query(deleteQuery, [id, payload.userId]);
     client.release();
     
-    // 删除对应的图片文件
+    // 删除对应的图片文件（如果存在）
     console.log('准备删除图片文件，imagePath:', imagePath);
-    if (imagePath && fs.existsSync(imagePath)) {
-      console.log('图片文件存在，开始删除');
+    if (imagePath) {
       try {
-        fs.unlinkSync(imagePath);
-        console.log('删除图片文件成功:', imagePath);
+        if (fs.existsSync(imagePath)) {
+          console.log('图片文件存在，开始删除');
+          fs.unlinkSync(imagePath);
+          console.log('删除图片文件成功:', imagePath);
+        } else {
+          console.log('图片文件不存在，跳过删除:', imagePath);
+        }
       } catch (error) {
         console.error('删除图片文件失败:', error);
         // 图片删除失败不影响记录删除的成功
       }
     } else {
-      console.log('图片文件不存在或路径为空，跳过删除');
-      if (imagePath) {
-        console.log('文件不存在路径:', imagePath);
-      }
+      console.log('没有图片路径，跳过图片删除');
     }
     
     res.json({ 
@@ -1654,21 +1713,32 @@ app.delete('/api/user-custom-foods/:id', async (req, res) => {
     client.release();
     
     // 如果有图片URL，删除对应的图片文件
+    console.log('=== 删除自定义食物调试 ===');
+    console.log('食物信息:', food);
+    console.log('图片URL:', food.image_url);
+    
     if (food.image_url) {
+      console.log('检测到图片URL，准备删除图片文件');
       try {
         // 从URL中提取文件路径
         const urlPath = food.image_url.replace(UPLOAD_URL_PREFIX, '');
         const filePath = path.join(UPLOAD_DIR, urlPath);
+        console.log('解析出的图片路径:', filePath);
         
         // 检查文件是否存在并删除
         if (fs.existsSync(filePath)) {
+          console.log('图片文件存在，开始删除');
           fs.unlinkSync(filePath);
-          console.log('删除图片文件:', filePath);
+          console.log('删除图片文件成功:', filePath);
+        } else {
+          console.log('图片文件不存在，跳过删除:', filePath);
         }
       } catch (fileError) {
         console.error('删除图片文件失败:', fileError);
         // 图片删除失败不影响数据库删除的成功
       }
+    } else {
+      console.log('没有图片URL，跳过图片删除');
     }
     
     res.json({ message: '删除成功' });
