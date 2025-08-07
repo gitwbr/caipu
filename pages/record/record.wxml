@@ -29,10 +29,16 @@
 
   <!-- 添加记录按钮 -->
   <view class="add-record-section">
-    <button class="add-record-btn" bindtap="addRecord">
-      <text class="add-icon">+</text>
-      <text class="add-text">添加记录</text>
-    </button>
+    <view class="add-buttons">
+      <button class="add-record-btn" bindtap="addRecord">
+        <text class="add-icon">+</text>
+        <text class="add-text">添加记录</text>
+      </button>
+      <button class="add-record-btn secondary" bindtap="quickRecord">
+        <text class="add-icon">⚡</text>
+        <text class="add-text">快速记录</text>
+      </button>
+    </view>
   </view>
 
   <!-- 加载状态 -->

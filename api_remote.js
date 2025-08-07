@@ -14,9 +14,53 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+const fs = require('fs');
+const path = require('path');
+
+// 配置图片上传目录
+const UPLOAD_DIR = process.env.UPLOAD_DIR;
+const UPLOAD_URL_PREFIX = process.env.UPLOAD_URL_PREFIX;
+
+// 静态文件服务 - 提供上传图片的访问
+app.use('/uploads', express.static(UPLOAD_DIR));
+
+// 确保上传目录存在
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
 // 配置multer用于文件上传
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // 从请求中获取用户ID
+    const userId = req.body.userId || req.query.userId;
+    
+    if (!userId) {
+      return cb(new Error('用户ID不能为空'));
+    }
+    
+    // 按用户ID创建子目录
+    const userDir = path.join(UPLOAD_DIR, String(userId));
+    
+    // 确保目录存在
+    if (!fs.existsSync(userDir)) {
+      fs.mkdirSync(userDir, { recursive: true });
+    }
+    
+    cb(null, userDir);
+  },
+  filename: function (req, file, cb) {
+    // 生成唯一文件名：时间戳_随机数_原文件名
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000);
+    const ext = path.extname(file.originalname);
+    const filename = `${timestamp}_${random}${ext}`;
+    cb(null, filename);
+  }
+});
+
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 限制10MB
   },
@@ -150,12 +194,21 @@ CREATE TABLE diet_records (
     record_date DATE NOT NULL DEFAULT CURRENT_DATE, -- 记录日期
     record_time TIME NOT NULL DEFAULT CURRENT_TIME, -- 记录时间
     notes TEXT, -- 备注
+    -- 快速记录相关字段
+    record_type VARCHAR(20) DEFAULT 'standard' CHECK (record_type IN ('standard', 'custom', 'quick')), -- 记录类型
+    quick_food_name VARCHAR(255), -- 快速记录食物名称
+    quick_energy_kcal DECIMAL(8,2), -- 快速记录热量（千卡）
+    quick_protein_g DECIMAL(8,2) DEFAULT 0, -- 快速记录蛋白质（克）
+    quick_fat_g DECIMAL(8,2) DEFAULT 0, -- 快速记录脂肪（克）
+    quick_carbohydrate_g DECIMAL(8,2) DEFAULT 0, -- 快速记录碳水化合物（克）
+    quick_image_url TEXT, -- 快速记录图片URL
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    -- 确保要么是标准食物，要么是自定义食物
+    -- 确保要么是标准食物，要么是自定义食物，要么是快速记录
     CONSTRAINT check_food_type CHECK (
-        (food_id IS NOT NULL AND custom_food_id IS NULL) OR
-        (food_id IS NULL AND custom_food_id IS NOT NULL)
+        (record_type = 'standard' AND food_id IS NOT NULL AND custom_food_id IS NULL AND quick_food_name IS NULL) OR
+        (record_type = 'custom' AND food_id IS NULL AND custom_food_id IS NOT NULL AND quick_food_name IS NULL) OR
+        (record_type = 'quick' AND food_id IS NULL AND custom_food_id IS NULL AND quick_food_name IS NOT NULL)
     )
 );
 
@@ -882,7 +935,42 @@ app.get('/api/food-nutrition/search', async (req, res) => {
 
 // --- 用户资料相关接口 ---
 
+// --- 图片上传接口 ---
 
+// POST /api/upload-image 图片上传接口
+app.post('/api/upload-image', upload.single('image'), async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+    
+    if (!req.file) {
+      return res.status(400).json({ error: '没有上传图片文件' });
+    }
+    
+    // 构建图片URL
+    const relativePath = path.relative(UPLOAD_DIR, req.file.path);
+    const imageUrl = `${UPLOAD_URL_PREFIX}/${relativePath.replace(/\\/g, '/')}`;
+    
+    console.log('图片上传成功:', {
+      originalName: req.file.originalname,
+      savedPath: req.file.path,
+      imageUrl: imageUrl
+    });
+    
+    res.json({
+      success: true,
+      imageUrl: imageUrl
+    });
+  } catch (error) {
+    console.error('图片上传失败:', error);
+    res.status(500).json({ error: '图片上传失败', message: error.message });
+  }
+});
 
 // --- 饮食记录相关接口 ---
 
@@ -897,46 +985,91 @@ app.post('/api/diet-records', async (req, res) => {
     const token = authHeader.replace('Bearer ', '');
     const payload = jwt.verify(token, JWT_SECRET);
     
-    const { food_id, custom_food_id, quantity_g, record_date, record_time, notes } = req.body;
-    
-    if (!quantity_g) {
-      return res.status(400).json({ error: '缺少必要参数：摄入量' });
-    }
-    
-    // 验证食物信息：要么有food_id，要么有custom_food_id
-    if (!food_id && !custom_food_id) {
-      return res.status(400).json({ error: '缺少食物信息：需要food_id或custom_food_id' });
-    }
-    
-    if (food_id && custom_food_id) {
-      return res.status(400).json({ error: '不能同时指定标准食物和自定义食物' });
-    }
+    const { 
+      food_id, 
+      custom_food_id, 
+      quantity_g, 
+      record_date, 
+      record_time, 
+      notes,
+      // 快速记录相关字段
+      record_type = 'standard',
+      quick_food_name,
+      quick_energy_kcal,
+      quick_protein_g,
+      quick_fat_g,
+      quick_carbohydrate_g,
+      quick_image_url
+    } = req.body;
     
     const client = await pool.connect();
     let query, values;
     
-    if (food_id) {
-      // 标准食物
+    if (record_type === 'quick') {
+      // 快速记录
+      if (!quick_food_name || !quick_energy_kcal) {
+        return res.status(400).json({ error: '快速记录缺少必要参数：食物名称和热量' });
+      }
+      
       query = `
-        INSERT INTO diet_records (user_id, food_id, quantity_g, record_date, record_time, notes)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO diet_records (
+          user_id, record_type, quick_food_name, quick_energy_kcal, 
+          quick_protein_g, quick_fat_g, quick_carbohydrate_g, quick_image_url,
+          quantity_g, record_date, record_time, notes
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *;
       `;
       values = [
-        payload.userId, food_id, quantity_g, record_date || new Date().toISOString().split('T')[0], 
-        record_time ? record_time.substring(0, 5) : new Date().toTimeString().split(' ')[0].substring(0, 5), notes || null
+        payload.userId, 'quick', quick_food_name, quick_energy_kcal,
+        quick_protein_g || 0, quick_fat_g || 0, quick_carbohydrate_g || 0, quick_image_url || null,
+        quantity_g || 0, // 快速记录不需要重量，设为0
+        record_date || new Date().toISOString().split('T')[0], 
+        record_time ? record_time.substring(0, 5) : new Date().toTimeString().split(' ')[0].substring(0, 5), 
+        notes || null
       ];
     } else {
-      // 自定义食物
-      query = `
-        INSERT INTO diet_records (user_id, custom_food_id, quantity_g, record_date, record_time, notes)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING *;
-      `;
-      values = [
-        payload.userId, custom_food_id, quantity_g, record_date || new Date().toISOString().split('T')[0], 
-        record_time ? record_time.substring(0, 5) : new Date().toTimeString().split(' ')[0].substring(0, 5), notes || null
-      ];
+      // 标准食物或自定义食物（原有功能）
+      if (!quantity_g) {
+        return res.status(400).json({ error: '缺少必要参数：摄入量' });
+      }
+      
+      // 验证食物信息：要么有food_id，要么有custom_food_id
+      if (!food_id && !custom_food_id) {
+        return res.status(400).json({ error: '缺少食物信息：需要food_id或custom_food_id' });
+      }
+      
+      if (food_id && custom_food_id) {
+        return res.status(400).json({ error: '不能同时指定标准食物和自定义食物' });
+      }
+      
+      if (food_id) {
+        // 标准食物
+        query = `
+          INSERT INTO diet_records (user_id, record_type, food_id, quantity_g, record_date, record_time, notes)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING *;
+        `;
+        values = [
+          payload.userId, 'standard', food_id, quantity_g, 
+          record_date || new Date().toISOString().split('T')[0], 
+          record_time ? record_time.substring(0, 5) : new Date().toTimeString().split(' ')[0].substring(0, 5), 
+          notes || null
+        ];
+      } else {
+        // 自定义食物
+        query = `
+          INSERT INTO diet_records (user_id, record_type, custom_food_id, quantity_g, record_date, record_time, notes)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING *;
+        `;
+        values = [
+          payload.userId, 'custom', custom_food_id, quantity_g, 
+          record_date || new Date().toISOString().split('T')[0], 
+          record_time ? record_time.substring(0, 5) : new Date().toTimeString().split(' ')[0].substring(0, 5), 
+          notes || null
+        ];
+      }
     }
     
     const result = await client.query(query, values);
@@ -973,6 +1106,7 @@ app.get('/api/diet-records', async (req, res) => {
       query = `
         SELECT 
           dr.id,
+          dr.record_type,
           dr.food_id,
           dr.custom_food_id,
           dr.quantity_g,
@@ -980,15 +1114,32 @@ app.get('/api/diet-records', async (req, res) => {
           dr.record_time,
           dr.notes,
           dr.created_at,
-          COALESCE(fn.food_name, ucf.food_name) as display_name,
-          COALESCE(fn.energy_kcal, ucf.energy_kcal) as display_energy_kcal,
-          COALESCE(fn.protein_g, ucf.protein_g) as display_protein_g,
-          COALESCE(fn.fat_g, ucf.fat_g) as display_fat_g,
-          COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g) as display_carbohydrate_g,
+          dr.quick_food_name,
+          dr.quick_energy_kcal,
+          dr.quick_protein_g,
+          dr.quick_fat_g,
+          dr.quick_carbohydrate_g,
+          dr.quick_image_url,
           CASE 
-            WHEN dr.food_id IS NOT NULL THEN 'standard'
-            WHEN dr.custom_food_id IS NOT NULL THEN 'custom'
-          END as food_type
+            WHEN dr.record_type = 'quick' THEN dr.quick_food_name
+            ELSE COALESCE(fn.food_name, ucf.food_name)
+          END as display_name,
+          CASE 
+            WHEN dr.record_type = 'quick' THEN dr.quick_energy_kcal
+            ELSE COALESCE(fn.energy_kcal, ucf.energy_kcal)
+          END as display_energy_kcal,
+          CASE 
+            WHEN dr.record_type = 'quick' THEN dr.quick_protein_g
+            ELSE COALESCE(fn.protein_g, ucf.protein_g)
+          END as display_protein_g,
+          CASE 
+            WHEN dr.record_type = 'quick' THEN dr.quick_fat_g
+            ELSE COALESCE(fn.fat_g, ucf.fat_g)
+          END as display_fat_g,
+          CASE 
+            WHEN dr.record_type = 'quick' THEN dr.quick_carbohydrate_g
+            ELSE COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g)
+          END as display_carbohydrate_g
         FROM diet_records dr
         LEFT JOIN food_nutrition_cn fn ON dr.food_id = fn.id
         LEFT JOIN user_custom_foods ucf ON dr.custom_food_id = ucf.id
@@ -1001,6 +1152,7 @@ app.get('/api/diet-records', async (req, res) => {
       query = `
         SELECT 
           dr.id,
+          dr.record_type,
           dr.food_id,
           dr.custom_food_id,
           dr.quantity_g,
@@ -1008,15 +1160,32 @@ app.get('/api/diet-records', async (req, res) => {
           dr.record_time,
           dr.notes,
           dr.created_at,
-          COALESCE(fn.food_name, ucf.food_name) as display_name,
-          COALESCE(fn.energy_kcal, ucf.energy_kcal) as display_energy_kcal,
-          COALESCE(fn.protein_g, ucf.protein_g) as display_protein_g,
-          COALESCE(fn.fat_g, ucf.fat_g) as display_fat_g,
-          COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g) as display_carbohydrate_g,
+          dr.quick_food_name,
+          dr.quick_energy_kcal,
+          dr.quick_protein_g,
+          dr.quick_fat_g,
+          dr.quick_carbohydrate_g,
+          dr.quick_image_url,
           CASE 
-            WHEN dr.food_id IS NOT NULL THEN 'standard'
-            WHEN dr.custom_food_id IS NOT NULL THEN 'custom'
-          END as food_type
+            WHEN dr.record_type = 'quick' THEN dr.quick_food_name
+            ELSE COALESCE(fn.food_name, ucf.food_name)
+          END as display_name,
+          CASE 
+            WHEN dr.record_type = 'quick' THEN dr.quick_energy_kcal
+            ELSE COALESCE(fn.energy_kcal, ucf.energy_kcal)
+          END as display_energy_kcal,
+          CASE 
+            WHEN dr.record_type = 'quick' THEN dr.quick_protein_g
+            ELSE COALESCE(fn.protein_g, ucf.protein_g)
+          END as display_protein_g,
+          CASE 
+            WHEN dr.record_type = 'quick' THEN dr.quick_fat_g
+            ELSE COALESCE(fn.fat_g, ucf.fat_g)
+          END as display_fat_g,
+          CASE 
+            WHEN dr.record_type = 'quick' THEN dr.quick_carbohydrate_g
+            ELSE COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g)
+          END as display_carbohydrate_g
         FROM diet_records dr
         LEFT JOIN food_nutrition_cn fn ON dr.food_id = fn.id
         LEFT JOIN user_custom_foods ucf ON dr.custom_food_id = ucf.id
@@ -1634,4 +1803,6 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`API服务器运行在端口 ${port}`);
   console.log(`健康检查: http://localhost:${port}/health`);
   console.log(`赛程接口: http://localhost:${port}/api/schedule`);
+  console.log(`百度OCR接口: http://localhost:${port}/api/baidu-ocr/upload`);
+  console.log(`图片上传接口: http://localhost:${port}/api/upload-image`);
 }); 

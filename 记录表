@@ -1,0 +1,120 @@
+-- 饮食记录表（支持标准食物、自定义食物和快速记录）
+CREATE TABLE diet_records (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- 食物来源类型：'standard'(标准食物), 'custom'(自定义食物), 'quick'(快速记录)
+    record_type VARCHAR(10) NOT NULL DEFAULT 'standard',
+    
+    -- 标准食物和自定义食物相关字段
+    food_id INTEGER REFERENCES food_nutrition_cn(id), -- 标准食物ID
+    custom_food_id INTEGER REFERENCES user_custom_foods(id), -- 自定义食物ID
+    
+    -- 快速记录相关字段
+    quick_food_name VARCHAR(255), -- 快速记录的食物名称
+    quick_energy_kcal DECIMAL(8,2), -- 快速记录的热量（千卡）
+    quick_protein_g DECIMAL(8,2), -- 快速记录的蛋白质（克）
+    quick_fat_g DECIMAL(8,2), -- 快速记录的脂肪（克）
+    quick_carbohydrate_g DECIMAL(8,2), -- 快速记录的碳水化合物（克）
+    quick_image_url TEXT, -- 快速记录的图片URL
+    
+    -- 通用字段
+    quantity_g DECIMAL(8,2) NOT NULL, -- 摄入量（克）
+    record_date DATE NOT NULL DEFAULT CURRENT_DATE, -- 记录日期
+    record_time TIME NOT NULL DEFAULT CURRENT_TIME, -- 记录时间
+    notes TEXT, -- 备注
+    
+    -- 时间戳
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- 约束条件
+    CONSTRAINT check_record_type CHECK (record_type IN ('standard', 'custom', 'quick')),
+    CONSTRAINT check_food_type CHECK (
+        (record_type = 'standard' AND food_id IS NOT NULL AND custom_food_id IS NULL AND quick_food_name IS NULL) OR
+        (record_type = 'custom' AND food_id IS NULL AND custom_food_id IS NOT NULL AND quick_food_name IS NULL) OR
+        (record_type = 'quick' AND food_id IS NULL AND custom_food_id IS NULL AND quick_food_name IS NOT NULL)
+    )
+);
+
+-- 添加索引以提高查询性能
+CREATE INDEX idx_diet_records_user_date ON diet_records(user_id, record_date);
+CREATE INDEX idx_diet_records_date ON diet_records(record_date);
+CREATE INDEX idx_diet_records_type ON diet_records(record_type);
+CREATE INDEX idx_user_custom_foods_user_id ON user_custom_foods(user_id);
+
+-- 为 diet_records 表添加触发器
+CREATE TRIGGER trigger_update_diet_records_timestamp
+BEFORE UPDATE ON diet_records
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();
+
+-- 添加表注释
+COMMENT ON TABLE diet_records IS '饮食记录表（支持标准食物、自定义食物和快速记录）';
+COMMENT ON COLUMN diet_records.record_type IS '记录类型：standard(标准食物), custom(自定义食物), quick(快速记录)';
+COMMENT ON COLUMN diet_records.quick_food_name IS '快速记录的食物名称';
+COMMENT ON COLUMN diet_records.quick_energy_kcal IS '快速记录的热量（千卡）';
+COMMENT ON COLUMN diet_records.quick_protein_g IS '快速记录的蛋白质（克）';
+COMMENT ON COLUMN diet_records.quick_fat_g IS '快速记录的脂肪（克）';
+COMMENT ON COLUMN diet_records.quick_carbohydrate_g IS '快速记录的碳水化合物（克）';
+COMMENT ON COLUMN diet_records.quick_image_url IS '快速记录的图片URL';
+
+-- ================================
+-- 修改现有数据库的SQL语句
+-- ================================
+
+-- 1. 为现有 diet_records 表添加新字段（如果表已存在）
+ALTER TABLE diet_records ADD COLUMN IF NOT EXISTS record_type VARCHAR(10) NOT NULL DEFAULT 'standard';
+ALTER TABLE diet_records ADD COLUMN IF NOT EXISTS quick_food_name VARCHAR(255);
+ALTER TABLE diet_records ADD COLUMN IF NOT EXISTS quick_energy_kcal DECIMAL(8,2);
+ALTER TABLE diet_records ADD COLUMN IF NOT EXISTS quick_protein_g DECIMAL(8,2);
+ALTER TABLE diet_records ADD COLUMN IF NOT EXISTS quick_fat_g DECIMAL(8,2);
+ALTER TABLE diet_records ADD COLUMN IF NOT EXISTS quick_carbohydrate_g DECIMAL(8,2);
+ALTER TABLE diet_records ADD COLUMN IF NOT EXISTS quick_image_url TEXT;
+
+-- 2. 更新现有记录的 record_type
+UPDATE diet_records SET record_type = 'standard' WHERE food_id IS NOT NULL;
+UPDATE diet_records SET record_type = 'custom' WHERE custom_food_id IS NOT NULL;
+
+-- 3. 添加约束条件（如果不存在）
+DO $$
+BEGIN
+    -- 添加 record_type 约束
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.check_constraints 
+        WHERE constraint_name = 'check_record_type'
+    ) THEN
+        ALTER TABLE diet_records ADD CONSTRAINT check_record_type 
+        CHECK (record_type IN ('standard', 'custom', 'quick'));
+    END IF;
+    
+    -- 添加 food_type 约束
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.check_constraints 
+        WHERE constraint_name = 'check_food_type'
+    ) THEN
+        ALTER TABLE diet_records ADD CONSTRAINT check_food_type 
+        CHECK (
+            (record_type = 'standard' AND food_id IS NOT NULL AND custom_food_id IS NULL AND quick_food_name IS NULL) OR
+            (record_type = 'custom' AND food_id IS NULL AND custom_food_id IS NOT NULL AND quick_food_name IS NULL) OR
+            (record_type = 'quick' AND food_id IS NULL AND custom_food_id IS NULL AND quick_food_name IS NOT NULL)
+        );
+    END IF;
+END $$;
+
+-- 4. 添加新索引（如果不存在）
+CREATE INDEX IF NOT EXISTS idx_diet_records_type ON diet_records(record_type);
+
+-- 5. 添加触发器（如果不存在）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.triggers 
+        WHERE trigger_name = 'trigger_update_diet_records_timestamp'
+    ) THEN
+        CREATE TRIGGER trigger_update_diet_records_timestamp
+        BEFORE UPDATE ON diet_records
+        FOR EACH ROW
+        EXECUTE FUNCTION update_timestamp();
+    END IF;
+END $$;

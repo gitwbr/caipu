@@ -106,5 +106,12 @@ Page({
     wx.navigateTo({
       url: '/pages/record/add-record'
     });
+  },
+
+  // 快速记录
+  quickRecord() {
+    wx.navigateTo({
+      url: '/pages/record/quick-record'
+    });
   }
 });

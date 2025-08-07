@@ -106,8 +106,13 @@
   margin-bottom: 20rpx;
 }
 
+.add-buttons {
+  display: flex;
+  gap: 20rpx;
+}
+
 .add-record-btn {
-  width: 100%;
+  flex: 1;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -122,9 +127,18 @@
   transition: all 0.3s ease;
 }
 
+.add-record-btn.secondary {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+  box-shadow: 0 4rpx 12rpx rgba(255, 154, 158, 0.3);
+}
+
 .add-record-btn:active {
   transform: scale(0.98);
   box-shadow: 0 2rpx 8rpx rgba(102, 126, 234, 0.4);
+}
+
+.add-record-btn.secondary:active {
+  box-shadow: 0 2rpx 8rpx rgba(255, 154, 158, 0.4);
 }
 
 .add-icon {

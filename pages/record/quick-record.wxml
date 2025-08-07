@@ -1,0 +1,123 @@
+<!--pages/record/quick-record.wxml-->
+<view class="container">
+  <view class="form">
+    <!-- 食物名称 -->
+    <view class="form-item">
+      <view class="label">食物名称 *</view>
+      <input 
+        class="input" 
+        placeholder="请输入食物名称" 
+        value="{{food_name}}"
+        data-field="food_name"
+        bindinput="onInputChange"
+      />
+    </view>
+
+    <!-- 热量 -->
+    <view class="form-item">
+      <view class="label">热量 (千卡) *</view>
+      <input 
+        class="input" 
+        type="digit"
+        placeholder="请输入热量" 
+        value="{{energy_kcal}}"
+        data-field="energy_kcal"
+        bindinput="onInputChange"
+      />
+    </view>
+
+
+
+    <!-- 蛋白质 -->
+    <view class="form-item">
+      <view class="label">蛋白质 (g)</view>
+      <input 
+        class="input" 
+        type="digit"
+        placeholder="请输入蛋白质含量" 
+        value="{{protein_g}}"
+        data-field="protein_g"
+        bindinput="onInputChange"
+      />
+    </view>
+
+    <!-- 脂肪 -->
+    <view class="form-item">
+      <view class="label">脂肪 (g)</view>
+      <input 
+        class="input" 
+        type="digit"
+        placeholder="请输入脂肪含量" 
+        value="{{fat_g}}"
+        data-field="fat_g"
+        bindinput="onInputChange"
+      />
+    </view>
+
+    <!-- 碳水化合物 -->
+    <view class="form-item">
+      <view class="label">碳水化合物 (g)</view>
+      <input 
+        class="input" 
+        type="digit"
+        placeholder="请输入碳水化合物含量" 
+        value="{{carbohydrate_g}}"
+        data-field="carbohydrate_g"
+        bindinput="onInputChange"
+      />
+    </view>
+
+    <!-- 图片上传 -->
+    <view class="form-item">
+      <view class="label">食物图片</view>
+      <view class="image-section">
+        <view class="image-buttons">
+          <button class="image-btn" bindtap="takePhoto">拍照</button>
+          <button class="image-btn" bindtap="chooseImage">选择图片</button>
+        </view>
+        
+        <view class="image-preview" wx:if="{{showImagePreview}}">
+          <image 
+            class="preview-image" 
+            src="{{imagePath}}" 
+            mode="aspectFit"
+            bindtap="previewImage"
+          />
+          <view class="image-actions">
+            <button class="action-btn remove" bindtap="removeImage">删除</button>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 备注 -->
+    <view class="form-item">
+      <view class="label">备注</view>
+      <textarea 
+        class="textarea" 
+        placeholder="请输入备注信息" 
+        value="{{notes}}"
+        data-field="notes"
+        bindinput="onInputChange"
+      />
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="actions">
+    <button 
+      class="btn btn-clear" 
+      bindtap="onClear"
+      disabled="{{submitting}}"
+    >
+      清空
+    </button>
+    <button 
+      class="btn btn-submit" 
+      bindtap="onSubmit"
+      disabled="{{submitting}}"
+    >
+      {{submitting ? '保存中...' : '保存'}}
+    </button>
+  </view>
+</view>
