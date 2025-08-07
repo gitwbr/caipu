@@ -90,17 +90,19 @@
         class="food-item custom-food-item" 
         wx:for="{{customFoods}}" 
         wx:key="id"
+        bindtap="selectFood" 
+        data-food="{{item}}"
       >
-        <view class="food-info" bindtap="selectFood" data-food="{{item}}">
+        <view class="food-info">
           <text class="food-name">{{item.food_name}}</text>
           <text class="food-type">自定义</text>
         </view>
         <view class="food-calories">
           <text class="calories-text">{{item.energy_kcal}} kcal/100g</text>
         </view>
-        <view class="food-actions">
-          <button class="action-btn edit-btn" bindtap="editCustomFood" data-food="{{item}}">编辑</button>
-          <button class="action-btn delete-btn" bindtap="deleteCustomFood" data-id="{{item.id}}">删除</button>
+        <view class="food-actions" catchtap="stopPropagation">
+          <button class="action-btn edit-btn" catchtap="editCustomFood" data-food="{{item}}">编辑</button>
+          <button class="action-btn delete-btn" catchtap="deleteCustomFood" data-id="{{item.id}}">删除</button>
         </view>
       </view>
     </view>

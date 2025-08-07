@@ -11,19 +11,21 @@
   border-radius: 12rpx;
   padding: 30rpx;
   margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
 }
 
 .food-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20rpx;
+  margin-bottom: 25rpx;
 }
 
 .food-name {
   color: #333;
   font-size: 36rpx;
   font-weight: bold;
+  line-height: 1.4;
 }
 
 .food-type {
@@ -32,6 +34,7 @@
   background: #f0f4ff;
   padding: 8rpx 16rpx;
   border-radius: 12rpx;
+  font-weight: 500;
 }
 
 .food-nutrition {
@@ -44,21 +47,31 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20rpx;
+  padding: 25rpx 20rpx;
   background: #f8f9ff;
-  border-radius: 8rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #e8f0ff;
+  transition: all 0.3s ease;
+}
+
+.nutrition-item:hover {
+  background: #f0f4ff;
+  transform: translateY(-2rpx);
+  box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.1);
 }
 
 .nutrition-label {
   color: #666;
   font-size: 24rpx;
-  margin-bottom: 8rpx;
+  margin-bottom: 10rpx;
+  font-weight: 500;
 }
 
 .nutrition-value {
   color: #333;
   font-size: 28rpx;
-  font-weight: 500;
+  font-weight: 600;
+  text-align: center;
 }
 
 /* 表单区域 */
@@ -67,6 +80,7 @@
   border-radius: 12rpx;
   padding: 30rpx;
   margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
 }
 
 .form-item {
@@ -80,7 +94,7 @@
 .form-label {
   color: #333;
   font-size: 28rpx;
-  font-weight: 500;
+  font-weight: 600;
   margin-bottom: 15rpx;
   display: block;
 }
@@ -89,14 +103,17 @@
   width: 100%;
   padding: 25rpx;
   border: 2rpx solid #e0e0e0;
-  border-radius: 8rpx;
+  border-radius: 12rpx;
   font-size: 30rpx;
   background: #fafafa;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
 }
 
 .form-input:focus {
   border-color: #667eea;
   background: white;
+  box-shadow: 0 0 0 4rpx rgba(102, 126, 234, 0.1);
 }
 
 .picker-content {
@@ -105,34 +122,49 @@
   justify-content: space-between;
   padding: 25rpx;
   border: 2rpx solid #e0e0e0;
-  border-radius: 8rpx;
+  border-radius: 12rpx;
   background: #fafafa;
+  transition: all 0.3s ease;
+}
+
+.picker-content:active {
+  background: #f0f4ff;
+  border-color: #667eea;
 }
 
 .picker-value {
   color: #333;
   font-size: 30rpx;
+  font-weight: 500;
 }
 
 .picker-arrow {
   color: #999;
   font-size: 24rpx;
+  transition: transform 0.3s ease;
+}
+
+.picker-content:active .picker-arrow {
+  transform: rotate(90deg);
 }
 
 .form-textarea {
   width: 100%;
   padding: 25rpx;
   border: 2rpx solid #e0e0e0;
-  border-radius: 8rpx;
+  border-radius: 12rpx;
   font-size: 30rpx;
   background: #fafafa;
   min-height: 120rpx;
   line-height: 1.5;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
 }
 
 .form-textarea:focus {
   border-color: #667eea;
   background: white;
+  box-shadow: 0 0 0 4rpx rgba(102, 126, 234, 0.1);
 }
 
 /* 计算结果 */
@@ -141,13 +173,15 @@
   border-radius: 12rpx;
   padding: 30rpx;
   margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
 }
 
 .calculation-title {
   color: #333;
   font-size: 32rpx;
   font-weight: bold;
-  margin-bottom: 20rpx;
+  margin-bottom: 25rpx;
+  text-align: center;
 }
 
 .calculation-content {
@@ -160,21 +194,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20rpx;
+  padding: 25rpx 20rpx;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8rpx;
+  border-radius: 12rpx;
   color: white;
+  box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+}
+
+.calc-item:hover {
+  transform: translateY(-2rpx);
+  box-shadow: 0 6rpx 16rpx rgba(102, 126, 234, 0.4);
 }
 
 .calc-label {
   font-size: 24rpx;
-  margin-bottom: 8rpx;
+  margin-bottom: 10rpx;
   opacity: 0.9;
+  font-weight: 500;
 }
 
 .calc-value {
   font-size: 28rpx;
   font-weight: bold;
+  text-align: center;
 }
 
 /* 操作按钮 */
@@ -191,22 +234,38 @@
   border-radius: 12rpx;
   padding: 30rpx;
   font-size: 32rpx;
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+}
+
+.save-btn:active {
+  transform: translateY(1rpx);
+  box-shadow: 0 2rpx 8rpx rgba(102, 126, 234, 0.3);
 }
 
 .save-btn:disabled {
   background: #ccc;
   color: #999;
+  box-shadow: none;
+  transform: none;
 }
 
 .delete-btn {
-  background: #ff4757;
+  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
   color: white;
   border: none;
   border-radius: 12rpx;
   padding: 30rpx;
   font-size: 32rpx;
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx rgba(255, 71, 87, 0.3);
+  transition: all 0.3s ease;
+}
+
+.delete-btn:active {
+  transform: translateY(1rpx);
+  box-shadow: 0 2rpx 8rpx rgba(255, 71, 87, 0.3);
 }
 
 /* 加载状态 */
@@ -215,4 +274,35 @@
   padding: 80rpx;
   color: #999;
   font-size: 28rpx;
+  background: white;
+  border-radius: 12rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 响应式优化 */
+@media (max-width: 750rpx) {
+  .food-nutrition {
+    grid-template-columns: 1fr;
+    gap: 15rpx;
+  }
+  
+  .calculation-content {
+    grid-template-columns: 1fr;
+    gap: 15rpx;
+  }
+  
+  .nutrition-item,
+  .calc-item {
+    padding: 20rpx 15rpx;
+  }
+  
+  .food-name {
+    font-size: 32rpx;
+  }
+  
+  .form-input,
+  .picker-content,
+  .form-textarea {
+    padding: 20rpx;
+  }
 }

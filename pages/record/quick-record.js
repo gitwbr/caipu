@@ -1,7 +1,7 @@
 // pages/record/quick-record.js
 Page({
   data: {
-    food_name: '',
+    food_name: '快速记录',
     energy_kcal: '',
     protein_g: '',
     fat_g: '',
@@ -135,12 +135,11 @@ Page({
   validateForm() {
     const { food_name, energy_kcal } = this.data;
     
+    // 如果食物名称为空，使用默认值"快速记录"
     if (!food_name.trim()) {
-      wx.showToast({
-        title: '请输入食物名称',
-        icon: 'none'
+      this.setData({
+        food_name: '快速记录'
       });
-      return false;
     }
     
     if (!energy_kcal || parseFloat(energy_kcal) <= 0) {
@@ -162,7 +161,7 @@ Page({
 
     const formData = {
       record_type: 'quick',
-      quick_food_name: this.data.food_name.trim(),
+      quick_food_name: this.data.food_name.trim() || '快速记录',
       quick_energy_kcal: parseFloat(this.data.energy_kcal),
       quick_protein_g: this.data.protein_g ? parseFloat(this.data.protein_g) : 0,
       quick_fat_g: this.data.fat_g ? parseFloat(this.data.fat_g) : 0,
@@ -198,17 +197,47 @@ Page({
       // 删除本地图片路径，只保留服务器URL
       delete formData.quick_image_path;
       
-      await getApp().addDietRecord(formData);
+      console.log('=== 保存快速记录 ===');
+      console.log('保存的数据:', formData);
       
-      wx.showToast({
-        title: '保存成功',
-        icon: 'success'
-      });
+      const result = await getApp().addDietRecordWithSync(formData);
+      console.log('保存结果:', result);
+      
+      // 检查dietRecords内容
+      const app = getApp();
+      console.log('=== dietRecords内容检查 ===');
+      console.log('dietRecords长度:', app.globalData.dietRecords.length);
+      console.log('dietRecords内容:', app.globalData.dietRecords);
+      
+      // 查找刚保存的记录
+      const savedRecord = app.globalData.dietRecords.find(record => 
+        record.record_type === 'quick' && 
+        record.quick_food_name === formData.quick_food_name &&
+        record.quick_energy_kcal === formData.quick_energy_kcal
+      );
+      console.log('刚保存的记录:', savedRecord);
+      
+             wx.showToast({
+         title: '保存成功',
+         icon: 'success'
+       });
 
-      // 返回上一页
-      setTimeout(() => {
-        wx.navigateBack();
-      }, 1500);
+       // 跳转到记录详情列表页面
+       setTimeout(() => {
+         wx.redirectTo({
+           url: `/pages/record/record-detail-list?date=${new Date().toISOString().split('T')[0]}`,
+           fail: () => {
+             // 如果redirectTo失败，尝试navigateTo
+             wx.navigateTo({
+               url: `/pages/record/record-detail-list?date=${new Date().toISOString().split('T')[0]}`,
+               fail: () => {
+                 // 最后的备选方案，返回上一页
+                 wx.navigateBack();
+               }
+             });
+           }
+         });
+       }, 1500);
 
     } catch (error) {
       console.error('保存快速记录失败:', error);

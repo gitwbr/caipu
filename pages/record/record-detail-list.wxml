@@ -70,10 +70,16 @@
 
   <!-- 添加记录按钮 -->
   <view class="add-record-section">
-    <button class="add-record-btn" bindtap="addRecord">
-      <text class="add-icon">+</text>
-      <text class="add-text">添加记录</text>
-    </button>
+    <view class="button-group">
+      <button class="add-record-btn" bindtap="addRecord">
+        <text class="add-icon">+</text>
+        <text class="add-text">添加记录</text>
+      </button>
+      <button class="quick-record-btn" bindtap="quickRecord">
+        <text class="quick-icon">⚡</text>
+        <text class="quick-text">快速记录</text>
+      </button>
+    </view>
   </view>
 
   <!-- 记录列表 -->
@@ -86,8 +92,15 @@
     <view class="records-list" wx:if="{{records.length > 0}}">
       <view class="record-item" wx:for="{{records}}" wx:key="id" bindtap="onRecordTap" data-id="{{item.id}}">
         <view class="record-info">
-          <text class="food-name">{{item.food_name}}</text>
-          <text class="food-quantity">{{item.quantity_g}}g</text>
+          <view class="food-header">
+            <text class="food-name">{{item.food_name}}</text>
+            <text class="record-type-tag {{item.record_type}}">{{item.record_type_display}}</text>
+          </view>
+          <view class="food-details">
+            <text class="food-quantity" wx:if="{{item.record_type !== 'quick'}}">{{item.quantity_g}}g</text>
+            <text class="food-quantity" wx:else>快速记录</text>
+            <text class="food-time" wx:if="{{item.record_time}}">{{item.record_time}}</text>
+          </view>
         </view>
         <view class="record-calories">
           <text class="calories-value">{{item.calculated_calories}} kcal</text>

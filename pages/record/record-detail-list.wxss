@@ -260,8 +260,13 @@
   margin-bottom: 20rpx;
 }
 
+.button-group {
+  display: flex;
+  gap: 20rpx;
+}
+
 .add-record-btn {
-  width: 100%;
+  flex: 1;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -275,12 +280,36 @@
   box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
 }
 
+.quick-record-btn {
+  flex: 1;
+  background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+  color: white;
+  border: none;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 500;
+  box-shadow: 0 4rpx 12rpx rgba(255, 154, 86, 0.3);
+}
+
 .add-icon {
   font-size: 36rpx;
   margin-right: 10rpx;
 }
 
 .add-text {
+  font-size: 32rpx;
+}
+
+.quick-icon {
+  font-size: 36rpx;
+  margin-right: 10rpx;
+}
+
+.quick-text {
   font-size: 32rpx;
 }
 
@@ -333,16 +362,55 @@
   flex-direction: column;
 }
 
+.food-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
 .food-name {
   font-size: 30rpx;
   font-weight: 500;
   color: #333;
-  margin-bottom: 8rpx;
+  margin-right: 12rpx;
+}
+
+.record-type-tag {
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  font-weight: 500;
+}
+
+.record-type-tag.standard {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.record-type-tag.custom {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.record-type-tag.quick {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.food-details {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
 }
 
 .food-quantity {
   font-size: 26rpx;
   color: #666;
+}
+
+.food-time {
+  font-size: 24rpx;
+  color: #999;
 }
 
 .record-calories {

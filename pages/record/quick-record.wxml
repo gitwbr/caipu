@@ -3,10 +3,10 @@
   <view class="form">
     <!-- 食物名称 -->
     <view class="form-item">
-      <view class="label">食物名称 *</view>
+      <view class="label">食物名称</view>
       <input 
         class="input" 
-        placeholder="请输入食物名称" 
+        placeholder="快速记录" 
         value="{{food_name}}"
         data-field="food_name"
         bindinput="onInputChange"

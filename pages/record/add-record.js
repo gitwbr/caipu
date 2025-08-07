@@ -145,8 +145,23 @@ Page({
   selectFood(e) {
     const { food } = e.currentTarget.dataset;
     
+    console.log('选择的食物:', food);
+    
+    // 确保食物数据格式正确
+    let processedFood = { ...food };
+    
+    // 如果是自定义食物，需要设置正确的类型和显示字段
+    if (food.food_name && !food.display_name) {
+      processedFood.type = 'custom';
+      processedFood.display_name = food.food_name;
+      processedFood.display_energy_kcal = food.energy_kcal;
+      processedFood.protein_g = food.protein_g;
+      processedFood.fat_g = food.fat_g;
+      processedFood.carbohydrate_g = food.carbohydrate_g;
+    }
+    
     // 添加到最近食物
-    app.addToRecentFoods(food);
+    app.addToRecentFoods(processedFood);
     
     // 获取当前选择的日期（优先从记录详情页面获取，如果没有则从原记录页面获取）
     const pages = getCurrentPages();
@@ -165,10 +180,11 @@ Page({
     }
     
     console.log('选择的日期:', selectedDate);
+    console.log('处理后的食物数据:', processedFood);
     
     // 跳转到记录详情页面，传递食物和日期信息
     wx.navigateTo({
-      url: `/pages/record/record-detail?food=${encodeURIComponent(JSON.stringify(food))}&date=${selectedDate}`
+      url: `/pages/record/record-detail?food=${encodeURIComponent(JSON.stringify(processedFood))}&date=${selectedDate}`
     });
   },
 
@@ -185,6 +201,11 @@ Page({
     wx.navigateTo({
       url: `/pages/record/add-custom-food?food=${encodeURIComponent(JSON.stringify(food))}`
     });
+  },
+
+  // 阻止事件冒泡
+  stopPropagation(e) {
+    // 阻止事件冒泡，防止触发父元素的点击事件
   },
 
   // 删除自定义食物

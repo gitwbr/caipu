@@ -816,7 +816,19 @@ App({
     filteredRecords.forEach(record => {
       let energyKcal, proteinG, fatG, carbG;
       
-      if (record.food_id) {
+      if (record.record_type === 'quick') {
+        // 快速记录，直接使用记录中的营养数据
+        energyKcal = parseFloat(record.quick_energy_kcal) || 0;
+        proteinG = parseFloat(record.quick_protein_g) || 0;
+        fatG = parseFloat(record.quick_fat_g) || 0;
+        carbG = parseFloat(record.quick_carbohydrate_g) || 0;
+        
+        // 快速记录直接累加，不需要计算比例
+        totalCalories += energyKcal;
+        totalProtein += proteinG;
+        totalFat += fatG;
+        totalCarbs += carbG;
+      } else if (record.food_id) {
         // 标准食物，从食物营养表获取数据
         const food = this.findFoodNutritionById(record.food_id);
         if (food) {
@@ -824,6 +836,14 @@ App({
           proteinG = food.protein_g;
           fatG = food.fat_g;
           carbG = food.carbohydrate_g;
+        }
+        
+        if (energyKcal && record.quantity_g) {
+          const ratio = record.quantity_g / 100;
+          totalCalories += energyKcal * ratio;
+          totalProtein += (proteinG || 0) * ratio;
+          totalFat += (fatG || 0) * ratio;
+          totalCarbs += (carbG || 0) * ratio;
         }
       } else if (record.custom_food_id) {
         // 自定义食物，从自定义食物表获取数据
@@ -834,14 +854,14 @@ App({
           fatG = customFood.fat_g;
           carbG = customFood.carbohydrate_g;
         }
-      }
-      
-      if (energyKcal && record.quantity_g) {
-        const ratio = record.quantity_g / 100;
-        totalCalories += energyKcal * ratio;
-        totalProtein += (proteinG || 0) * ratio;
-        totalFat += (fatG || 0) * ratio;
-        totalCarbs += (carbG || 0) * ratio;
+        
+        if (energyKcal && record.quantity_g) {
+          const ratio = record.quantity_g / 100;
+          totalCalories += energyKcal * ratio;
+          totalProtein += (proteinG || 0) * ratio;
+          totalFat += (fatG || 0) * ratio;
+          totalCarbs += (carbG || 0) * ratio;
+        }
       }
     });
     

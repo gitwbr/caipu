@@ -76,7 +76,18 @@ Page({
     if (record) {
       // 获取食物信息
       let food;
-      if (record.food_id) {
+      if (record.record_type === 'quick') {
+        // 快速记录
+        food = {
+          type: 'quick',
+          display_name: record.quick_food_name || '快速记录',
+          display_energy_kcal: parseFloat(record.quick_energy_kcal) || 0,
+          protein_g: parseFloat(record.quick_protein_g) || 0,
+          fat_g: parseFloat(record.quick_fat_g) || 0,
+          carbohydrate_g: parseFloat(record.quick_carbohydrate_g) || 0
+        };
+      } else if (record.food_id) {
+        // 标准食物
         food = app.findFoodNutritionById(record.food_id);
         if (food) {
           food.type = 'standard';
@@ -84,6 +95,7 @@ Page({
           food.display_energy_kcal = food.energy_kcal;
         }
       } else if (record.custom_food_id) {
+        // 自定义食物
         food = app.findCustomFoodById(record.custom_food_id);
         if (food) {
           food.type = 'custom';
@@ -94,15 +106,26 @@ Page({
 
       this.setData({
         food: food,
-        quantity: record.quantity_g.toString(),
+        quantity: record.record_type === 'quick' ? '0' : record.quantity_g.toString(),
         recordTime: record.record_time ? record.record_time.substring(0, 5) : record.record_time, // 不显示秒
         recordDate: record.record_date, // 添加记录日期
         notes: record.notes || '',
         loading: false
       });
       
-      // 计算营养值
-      this.calculateNutrition(record.quantity_g.toString());
+      // 计算营养值（快速记录不需要计算，直接使用记录的值）
+      if (record.record_type === 'quick') {
+        this.setData({
+          calculatedNutrition: {
+            calories: (parseFloat(record.quick_energy_kcal) || 0).toFixed(1),
+            protein: (parseFloat(record.quick_protein_g) || 0).toFixed(1),
+            fat: (parseFloat(record.quick_fat_g) || 0).toFixed(1),
+            carbohydrate: (parseFloat(record.quick_carbohydrate_g) || 0).toFixed(1)
+          }
+        });
+      } else {
+        this.calculateNutrition(record.quantity_g.toString());
+      }
     } else {
       wx.showToast({
         title: '记录不存在',
@@ -173,7 +196,8 @@ Page({
       return;
     }
 
-    if (!quantity || parseFloat(quantity) <= 0) {
+    // 快速记录不需要验证数量
+    if (food.type !== 'quick' && (!quantity || parseFloat(quantity) <= 0)) {
       wx.showToast({
         title: '请输入有效数量',
         icon: 'error'
@@ -184,17 +208,29 @@ Page({
     this.setData({ loading: true });
 
     const recordData = {
-      quantity_g: parseFloat(quantity),
       record_time: recordTime,
       notes: notes,
       record_date: recordDate // 使用传递过来的日期
     };
 
     // 根据食物类型设置不同的字段
-    if (food.type === 'standard') {
+    if (food.type === 'quick') {
+      // 快速记录
+      recordData.record_type = 'quick';
+      recordData.quick_food_name = food.display_name;
+      recordData.quick_energy_kcal = food.display_energy_kcal;
+      recordData.quick_protein_g = food.protein_g;
+      recordData.quick_fat_g = food.fat_g;
+      recordData.quick_carbohydrate_g = food.carbohydrate_g;
+      recordData.quantity_g = 0; // 快速记录数量为0
+    } else if (food.type === 'standard') {
+      // 标准食物
       recordData.food_id = food.id;
+      recordData.quantity_g = parseFloat(quantity);
     } else {
+      // 自定义食物
       recordData.custom_food_id = food.id;
+      recordData.quantity_g = parseFloat(quantity);
     }
 
     console.log('保存记录数据:', recordData);

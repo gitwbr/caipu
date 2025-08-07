@@ -218,25 +218,43 @@ Page({
     // 获取食物信息并格式化记录
     const formattedRecords = dailyRecords.map(record => {
       let foodInfo = null;
+      let calculatedCalories = '0.0';
       
-      if (record.food_id) {
+      if (record.record_type === 'quick') {
+        // 快速记录
+        foodInfo = {
+          food_name: record.quick_food_name || '快速记录',
+          energy_kcal: parseFloat(record.quick_energy_kcal) || 0,
+          protein_g: parseFloat(record.quick_protein_g) || 0,
+          fat_g: parseFloat(record.quick_fat_g) || 0,
+          carbohydrate_g: parseFloat(record.quick_carbohydrate_g) || 0
+        };
+        // 快速记录直接使用记录的热量，不需要计算
+        calculatedCalories = (parseFloat(record.quick_energy_kcal) || 0).toFixed(1);
+      } else if (record.food_id) {
         // 标准食物
         foodInfo = app.findFoodNutritionById(record.food_id);
+        if (foodInfo && record.quantity_g) {
+          calculatedCalories = ((foodInfo.energy_kcal * record.quantity_g / 100) || 0).toFixed(1);
+        }
       } else if (record.custom_food_id) {
         // 自定义食物
         foodInfo = app.findCustomFoodById(record.custom_food_id);
+        if (foodInfo && record.quantity_g) {
+          calculatedCalories = ((foodInfo.energy_kcal * record.quantity_g / 100) || 0).toFixed(1);
+        }
       }
-      
-      // 计算卡路里
-      const calculatedCalories = foodInfo && record.quantity_g 
-        ? ((foodInfo.energy_kcal * record.quantity_g / 100) || 0).toFixed(1)
-        : '0.0';
       
       return {
         ...record,
         food_name: foodInfo ? foodInfo.food_name : '未知食物',
         energy_kcal: foodInfo ? foodInfo.energy_kcal : 0,
-        calculated_calories: calculatedCalories
+        protein_g: foodInfo ? foodInfo.protein_g : 0,
+        fat_g: foodInfo ? foodInfo.fat_g : 0,
+        carbohydrate_g: foodInfo ? foodInfo.carbohydrate_g : 0,
+        calculated_calories: calculatedCalories,
+        record_type_display: record.record_type === 'quick' ? '快速记录' : 
+                            record.record_type === 'custom' ? '自定义' : '标准'
       };
     });
     
@@ -429,6 +447,13 @@ Page({
   addRecord() {
     wx.navigateTo({
       url: '/pages/record/add-record'
+    });
+  },
+
+  // 快速记录
+  quickRecord() {
+    wx.navigateTo({
+      url: '/pages/record/quick-record'
     });
   },
 

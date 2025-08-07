@@ -4,7 +4,7 @@
   <view class="food-info" wx:if="{{food}}">
     <view class="food-header">
       <text class="food-name">{{food.display_name}}</text>
-      <text class="food-type">{{food.type === 'standard' ? '标准' : '自定义'}}</text>
+      <text class="food-type">{{food.type === 'standard' ? '标准食物' : food.type === 'custom' ? '自定义食物' : '快速记录'}}</text>
     </view>
     <view class="food-nutrition">
       <view class="nutrition-item">
@@ -28,7 +28,7 @@
 
   <!-- 输入表单 -->
   <view class="form-section">
-    <view class="form-item">
+    <view class="form-item" wx:if="{{food.type !== 'quick'}}">
       <text class="form-label">摄入数量 (g)</text>
       <input 
         class="form-input" 
@@ -61,14 +61,14 @@
     </view>
   </view>
 
-  <!-- 计算结果 -->
-  <view class="calculation-section" wx:if="{{food && quantity && calculatedNutrition}}">
+     <!-- 计算结果 -->
+   <view class="calculation-section" wx:if="{{food && calculatedNutrition && (food.type === 'quick' || quantity)}}">
     <view class="calculation-title">计算结果</view>
     <view class="calculation-content">
-      <view class="calc-item">
-        <text class="calc-label">摄入量</text>
-        <text class="calc-value">{{quantity}}g</text>
-      </view>
+             <view class="calc-item">
+         <text class="calc-label">摄入量</text>
+         <text class="calc-value">{{food.type === 'quick' ? '快速记录' : quantity + 'g'}}</text>
+       </view>
       <view class="calc-item">
         <text class="calc-label">卡路里</text>
         <text class="calc-value">{{calculatedNutrition.calories}} kcal</text>
@@ -90,12 +90,12 @@
 
   <!-- 操作按钮 -->
   <view class="action-buttons">
-    <button 
-      class="save-btn" 
-      bindtap="saveRecord" 
-      loading="{{loading}}"
-      disabled="{{!food || !quantity}}"
-    >
+         <button 
+       class="save-btn" 
+       bindtap="saveRecord" 
+       loading="{{loading}}"
+       disabled="{{!food || (food.type !== 'quick' && !quantity)}}"
+     >
       {{isEdit ? '更新记录' : '保存记录'}}
     </button>
     
