@@ -224,9 +224,12 @@ Page({
             });
             this.loadCustomFoods();
           }).catch(err => {
-            wx.showToast({
+            // 显示详细的错误信息
+            const errorMessage = err.message || '删除失败';
+            wx.showModal({
               title: '删除失败',
-              icon: 'error'
+              content: errorMessage,
+              showCancel: false
             });
             console.error('删除自定义食物失败:', err);
           });

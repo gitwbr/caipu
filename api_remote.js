@@ -1744,7 +1744,16 @@ app.delete('/api/user-custom-foods/:id', async (req, res) => {
     res.json({ message: '删除成功' });
   } catch (error) {
     console.error('删除自定义食物出错:', error);
-    res.status(500).json({ error: '服务器内部错误', message: error.message });
+    
+    // 检查是否是外键约束错误（食物被饮食记录引用）
+    if (error.code === '23503' && error.constraint && error.constraint.includes('custom_food_id')) {
+      res.status(400).json({ 
+        error: '无法删除该自定义食物',
+        message: '该食物已在饮食记录中使用，请先删除相关的饮食记录后再删除此食物'
+      });
+    } else {
+      res.status(500).json({ error: '服务器内部错误', message: error.message });
+    }
   }
 });
 

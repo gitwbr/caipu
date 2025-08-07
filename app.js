@@ -1177,7 +1177,9 @@ App({
           if (res.statusCode === 200) {
             resolve();
           } else {
-            reject(new Error(res.data.error || '删除自定义食物失败'));
+            // 优先使用服务器返回的详细错误信息
+            const errorMessage = res.data.message || res.data.error || '删除自定义食物失败';
+            reject(new Error(errorMessage));
           }
         },
         fail: reject
