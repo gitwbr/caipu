@@ -424,6 +424,13 @@ Page({
       if (proteinMatch) {
         nutritionData.protein_g = parseFloat(proteinMatch[1]);
         console.log('解析到蛋白质:', nutritionData.protein_g, 'g');
+      } else {
+        // 尝试匹配包含百分比的格式：蛋白质 29.9克(g) 50%
+        const proteinMatch2 = text.match(/蛋白质[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)[^\d]*\d+%/);
+        if (proteinMatch2) {
+          nutritionData.protein_g = parseFloat(proteinMatch2[1]);
+          console.log('解析到蛋白质(含百分比):', nutritionData.protein_g, 'g');
+        }
       }
       
       // 解析脂肪
@@ -431,6 +438,13 @@ Page({
       if (fatMatch) {
         nutritionData.fat_g = parseFloat(fatMatch[1]);
         console.log('解析到脂肪:', nutritionData.fat_g, 'g');
+      } else {
+        // 尝试匹配包含百分比的格式：脂肪 5.2克(g) 百分比%
+        const fatMatch2 = text.match(/脂肪[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)[^\d]*\d+%/);
+        if (fatMatch2) {
+          nutritionData.fat_g = parseFloat(fatMatch2[1]);
+          console.log('解析到脂肪(含百分比):', nutritionData.fat_g, 'g');
+        }
       }
       
       // 解析碳水化合物
@@ -438,6 +452,13 @@ Page({
       if (carbMatch) {
         nutritionData.carbohydrate_g = parseFloat(carbMatch[1]);
         console.log('解析到碳水化合物:', nutritionData.carbohydrate_g, 'g');
+      } else {
+        // 尝试匹配包含百分比的格式：碳水化合物 9% 44.6克(g)
+        const carbMatch2 = text.match(/碳水化合物[^\d]*\d+%[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)/);
+        if (carbMatch2) {
+          nutritionData.carbohydrate_g = parseFloat(carbMatch2[1]);
+          console.log('解析到碳水化合物(含百分比):', nutritionData.carbohydrate_g, 'g');
+        }
       }
       
       // 解析钠
@@ -445,6 +466,13 @@ Page({
       if (naMatch) {
         nutritionData.na_mg = parseFloat(naMatch[1]);
         console.log('解析到钠:', nutritionData.na_mg, 'mg');
+      } else {
+        // 尝试匹配包含百分比的格式：钠 15% 1280毫克(mg)
+        const naMatch2 = text.match(/钠[^\d]*\d+%[^\d]*(\d+(?:\.\d+)?)\s*毫克\s*\(mg\)/);
+        if (naMatch2) {
+          nutritionData.na_mg = parseFloat(naMatch2[1]);
+          console.log('解析到钠(含百分比):', nutritionData.na_mg, 'mg');
+        }
       }
       
       // 检查是否至少解析到了能量数据
