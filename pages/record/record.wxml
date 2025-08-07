@@ -1,43 +1,66 @@
 <!--pages/record/record.wxml-->
 <view class="container">
-  <!-- 卡路里汇总卡片 -->
-  <view class="calorie-card" bindtap="onTapRecordArea">
-    <view class="card-header">
-      <text class="card-title">今日营养摄入</text>
-      <text class="card-subtitle">点击查看详情</text>
-    </view>
-    
-    <view class="calorie-summary">
-      <view class="summary-item">
-        <text class="summary-label">基础代谢</text>
-        <text class="summary-value">{{calorieBudget}} kcal</text>
+  <view class="cards-container">
+    <!-- 饮食运动记录卡片 -->
+    <view class="card diet-exercise-card" bindtap="onTapRecordArea">
+      <view class="card-header">
+        <text class="card-title">饮食运动记录</text>
+        <text class="card-status">今日未记录</text>
       </view>
-      <view class="summary-item">
-        <text class="summary-label">已摄入</text>
-        <text class="summary-value consumed">{{consumedCalories}} kcal</text>
+      
+      <view class="calorie-summary">
+        <view class="remaining-calories">
+          <text class="remaining-value">{{remainingCalories}}</text>
+          <text class="remaining-label">还可摄入(千卡)</text>
+        </view>
+        <view class="intake-boxes">
+          <view class="intake-box diet">
+            <text class="intake-value">{{consumedCalories}}</text>
+            <text class="intake-label">饮食</text>
+          </view>
+          <view class="intake-box exercise">
+            <text class="intake-value">{{exerciseCalories}}</text>
+            <text class="intake-label">运动</text>
+          </view>
+        </view>
       </view>
-      <view class="summary-item highlight">
-        <text class="summary-label">还可摄入</text>
-        <text class="summary-value remaining">{{remainingCalories}} kcal</text>
+      
+      <view class="record-buttons">
+        <view class="record-btn diet-btn" bindtap="addRecord" catchtap="addRecord">
+          <view class="btn-icon">🍽️</view>
+          <text class="btn-text">记录饮食</text>
+        </view>
+        <view class="record-btn exercise-btn" bindtap="addExercise" catchtap="addExercise">
+          <view class="btn-icon">🏃</view>
+          <text class="btn-text">记录运动</text>
+        </view>
       </view>
+      
+      <view class="card-arrow">></view>
     </view>
-    
-    <view class="card-footer">
-      <text class="footer-text">📊 点击查看详细记录</text>
-    </view>
-  </view>
 
-  <!-- 添加记录按钮 -->
-  <view class="add-record-section">
-    <view class="add-buttons">
-      <button class="add-record-btn" bindtap="addRecord">
-        <text class="add-icon">+</text>
-        <text class="add-text">添加记录</text>
-      </button>
-      <button class="add-record-btn secondary" bindtap="quickRecord">
-        <text class="add-icon">⚡</text>
-        <text class="add-text">快速记录</text>
-      </button>
+    <!-- 体重进度卡片 -->
+    <view class="card weight-card">
+      <view class="weight-header">
+        <text class="weight-title">体重进度</text>
+      </view>
+      <view class="weight-content">
+        <view class="weight-item">
+          <text class="weight-label">初始</text>
+          <text class="weight-value">{{initialWeight}} kg</text>
+        </view>
+        <view class="weight-center">
+          <view class="weight-progress">
+            <text class="progress-label">已减去(公斤)</text>
+            <text class="progress-value">{{weightLost}} kg</text>
+          </view>
+          <text class="view-plan">查看方案></text>
+        </view>
+        <view class="weight-item">
+          <text class="weight-label">目标</text>
+          <text class="weight-value">{{targetWeight}} kg</text>
+        </view>
+      </view>
     </view>
   </view>
 

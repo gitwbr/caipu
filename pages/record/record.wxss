@@ -1,23 +1,124 @@
 /* pages/record/record.wxss */
 .container {
   padding: 20rpx;
-  background-color: #f5f5f5;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
-/* 卡路里汇总卡片 */
-.calorie-card {
-  background: white;
+/* 卡片容器 */
+.cards-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+/* 统一卡片样式 */
+.card {
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 20rpx;
-  padding: 40rpx;
+  padding: 30rpx;
+  margin-bottom: 12rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(10rpx);
+  width: 100%;
+  box-sizing: border-box;
+  border: 1rpx solid rgba(255, 255, 255, 0.3);
+}
+
+/* 体重进度卡片 */
+.weight-card {
+  position: relative;
+}
+
+.weight-header {
   margin-bottom: 30rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.weight-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #495057;
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.weight-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.weight-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.weight-label {
+  font-size: 26rpx;
+  color: #868e96;
+  margin-bottom: 12rpx;
+  font-weight: 500;
+}
+
+.weight-value {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #495057;
+}
+
+.weight-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 2;
+}
+
+.weight-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.progress-label {
+  font-size: 24rpx;
+  color: #868e96;
+  margin-bottom: 8rpx;
+  font-weight: 500;
+}
+
+.progress-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  background: linear-gradient(135deg, #74c0fc 0%, #4dabf7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.view-plan {
+  font-size: 26rpx;
+  color: #74c0fc;
+  font-weight: 500;
+}
+
+/* 饮食运动记录卡片 */
+.diet-exercise-card {
+  position: relative;
   transition: all 0.3s ease;
 }
 
-.calorie-card:active {
+.diet-exercise-card:active {
   transform: scale(0.98);
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.08);
 }
 
 .card-header {
@@ -30,133 +131,152 @@
 .card-title {
   font-size: 36rpx;
   font-weight: 600;
-  color: #333;
+  color: #495057;
 }
 
-.card-subtitle {
-  font-size: 24rpx;
-  color: #999;
+.card-status {
+  font-size: 26rpx;
+  color: #fa5252;
+  font-weight: 500;
+  background: rgba(250, 82, 82, 0.08);
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
 }
 
 .calorie-summary {
-  margin-bottom: 30rpx;
-}
-
-.summary-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20rpx;
-  padding: 15rpx 0;
+  margin-bottom: 40rpx;
 }
 
-.summary-item:last-child {
-  margin-bottom: 0;
+.remaining-calories {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-.summary-item.highlight {
-  background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
-  border-radius: 12rpx;
-  padding: 20rpx;
-  margin: 0 -20rpx;
+.remaining-value {
+  font-size: 64rpx;
+  font-weight: 700;
+  background: linear-gradient(135deg, #74c0fc 0%, #4dabf7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
 }
 
-.summary-label {
-  font-size: 28rpx;
-  color: #666;
-}
-
-.summary-item.highlight .summary-label {
-  color: white;
+.remaining-label {
+  font-size: 26rpx;
+  color: #868e96;
+  margin-top: 12rpx;
   font-weight: 500;
 }
 
-.summary-value {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #333;
-}
-
-.summary-value.consumed {
-  color: #ff6b6b;
-}
-
-.summary-value.remaining {
-  color: #4ecdc4;
-}
-
-.summary-item.highlight .summary-value {
-  color: white;
-  font-size: 36rpx;
-}
-
-.card-footer {
-  text-align: center;
-  padding-top: 20rpx;
-  border-top: 1rpx solid #f0f0f0;
-}
-
-.footer-text {
-  font-size: 26rpx;
-  color: #999;
-}
-
-/* 添加记录按钮 */
-.add-record-section {
-  margin-bottom: 20rpx;
-}
-
-.add-buttons {
+.intake-boxes {
   display: flex;
   gap: 20rpx;
 }
 
-.add-record-btn {
-  flex: 1;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 16rpx;
-  padding: 30rpx;
+.intake-box {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  min-width: 100rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.intake-box.diet {
+  background: linear-gradient(135deg, #69db7c 0%, #51cf66 100%);
+}
+
+.intake-box.exercise {
+  background: linear-gradient(135deg, #ffd43b 0%, #fcc419 100%);
+}
+
+.intake-value {
   font-size: 32rpx;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 8rpx;
+}
+
+.intake-label {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.9);
   font-weight: 500;
-  box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
+}
+
+/* 记录按钮区域 */
+.record-buttons {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.record-btn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16rpx;
+  padding: 24rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  border: 1rpx solid rgba(255, 255, 255, 0.5);
 }
 
-.add-record-btn.secondary {
-  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-  box-shadow: 0 4rpx 12rpx rgba(255, 154, 158, 0.3);
+.record-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3rpx;
+  background: linear-gradient(90deg, #69db7c, #51cf66);
 }
 
-.add-record-btn:active {
-  transform: scale(0.98);
-  box-shadow: 0 2rpx 8rpx rgba(102, 126, 234, 0.4);
+.record-btn.exercise-btn::before {
+  background: linear-gradient(90deg, #ffd43b, #fcc419);
 }
 
-.add-record-btn.secondary:active {
-  box-shadow: 0 2rpx 8rpx rgba(255, 154, 158, 0.4);
+.record-btn:active {
+  transform: scale(0.96);
+  box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.08);
 }
 
-.add-icon {
-  font-size: 36rpx;
-  margin-right: 10rpx;
+.btn-icon {
+  font-size: 40rpx;
+  margin-bottom: 12rpx;
 }
 
-.add-text {
-  font-size: 32rpx;
+.btn-text {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #495057;
+}
+
+.card-arrow {
+  position: absolute;
+  bottom: 30rpx;
+  right: 30rpx;
+  font-size: 28rpx;
+  color: #adb5bd;
+  font-weight: 300;
 }
 
 /* 加载状态 */
 .loading-state {
   text-align: center;
-  padding: 40rpx;
+  padding: 60rpx;
 }
 
 .loading-text {
-  font-size: 28rpx;
-  color: #999;
+  font-size: 30rpx;
+  color: #868e96;
+  font-weight: 500;
 }

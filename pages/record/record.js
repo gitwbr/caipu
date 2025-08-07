@@ -4,8 +4,13 @@ const app = getApp();
 Page({
   data: {
     selectedDate: '',
-    calorieBudget: 0,
+    // 体重相关数据
+    initialWeight: 89.6,
+    targetWeight: 70.0,
+    weightLost: 0.0,
+    // 卡路里相关数据
     consumedCalories: 0,
+    exerciseCalories: 0,
     remainingCalories: 0,
     loading: false
   },
@@ -80,13 +85,16 @@ Page({
     const consumedCalories = parseFloat(summary.total_calories || 0);
     const consumedCaloriesFormatted = parseFloat(consumedCalories.toFixed(2));
     
+    // 运动卡路里暂时设为0
+    const exerciseCalories = 0;
+    
     // 计算剩余卡路里，保留2位小数
-    const remainingCalories = Math.max(0, bmr - consumedCaloriesFormatted);
+    const remainingCalories = Math.max(0, bmr - consumedCaloriesFormatted + exerciseCalories);
     const remainingCaloriesFormatted = parseFloat(remainingCalories.toFixed(2));
     
     this.setData({
-      calorieBudget: bmr,
       consumedCalories: consumedCaloriesFormatted,
+      exerciseCalories: exerciseCalories,
       remainingCalories: remainingCaloriesFormatted,
       loading: false
     });
@@ -101,17 +109,22 @@ Page({
     });
   },
 
-  // 添加记录
+  // 记录饮食
   addRecord() {
     wx.navigateTo({
       url: '/pages/record/add-record'
     });
   },
 
-  // 快速记录
-  quickRecord() {
-    wx.navigateTo({
-      url: '/pages/record/quick-record'
+  // 记录运动
+  addExercise() {
+    wx.showToast({
+      title: '运动记录功能开发中',
+      icon: 'none'
     });
+    // TODO: 实现运动记录功能
+    // wx.navigateTo({
+    //   url: '/pages/record/add-exercise'
+    // });
   }
 });
