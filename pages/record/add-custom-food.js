@@ -11,6 +11,11 @@ Page({
     energy_units: ['kcal', 'kJ'],
     energy_unit_index: 0, // 默认选择kcal
     
+    // 图片相关
+    imagePath: '',
+    imageUrl: '',
+    showImagePreview: false,
+    
     // 宏量营养素
     protein_g: '',
     fat_g: '',
@@ -108,7 +113,9 @@ Page({
       ca_mg: (food.ca_mg || 0).toString(),
       fe_mg: (food.fe_mg || 0).toString(),
       vitamin_c_mg: (food.vitamin_c_mg || 0).toString(),
-      cholesterol_mg: (food.cholesterol_mg || 0).toString()
+      cholesterol_mg: (food.cholesterol_mg || 0).toString(),
+      imageUrl: food.image_url || '',
+      showImagePreview: food.image_url ? true : false
     });
     
     console.log('设置后的food_id:', this.data.food_id);
@@ -133,6 +140,129 @@ Page({
       energy_unit_index: index
     });
     console.log('选择能量单位:', this.data.energy_units[index]);
+  },
+
+  // 拍照
+  takePhoto() {
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['camera'],
+      success: (res) => {
+        const tempFilePath = res.tempFiles[0].tempFilePath;
+        this.setData({
+          imagePath: tempFilePath,
+          showImagePreview: true
+        });
+      },
+      fail: (error) => {
+        console.error('拍照失败:', error);
+        wx.showToast({
+          title: '拍照失败',
+          icon: 'none'
+        });
+      }
+    });
+  },
+
+  // 选择图片
+  chooseImage() {
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album'],
+      success: (res) => {
+        const tempFilePath = res.tempFiles[0].tempFilePath;
+        this.setData({
+          imagePath: tempFilePath,
+          showImagePreview: true
+        });
+      },
+      fail: (error) => {
+        console.error('选择图片失败:', error);
+        wx.showToast({
+          title: '选择图片失败',
+          icon: 'none'
+        });
+      }
+    });
+  },
+
+  // 预览图片
+  previewImage() {
+    if (this.data.imagePath) {
+      wx.previewImage({
+        urls: [this.data.imagePath]
+      });
+    } else if (this.data.imageUrl) {
+      wx.previewImage({
+        urls: [this.data.imageUrl]
+      });
+    }
+  },
+
+  // 删除图片
+  removeImage() {
+    this.setData({
+      imagePath: '',
+      imageUrl: '',
+      showImagePreview: false
+    });
+  },
+
+  // 上传图片到服务器
+  uploadImage(filePath) {
+    return new Promise((resolve, reject) => {
+      console.log('=== 开始上传图片 ===');
+      console.log('图片路径:', filePath);
+      
+      const app = getApp();
+      
+      // 检查登录状态
+      if (!app.globalData.isLoggedIn || !app.globalData.token) {
+        reject(new Error('请先登录'));
+        return;
+      }
+      
+      // 显示上传中提示
+      wx.showLoading({
+        title: '上传图片中...',
+        mask: true
+      });
+      
+      // 上传图片到服务器
+      wx.uploadFile({
+        url: `${app.globalData.serverUrl}/api/upload-image`,
+        filePath: filePath,
+        name: 'image',
+        formData: {
+          userId: app.globalData.userId || app.globalData.userInfo?.id
+        },
+        header: {
+          'Authorization': `Bearer ${app.globalData.token}`
+        },
+        success: (res) => {
+          console.log('上传成功:', res);
+          wx.hideLoading();
+          
+          try {
+            const data = JSON.parse(res.data);
+            if (data.success && data.imageUrl) {
+              resolve(data.imageUrl);
+            } else {
+              reject(new Error(data.error || '上传失败'));
+            }
+          } catch (error) {
+            reject(new Error('解析响应失败'));
+          }
+        },
+        fail: (err) => {
+          console.error('上传失败:', err);
+          wx.hideLoading();
+          reject(new Error('网络错误'));
+        }
+      });
+    });
   },
 
   // 验证表单
@@ -218,7 +348,7 @@ Page({
   },
 
   // 保存自定义食物
-  saveCustomFood(formData) {
+  async saveCustomFood(formData) {
     console.log('=== 保存自定义食物 ===');
     console.log('保存的数据:', formData);
     
@@ -235,59 +365,81 @@ Page({
       return;
     }
     
-    // 调用API保存数据
-    wx.request({
-      url: `${app.globalData.serverUrl}/api/user-custom-foods`,
-      method: 'POST',
-      header: {
-        'Authorization': `Bearer ${app.globalData.token}`,
-        'Content-Type': 'application/json'
-      },
-      data: formData,
-      success: (res) => {
-        console.log('API响应:', res);
-        
-        if (res.statusCode === 200) {
-          // 保存成功后，同时更新本地数据
-          const newCustomFood = res.data.custom_food;
-          const localFoods = [...app.globalData.customFoods, newCustomFood];
-          app.globalData.customFoods = localFoods;
-          app.saveCustomFoodsToLocal(localFoods);
-          
-          wx.showToast({
-            title: '添加成功',
-            icon: 'success'
-          });
-          
-          // 返回上一页
-          setTimeout(() => {
-            wx.navigateBack();
-          }, 1500);
-        } else {
-          console.error('API错误:', res.data);
-          wx.showModal({
-            title: '添加失败',
-            content: res.data.error || '网络错误，请重试',
-            showCancel: false
-          });
-        }
-      },
-      fail: (error) => {
-        console.error('请求失败:', error);
-        wx.showModal({
-          title: '网络错误',
-          content: '请检查网络连接后重试',
-          showCancel: false
-        });
-      },
-      complete: () => {
-        this.setData({ submitting: false });
+    try {
+      // 如果有新图片，先上传图片
+      if (this.data.imagePath) {
+        const imageUrl = await this.uploadImage(this.data.imagePath);
+        formData.image_url = imageUrl;
       }
-    });
+      
+            // 调用API保存数据
+      return new Promise((resolve, reject) => {
+        wx.request({
+          url: `${app.globalData.serverUrl}/api/user-custom-foods`,
+          method: 'POST',
+          header: {
+            'Authorization': `Bearer ${app.globalData.token}`,
+            'Content-Type': 'application/json'
+          },
+          data: formData,
+          success: (res) => {
+            console.log('API响应:', res);
+            
+            if (res.statusCode === 200) {
+              // 保存成功后，同时更新本地数据
+              const newCustomFood = res.data.custom_food;
+              const localFoods = [...app.globalData.customFoods, newCustomFood];
+              app.globalData.customFoods = localFoods;
+              app.saveCustomFoodsToLocal(localFoods);
+              
+              wx.showToast({
+                title: '添加成功',
+                icon: 'success'
+              });
+              
+              // 返回上一页
+              setTimeout(() => {
+                wx.navigateBack();
+              }, 1500);
+              
+              resolve(res.data);
+            } else {
+              console.error('API错误:', res.data);
+              wx.showModal({
+                title: '添加失败',
+                content: res.data.error || '网络错误，请重试',
+                showCancel: false
+              });
+              reject(new Error(res.data.error || '添加失败'));
+            }
+          },
+          fail: (error) => {
+            console.error('请求失败:', error);
+            wx.showModal({
+              title: '网络错误',
+              content: '请检查网络连接后重试',
+              showCancel: false
+            });
+            reject(error);
+          },
+          complete: () => {
+            this.setData({ submitting: false });
+          }
+        });
+      });
+    } catch (error) {
+      console.error('保存自定义食物失败:', error);
+      this.setData({ submitting: false });
+      wx.showModal({
+        title: '保存失败',
+        content: error.message || '网络错误，请重试',
+        showCancel: false
+      });
+    }
   },
 
   // 更新自定义食物
-  updateCustomFood(formData) {
+  async updateCustomFood(formData) {
     console.log('=== 更新自定义食物 ===');
     console.log('更新的数据:', formData);
     console.log('当前food_id:', this.data.food_id);
@@ -316,57 +468,79 @@ Page({
       return;
     }
     
-    // 调用API更新数据
-    wx.request({
-      url: `${app.globalData.serverUrl}/api/user-custom-foods/${this.data.food_id}`,
-      method: 'PUT',
-      header: {
-        'Authorization': `Bearer ${app.globalData.token}`,
-        'Content-Type': 'application/json'
-      },
-      data: formData,
-      success: (res) => {
-        console.log('API响应:', res);
-        
-        if (res.statusCode === 200) {
-          // 更新成功后，同时更新本地数据
-          const updatedCustomFood = res.data.custom_food;
-          const localFoods = app.globalData.customFoods.map(food => 
-            food.id === this.data.food_id ? updatedCustomFood : food
-          );
-          app.globalData.customFoods = localFoods;
-          app.saveCustomFoodsToLocal(localFoods);
-          
-          wx.showToast({
-            title: '更新成功',
-            icon: 'success'
-          });
-          
-          // 返回上一页
-          setTimeout(() => {
-            wx.navigateBack();
-          }, 1500);
-        } else {
-          console.error('API错误:', res.data);
-          wx.showModal({
-            title: '更新失败',
-            content: res.data.error || '网络错误，请重试',
-            showCancel: false
-          });
-        }
-      },
-      fail: (error) => {
-        console.error('请求失败:', error);
-        wx.showModal({
-          title: '网络错误',
-          content: '请检查网络连接后重试',
-          showCancel: false
-        });
-      },
-      complete: () => {
-        this.setData({ submitting: false });
+    try {
+      // 如果有新图片，先上传图片
+      if (this.data.imagePath) {
+        const imageUrl = await this.uploadImage(this.data.imagePath);
+        formData.image_url = imageUrl;
       }
-    });
+      
+      // 调用API更新数据
+      return new Promise((resolve, reject) => {
+        wx.request({
+          url: `${app.globalData.serverUrl}/api/user-custom-foods/${this.data.food_id}`,
+          method: 'PUT',
+          header: {
+            'Authorization': `Bearer ${app.globalData.token}`,
+            'Content-Type': 'application/json'
+          },
+          data: formData,
+          success: (res) => {
+            console.log('API响应:', res);
+            
+            if (res.statusCode === 200) {
+              // 更新成功后，同时更新本地数据
+              const updatedCustomFood = res.data.custom_food;
+              const localFoods = app.globalData.customFoods.map(food => 
+                food.id === this.data.food_id ? updatedCustomFood : food
+              );
+              app.globalData.customFoods = localFoods;
+              app.saveCustomFoodsToLocal(localFoods);
+              
+              wx.showToast({
+                title: '更新成功',
+                icon: 'success'
+              });
+              
+              // 返回上一页
+              setTimeout(() => {
+                wx.navigateBack();
+              }, 1500);
+              
+              resolve(res.data);
+            } else {
+              console.error('API错误:', res.data);
+              wx.showModal({
+                title: '更新失败',
+                content: res.data.error || '网络错误，请重试',
+                showCancel: false
+              });
+              reject(new Error(res.data.error || '更新失败'));
+            }
+          },
+          fail: (error) => {
+            console.error('请求失败:', error);
+            wx.showModal({
+              title: '网络错误',
+              content: '请检查网络连接后重试',
+              showCancel: false
+            });
+            reject(error);
+          },
+          complete: () => {
+            this.setData({ submitting: false });
+          }
+        });
+      });
+    } catch (error) {
+      console.error('更新自定义食物失败:', error);
+      this.setData({ submitting: false });
+      wx.showModal({
+        title: '更新失败',
+        content: error.message || '网络错误，请重试',
+        showCancel: false
+      });
+    }
   },
 
   // 清空表单
@@ -394,7 +568,10 @@ Page({
             ca_mg: '',
             fe_mg: '',
             vitamin_c_mg: '',
-            cholesterol_mg: ''
+            cholesterol_mg: '',
+            imagePath: '',
+            imageUrl: '',
+            showImagePreview: false
           });
           
           wx.showToast({

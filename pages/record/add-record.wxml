@@ -93,6 +93,13 @@
         bindtap="selectFood" 
         data-food="{{item}}"
       >
+        <view class="food-image" wx:if="{{item.image_url}}">
+          <image 
+            class="food-thumbnail" 
+            src="{{item.image_url}}" 
+            mode="aspectFill"
+          />
+        </view>
         <view class="food-info">
           <text class="food-name">{{item.food_name}}</text>
           <text class="food-type">自定义</text>

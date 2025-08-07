@@ -1291,20 +1291,82 @@ app.delete('/api/diet-records/:id', async (req, res) => {
     const { id } = req.params;
     
     const client = await pool.connect();
-    const query = `
+    
+    // 先查询记录信息，包括图片URL
+    const selectQuery = `
+      SELECT id, record_type, quick_image_url
+      FROM diet_records
+      WHERE id = $1 AND user_id = $2
+    `;
+    
+    const selectResult = await client.query(selectQuery, [id, payload.userId]);
+    
+    if (selectResult.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error: '记录不存在或无权限删除' });
+    }
+    
+    const record = selectResult.rows[0];
+    console.log('=== 删除饮食记录调试 ===');
+    console.log('记录信息:', record);
+    console.log('记录类型:', record.record_type);
+    console.log('图片URL:', record.quick_image_url);
+    
+    let imagePath = null;
+    
+    // 如果是快速记录且有图片，提取图片路径
+    if (record.record_type === 'quick' && record.quick_image_url) {
+      console.log('检测到快速记录且有图片URL');
+      try {
+        // 从URL中提取相对路径
+        // URL格式: http://server:port/uploads/userId/filename
+        const urlParts = record.quick_image_url.split('/uploads/');
+        console.log('URL分割结果:', urlParts);
+        if (urlParts.length > 1) {
+          imagePath = path.join(UPLOAD_DIR, urlParts[1]);
+          console.log('解析出的图片路径:', imagePath);
+        } else {
+          console.log('URL格式不正确，无法提取图片路径');
+        }
+      } catch (error) {
+        console.error('解析图片路径失败:', error);
+      }
+    } else {
+      console.log('不是快速记录或没有图片URL');
+    }
+    
+    // 删除数据库记录
+    const deleteQuery = `
       DELETE FROM diet_records
       WHERE id = $1 AND user_id = $2
       RETURNING id;
     `;
     
-    const result = await client.query(query, [id, payload.userId]);
+    const deleteResult = await client.query(deleteQuery, [id, payload.userId]);
     client.release();
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '记录不存在或无权限删除' });
+    // 删除对应的图片文件
+    console.log('准备删除图片文件，imagePath:', imagePath);
+    if (imagePath && fs.existsSync(imagePath)) {
+      console.log('图片文件存在，开始删除');
+      try {
+        fs.unlinkSync(imagePath);
+        console.log('删除图片文件成功:', imagePath);
+      } catch (error) {
+        console.error('删除图片文件失败:', error);
+        // 图片删除失败不影响记录删除的成功
+      }
+    } else {
+      console.log('图片文件不存在或路径为空，跳过删除');
+      if (imagePath) {
+        console.log('文件不存在路径:', imagePath);
+      }
     }
     
-    res.json({ message: '删除成功' });
+    res.json({ 
+      message: '删除成功',
+      imageDeleted: !!imagePath
+    });
   } catch (error) {
     console.error('删除饮食记录出错:', error);
     res.status(500).json({ error: '服务器内部错误', message: error.message });
@@ -1312,6 +1374,7 @@ app.delete('/api/diet-records/:id', async (req, res) => {
 });
 
 // GET /api/daily-calorie-summary 获取每日卡路里汇总接口
+//------------------弃用
 app.get('/api/daily-calorie-summary', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -1375,7 +1438,7 @@ app.get('/api/user-custom-foods', async (req, res) => {
     const query = `
       SELECT id, food_name, energy_kcal, protein_g, fat_g, carbohydrate_g, fiber_g,
              moisture_g, vitamin_a_ug, vitamin_b1_mg, vitamin_b2_mg, vitamin_b3_mg, vitamin_e_mg,
-             na_mg, ca_mg, fe_mg, vitamin_c_mg, cholesterol_mg, created_at, updated_at
+             na_mg, ca_mg, fe_mg, vitamin_c_mg, cholesterol_mg, image_url, created_at, updated_at
       FROM user_custom_foods
       WHERE user_id = $1
       ORDER BY updated_at DESC
@@ -1422,7 +1485,8 @@ app.post('/api/user-custom-foods', async (req, res) => {
       ca_mg,
       fe_mg,
       vitamin_c_mg,
-      cholesterol_mg
+      cholesterol_mg,
+      image_url
     } = req.body;
     
     if (!food_name || !energy_kcal) {
@@ -1434,9 +1498,9 @@ app.post('/api/user-custom-foods', async (req, res) => {
       INSERT INTO user_custom_foods (
         user_id, food_name, energy_kcal, protein_g, fat_g, carbohydrate_g, fiber_g,
         moisture_g, vitamin_a_ug, vitamin_b1_mg, vitamin_b2_mg, vitamin_b3_mg, vitamin_e_mg,
-        na_mg, ca_mg, fe_mg, vitamin_c_mg, cholesterol_mg
+        na_mg, ca_mg, fe_mg, vitamin_c_mg, cholesterol_mg, image_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
       RETURNING *;
     `;
     
@@ -1458,7 +1522,8 @@ app.post('/api/user-custom-foods', async (req, res) => {
       ca_mg || 0,
       fe_mg || 0,
       vitamin_c_mg || 0,
-      cholesterol_mg || 0
+      cholesterol_mg || 0,
+      image_url || null
     ]);
     client.release();
     
@@ -1505,7 +1570,8 @@ app.put('/api/user-custom-foods/:id', async (req, res) => {
       ca_mg,
       fe_mg,
       vitamin_c_mg,
-      cholesterol_mg
+      cholesterol_mg,
+      image_url
     } = req.body;
     
     if (!food_name || !energy_kcal) {
@@ -1517,15 +1583,15 @@ app.put('/api/user-custom-foods/:id', async (req, res) => {
       UPDATE user_custom_foods
       SET food_name = $1, energy_kcal = $2, protein_g = $3, fat_g = $4, carbohydrate_g = $5, fiber_g = $6,
           moisture_g = $7, vitamin_a_ug = $8, vitamin_b1_mg = $9, vitamin_b2_mg = $10, vitamin_b3_mg = $11, vitamin_e_mg = $12,
-          na_mg = $13, ca_mg = $14, fe_mg = $15, vitamin_c_mg = $16, cholesterol_mg = $17, updated_at = NOW()
-      WHERE id = $18 AND user_id = $19
+          na_mg = $13, ca_mg = $14, fe_mg = $15, vitamin_c_mg = $16, cholesterol_mg = $17, image_url = $18, updated_at = NOW()
+      WHERE id = $19 AND user_id = $20
       RETURNING *;
     `;
     
     const result = await client.query(query, [
       food_name, energy_kcal, protein_g || 0, fat_g || 0, carbohydrate_g || 0, fiber_g || 0,
       moisture_g || 0, vitamin_a_ug || 0, vitamin_b1_mg || 0, vitamin_b2_mg || 0, vitamin_b3_mg || 0, vitamin_e_mg || 0,
-      na_mg || 0, ca_mg || 0, fe_mg || 0, vitamin_c_mg || 0, cholesterol_mg || 0, id, payload.userId
+      na_mg || 0, ca_mg || 0, fe_mg || 0, vitamin_c_mg || 0, cholesterol_mg || 0, image_url || null, id, payload.userId
     ]);
     client.release();
     
@@ -1561,17 +1627,48 @@ app.delete('/api/user-custom-foods/:id', async (req, res) => {
     const { id } = req.params;
     
     const client = await pool.connect();
-    const query = `
+    
+    // 先查询要删除的食物信息，包括图片URL
+    const selectQuery = `
+      SELECT image_url FROM user_custom_foods
+      WHERE id = $1 AND user_id = $2
+    `;
+    
+    const selectResult = await client.query(selectQuery, [id, payload.userId]);
+    
+    if (selectResult.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error: '自定义食物不存在或无权限删除' });
+    }
+    
+    const food = selectResult.rows[0];
+    
+    // 删除数据库记录
+    const deleteQuery = `
       DELETE FROM user_custom_foods
       WHERE id = $1 AND user_id = $2
       RETURNING id;
     `;
     
-    const result = await client.query(query, [id, payload.userId]);
+    const result = await client.query(deleteQuery, [id, payload.userId]);
     client.release();
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '自定义食物不存在或无权限删除' });
+    // 如果有图片URL，删除对应的图片文件
+    if (food.image_url) {
+      try {
+        // 从URL中提取文件路径
+        const urlPath = food.image_url.replace(UPLOAD_URL_PREFIX, '');
+        const filePath = path.join(UPLOAD_DIR, urlPath);
+        
+        // 检查文件是否存在并删除
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log('删除图片文件:', filePath);
+        }
+      } catch (fileError) {
+        console.error('删除图片文件失败:', fileError);
+        // 图片删除失败不影响数据库删除的成功
+      }
     }
     
     res.json({ message: '删除成功' });

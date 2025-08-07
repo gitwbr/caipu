@@ -178,6 +178,23 @@
 /* 自定义食物操作 */
 .custom-food-item {
   position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.food-image {
+  width: 80rpx;
+  height: 80rpx;
+  margin-right: 20rpx;
+  border-radius: 8rpx;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.food-thumbnail {
+  width: 100%;
+  height: 100%;
+  background-color: #f0f0f0;
 }
 
 .food-actions {
