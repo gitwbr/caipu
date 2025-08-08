@@ -74,6 +74,22 @@ const upload = multer({
   }
 });
 
+// 专门用于OCR的内存存储配置（不保存文件到磁盘）
+const ocrUpload = multer({
+  storage: multer.memoryStorage(), // 使用内存存储，不保存文件
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 限制10MB
+  },
+  fileFilter: (req, file, cb) => {
+    // 只允许图片文件
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('只允许上传图片文件'), false);
+    }
+  }
+});
+
 // 百度OCR配置
 const BAIDU_OCR_CONFIG = {
   API_KEY: process.env.BAIDU_OCR_API_KEY,
@@ -1794,7 +1810,7 @@ async function getBaiduAccessToken() {
 }
 
 // POST /api/baidu-ocr/upload 百度OCR图片识别
-app.post('/api/baidu-ocr/upload', upload.single('image'), async (req, res) => {
+app.post('/api/baidu-ocr/upload', ocrUpload.single('image'), async (req, res) => {
   try {
     console.log('=== 百度OCR图片识别API调试 ===');
     
@@ -1827,7 +1843,7 @@ app.post('/api/baidu-ocr/upload', upload.single('image'), async (req, res) => {
     // 获取访问令牌
     const accessToken = await getBaiduAccessToken();
     
-    // 将图片转为base64
+    // 将图片转为base64（不保存文件）
     const imageBase64 = req.file.buffer.toString('base64');
     
     // 调用百度OCR API（高精度版）
@@ -1898,22 +1914,15 @@ app.post('/api/baidu-ocr/upload', upload.single('image'), async (req, res) => {
       avg_confidence: result.statistics.avg_confidence.toFixed(3)
     });
     
+    // 注意：这里不保存图片文件，直接返回识别结果
     res.json(result);
     
   } catch (error) {
-    console.error('百度OCR识别出错:', error);
-    
-    if (error.response) {
-      // API返回的错误
-      res.status(error.response.status).json({
-        error: '百度OCR识别失败',
-        message: error.response.data?.error_msg || error.response.data?.message || 'API调用失败'
-      });
-    } else if (error.code === 'ECONNABORTED') {
-      res.status(408).json({ error: '请求超时，请稍后重试' });
-    } else {
-      res.status(500).json({ error: '服务器内部错误', message: error.message });
-    }
+    console.error('百度OCR识别失败:', error);
+    res.status(500).json({
+      error: 'OCR识别失败',
+      message: error.message
+    });
   }
 });
 

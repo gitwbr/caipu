@@ -318,9 +318,9 @@ Page({
     });
   },
 
-  // 上传图片到服务器
+  // 直接OCR识别图片（不保存到服务器）
   uploadImage(filePath) {
-    console.log('=== 开始上传图片 ===');
+    console.log('=== 开始OCR识别图片 ===');
     console.log('图片路径:', filePath);
     
     // 检查登录状态
@@ -333,34 +333,37 @@ Page({
       return;
     }
     
-    // 显示上传中提示
+    // 显示识别中提示
     wx.showLoading({
       title: '识别中...',
       mask: true
     });
     
-    // 上传图片到服务器
+    // 直接上传图片进行OCR识别（不保存到服务器）
     wx.uploadFile({
-      url: `${app.globalData.serverUrl}/api/baidu-ocr/upload`, // 新的OCR端点
+      url: `${app.globalData.serverUrl}/api/baidu-ocr/upload`, // OCR识别端点
       filePath: filePath,
       name: 'image',
+      formData: {
+        userId: app.globalData.userInfo.id // 添加用户ID
+      },
       header: {
         'Authorization': `Bearer ${app.globalData.token}` // 添加认证头
       },
       success: (res) => {
-        console.log('上传成功:', res);
+        console.log('OCR识别成功:', res);
         this.handleUploadResult(res);
       },
       fail: (err) => {
-        console.error('上传失败:', err);
+        console.error('OCR识别失败:', err);
         this.handleUploadError(err);
       }
     });
   },
 
-  // 处理上传结果
+  // 处理OCR识别结果
   handleUploadResult(res) {
-    console.log('=== 处理上传结果 ===');
+    console.log('=== 处理OCR识别结果 ===');
     console.log('完整响应:', res);
     
     // 隐藏加载提示
@@ -579,15 +582,15 @@ Page({
     });
   },
 
-  // 处理上传错误
+  // 处理OCR识别错误
   handleUploadError(error) {
-    console.error('上传错误处理:', error);
+    console.error('OCR识别错误处理:', error);
     wx.hideLoading();
     this.setData({ processingImage: false });
     
     wx.showModal({
-      title: '上传失败',
-      content: '图片上传失败，请检查网络连接或重试。\n\n错误信息: ' + (error.errMsg || error),
+      title: '识别失败',
+      content: 'OCR识别失败，请检查网络连接或重试。\n\n错误信息: ' + (error.errMsg || error),
       showCancel: false
     });
   }
