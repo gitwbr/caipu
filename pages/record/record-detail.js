@@ -334,5 +334,29 @@ Page({
         }
       }
     });
+  },
+
+  // 在Page({...})内新增方法
+  editCustomFood(e) {
+    const food = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.food
+      ? e.currentTarget.dataset.food
+      : this.data.food;
+
+    if (!food) return;
+
+    if (food.type !== 'custom') {
+      wx.showToast({ title: '标准食物不可编辑', icon: 'none' });
+      return;
+    }
+
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(food));
+      wx.navigateTo({
+        url: `/pages/record/add-custom-food?food=${encoded}`
+      });
+    } catch (err) {
+      wx.showToast({ title: '数据异常', icon: 'none' });
+      console.error('editCustomFood encode error:', err);
+    }
   }
 });

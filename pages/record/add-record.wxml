@@ -96,7 +96,10 @@
       <view class="custom-foods" wx:if="{{activeTab === 'custom' && searchResults.length === 0}}">
         <view class="section-header">
           <text class="section-title">我的自定义食物</text>
-          <button class="add-custom-btn" bindtap="addCustomFood">添加</button>
+          <view class="add-inline" bindtap="addCustomFood">
+            <view class="icon-circle success small">＋</view>
+            <text class="add-hint">添加自定义食物</text>
+          </view>
         </view>
         
         <view class="food-list" wx:if="{{customFoods.length > 0}}">
@@ -121,8 +124,7 @@
               <text class="food-calories">{{item.energy_kcal}} kcal/100g</text>
             </view>
             <view class="food-actions" catchtap="stopPropagation">
-              <button class="action-btn edit-btn" catchtap="editCustomFood" data-food="{{item}}">编辑</button>
-              <button class="action-btn delete-btn" catchtap="deleteCustomFood" data-id="{{item.id}}">删除</button>
+              <view class="icon-circle danger" catchtap="deleteCustomFood" data-id="{{item.id}}">🗑️</view>
             </view>
           </view>
         </view>
