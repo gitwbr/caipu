@@ -275,7 +275,36 @@ Page({
   takePhoto() {
     console.log('=== 拍照功能调试 ===');
     
-    // 检查相机权限
+    wx.showModal({
+      title: '营养成分表识别',
+      content: '请清晰拍摄营养成分表，确保文字清晰可见，以提高识别准确率。\n\n建议：\n• 保持手机稳定\n• 确保光线充足\n• 避免反光和阴影',
+      confirmText: '开始识别',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) {
+          // 用户点击开始识别，显示选择菜单
+          wx.showActionSheet({
+            itemList: ['拍照', '从相册选择'],
+            success: (actionRes) => {
+              if (actionRes.tapIndex === 0) {
+                // 选择拍照
+                this.checkCameraPermission();
+              } else if (actionRes.tapIndex === 1) {
+                // 选择从相册选择
+                this.chooseFromAlbum();
+              }
+            },
+            fail: (err) => {
+              console.log('用户取消选择');
+            }
+          });
+        }
+      }
+    });
+  },
+
+  // 检查相机权限
+  checkCameraPermission() {
     wx.getSetting({
       success: (res) => {
         if (!res.authSetting['scope.camera']) {
@@ -296,6 +325,42 @@ Page({
         } else {
           // 已有权限，直接拍照
           this.startCamera();
+        }
+      }
+    });
+  },
+
+  // 从相册选择图片
+  chooseFromAlbum() {
+    console.log('从相册选择图片');
+    
+    this.setData({ processingImage: true });
+    
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album'],
+      success: (res) => {
+        console.log('选择图片成功:', res);
+        const tempFilePath = res.tempFiles[0].tempFilePath;
+        console.log('图片路径:', tempFilePath);
+        
+        // 上传图片进行OCR识别
+        this.uploadImage(tempFilePath);
+      },
+      fail: (err) => {
+        console.error('选择图片失败:', err);
+        this.setData({ processingImage: false });
+        
+        // 检查是否是用户取消操作
+        if (err.errMsg && err.errMsg.includes('cancel')) {
+          console.log('用户取消选择图片');
+          // 用户取消，不需要显示错误提示
+        } else {
+          wx.showToast({
+            title: '选择图片失败',
+            icon: 'error'
+          });
         }
       }
     });
@@ -323,10 +388,17 @@ Page({
       fail: (err) => {
         console.error('拍照失败:', err);
         this.setData({ processingImage: false });
-        wx.showToast({
-          title: '拍照失败',
-          icon: 'error'
-        });
+        
+        // 检查是否是用户取消操作
+        if (err.errMsg && err.errMsg.includes('cancel')) {
+          console.log('用户取消拍照');
+          // 用户取消，不需要显示错误提示
+        } else {
+          wx.showToast({
+            title: '拍照失败',
+            icon: 'error'
+          });
+        }
       }
     });
   },
