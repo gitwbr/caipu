@@ -8,6 +8,31 @@
   align-items: stretch;
 }
 
+/* 新增：add-record主内容区flex布局 */
+.main-content {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  min-height: 600rpx;
+}
+
+/* 新增：左侧菜单固定宽度 */
+.sidebar {
+  width: 120rpx;
+  min-width: 100rpx;
+  background: #fff;
+  box-shadow: 2rpx 0 8rpx rgba(0,0,0,0.03);
+  z-index: 2;
+}
+
+/* 新增：右侧内容区自适应 */
+.content-area {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  z-index: 1;
+}
+
 /* 卡片容器 */
 .cards-container {
   flex: 1;

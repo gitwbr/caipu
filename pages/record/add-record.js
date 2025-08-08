@@ -14,8 +14,15 @@ Page({
   },
 
   onLoad() {
+    console.log('=== 页面加载 ===');
+    console.log('初始activeTab:', this.data.activeTab);
+    
     this.loadRecentFoods();
     this.loadCustomFoods();
+    
+    console.log('=== 数据加载完成 ===');
+    console.log('recentFoods:', this.data.recentFoods);
+    console.log('customFoods:', this.data.customFoods);
   },
 
   onShow() {
@@ -33,20 +40,28 @@ Page({
 
   // 加载自定义食物
   loadCustomFoods() {
+    console.log('=== 加载自定义食物 ===');
+    
     // 只使用本地数据，不进行网络请求
     const localFoods = app.globalData.customFoods || [];
+    console.log('本地自定义食物:', localFoods);
+    
     this.setData({
       customFoods: localFoods
     });
     
+    console.log('设置后的customFoods:', this.data.customFoods);
+    
     // 可选：在后台静默同步（不影响用户体验）
     setTimeout(() => {
       app.getCustomFoods().then(customFoods => {
+        console.log('云端同步的自定义食物:', customFoods);
         // 更新本地缓存
         app.saveCustomFoodsToLocal(customFoods || []);
         this.setData({
           customFoods: customFoods || []
         });
+        console.log('同步后的customFoods:', this.data.customFoods);
       }).catch(error => {
         // 静默失败，不影响用户
         console.log('后台同步失败，继续使用本地数据');
@@ -57,10 +72,15 @@ Page({
   // 切换标签页
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab;
+    console.log('切换标签页:', tab);
+    console.log('当前activeTab:', this.data.activeTab);
+    
     this.setData({
       activeTab: tab,
       searchResults: [] // 清空搜索结果
     });
+    
+    console.log('切换后activeTab:', this.data.activeTab);
   },
 
   // 搜索输入

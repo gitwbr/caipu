@@ -5,7 +5,7 @@
     <view class="search-box">
       <input 
         class="search-input" 
-        placeholder="搜索食物..." 
+        placeholder="请输入食物名称" 
         value="{{searchKeyword}}"
         bindinput="onSearchInput"
       />
@@ -16,118 +16,141 @@
     </button>
   </view>
 
-  <!-- 标签页 -->
-  <view class="tabs">
-    <view 
-      class="tab-item {{activeTab === 'recent' ? 'active' : ''}}" 
-      bindtap="switchTab" 
-      data-tab="recent"
-    >
-      <text class="tab-text">最近</text>
-    </view>
-    <view 
-      class="tab-item {{activeTab === 'custom' ? 'active' : ''}}" 
-      bindtap="switchTab" 
-      data-tab="custom"
-    >
-      <text class="tab-text">自定义</text>
-    </view>
-  </view>
-
-  <!-- 搜索结果 -->
-  <view class="search-results" wx:if="{{searchResults.length > 0}}">
-    <view class="section-title">搜索结果</view>
-    <view class="food-list">
+  <!-- 主要内容区域 -->
+  <view class="main-content">
+    <!-- 左侧菜单（真实显示） -->
+    <view class="sidebar">
       <view 
-        class="food-item" 
-        wx:for="{{searchResults}}" 
-        wx:key="id" 
-        bindtap="selectFood" 
-        data-food="{{item}}"
+        class="menu-item {{activeTab === 'recent' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="recent"
       >
-        <view class="food-info">
-          <text class="food-name">{{item.display_name}}</text>
-          <text class="food-type">{{item.type === 'standard' ? '标准' : '自定义'}}</text>
-        </view>
-        <view class="food-calories">
-          <text class="calories-text">{{item.display_energy_kcal}} kcal/100g</text>
-        </view>
+        <text class="menu-text">最近</text>
+      </view>
+      <view 
+        class="menu-item {{activeTab === 'custom' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="custom"
+      >
+        <text class="menu-text">自定义</text>
+      </view>
+      <!-- 新增：空内容测试菜单项 -->
+      <view 
+        class="menu-item {{activeTab === 'blank' ? 'active' : ''}}" 
+        bindtap="switchTab" 
+        data-tab="blank"
+      >
+        <text class="menu-text">空</text>
       </view>
     </view>
-  </view>
 
-  <!-- 最近食物 -->
-  <view class="recent-foods" wx:if="{{activeTab === 'recent' && recentFoods.length > 0 && searchResults.length === 0}}">
-    <view class="section-title">最近选择</view>
-    <view class="food-list">
-      <view 
-        class="food-item" 
-        wx:for="{{recentFoods}}" 
-        wx:key="id" 
-        bindtap="selectFood" 
-        data-food="{{item}}"
-      >
-        <view class="food-info">
-          <text class="food-name">{{item.display_name}}</text>
-          <text class="food-type">{{item.type === 'standard' ? '标准' : '自定义'}}</text>
-        </view>
-        <view class="food-calories">
-          <text class="calories-text">{{item.display_energy_kcal}} kcal/100g</text>
+    <!-- 右侧内容区域 -->
+    <view class="content-area">
+      <!-- 搜索结果 -->
+      <view class="search-results" wx:if="{{searchResults.length > 0}}">
+        <view class="section-title">搜索结果</view>
+        <view class="food-list">
+          <view 
+            class="food-item" 
+            wx:for="{{searchResults}}" 
+            wx:key="id" 
+            bindtap="selectFood" 
+            data-food="{{item}}"
+          >
+            <view class="food-image">
+              <text class="food-placeholder">🍽️</text>
+            </view>
+            <view class="food-info">
+              <text class="food-name">{{item.display_name}}</text>
+              <text class="food-calories">{{item.display_energy_kcal}} kcal/100g</text>
+            </view>
+            <view class="food-add">+</view>
+          </view>
         </view>
       </view>
-    </view>
-  </view>
 
-  <!-- 自定义食物 -->
-  <view class="custom-foods" wx:if="{{activeTab === 'custom' && searchResults.length === 0}}">
-    <view class="section-header">
-      <text class="section-title">我的自定义食物</text>
-      <button class="add-custom-btn" bindtap="addCustomFood">添加</button>
-    </view>
-    
-    <view class="food-list" wx:if="{{customFoods.length > 0}}">
-      <view 
-        class="food-item custom-food-item" 
-        wx:for="{{customFoods}}" 
-        wx:key="id"
-        bindtap="selectFood" 
-        data-food="{{item}}"
-      >
-        <view class="food-image" wx:if="{{item.image_url}}">
-          <image 
-            class="food-thumbnail" 
-            src="{{item.image_url}}" 
-            mode="aspectFill"
-          />
-        </view>
-        <view class="food-info">
-          <text class="food-name">{{item.food_name}}</text>
-          <text class="food-type">自定义</text>
-        </view>
-        <view class="food-calories">
-          <text class="calories-text">{{item.energy_kcal}} kcal/100g</text>
-        </view>
-        <view class="food-actions" catchtap="stopPropagation">
-          <button class="action-btn edit-btn" catchtap="editCustomFood" data-food="{{item}}">编辑</button>
-          <button class="action-btn delete-btn" catchtap="deleteCustomFood" data-id="{{item.id}}">删除</button>
+      <!-- 最近食物 -->
+      <view class="recent-foods" wx:if="{{activeTab === 'recent' && recentFoods.length > 0 && searchResults.length === 0}}">
+        <view class="section-title">最近选择</view>
+        <view class="food-list">
+          <view 
+            class="food-item" 
+            wx:for="{{recentFoods}}" 
+            wx:key="id" 
+            bindtap="selectFood" 
+            data-food="{{item}}"
+          >
+            <view class="food-image">
+              <text class="food-placeholder">🍽️</text>
+            </view>
+            <view class="food-info">
+              <text class="food-name">{{item.display_name}}</text>
+              <text class="food-calories">{{item.display_energy_kcal}} kcal/100g</text>
+            </view>
+            <view class="food-add">+</view>
+          </view>
         </view>
       </view>
-    </view>
-    
-    <view class="empty-state" wx:else>
-      <text class="empty-text">暂无自定义食物</text>
-      <text class="empty-hint">点击上方按钮添加自定义食物</text>
-    </view>
-  </view>
 
-  <!-- 空状态 -->
-  <view class="empty-state" wx:if="{{activeTab === 'recent' && recentFoods.length === 0 && searchResults.length === 0}}">
-    <text class="empty-text">暂无最近选择</text>
-    <text class="empty-hint">搜索并选择食物后，会显示在这里</text>
-  </view>
+      <!-- 自定义食物 -->
+      <view class="custom-foods" wx:if="{{activeTab === 'custom' && searchResults.length === 0}}">
+        <view class="section-header">
+          <text class="section-title">我的自定义食物</text>
+          <button class="add-custom-btn" bindtap="addCustomFood">添加</button>
+        </view>
+        
+        <view class="food-list" wx:if="{{customFoods.length > 0}}">
+          <view 
+            class="food-item custom-food-item" 
+            wx:for="{{customFoods}}" 
+            wx:key="id"
+            bindtap="selectFood" 
+            data-food="{{item}}"
+          >
+            <view class="food-image">
+              <image 
+                wx:if="{{item.image_url}}" 
+                class="food-thumbnail" 
+                src="{{item.image_url}}" 
+                mode="aspectFill"
+              />
+              <text wx:else class="food-placeholder">🍽️</text>
+            </view>
+            <view class="food-info">
+              <text class="food-name">{{item.food_name}}</text>
+              <text class="food-calories">{{item.energy_kcal}} kcal/100g</text>
+            </view>
+            <view class="food-actions" catchtap="stopPropagation">
+              <button class="action-btn edit-btn" catchtap="editCustomFood" data-food="{{item}}">编辑</button>
+              <button class="action-btn delete-btn" catchtap="deleteCustomFood" data-id="{{item.id}}">删除</button>
+            </view>
+          </view>
+        </view>
+        
+        <view class="empty-state" wx:else>
+          <text class="empty-text">暂无自定义食物</text>
+          <text class="empty-hint">点击上方按钮添加自定义食物</text>
+        </view>
+      </view>
 
-  <!-- 搜索中状态 -->
-  <view class="loading" wx:if="{{searching}}">
-    <text>搜索中...</text>
+      <!-- 新增：空内容测试块 -->
+      <view class="blank-content" wx:if="{{activeTab === 'blank' && searchResults.length === 0}}">
+        <view class="empty-state">
+          <text class="empty-text">空白测试</text>
+          <text class="empty-hint">这里没有任何内容，用于排查是否内容过宽导致菜单消失</text>
+        </view>
+      </view>
+
+      <!-- 空状态 -->
+      <view class="empty-state" wx:if="{{activeTab === 'recent' && recentFoods.length === 0 && searchResults.length === 0}}">
+        <text class="empty-text">暂无最近选择</text>
+        <text class="empty-hint">搜索并选择食物后，会显示在这里</text>
+      </view>
+
+      <!-- 搜索中状态 -->
+      <view class="loading" wx:if="{{searching}}">
+        <text>搜索中...</text>
+      </view>
+    </view>
   </view>
 </view>
