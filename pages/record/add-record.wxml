@@ -9,11 +9,14 @@
         value="{{searchKeyword}}"
         bindinput="onSearchInput"
       />
-      <text class="search-icon">🔍</text>
     </view>
-    <button class="camera-btn" bindtap="takePhoto">
+    <button class="search-btn" bindtap="onSearchBtnTap" style="width: 76rpx; display: flex; box-sizing: border-box; left: 0rpx; top: 0rpx">
+      <text class="search-btn-text">🔍</text>
+    </button>
+    <button class="camera-btn" bindtap="takePhoto" style="width: 76rpx; display: flex; box-sizing: border-box; left: 0rpx; top: 0rpx">
       <text class="camera-icon">📷</text>
     </button>
+    <text class="camera-text">营养成分表识别</text>
   </view>
 
   <!-- 主要内容区域 -->

@@ -99,6 +99,19 @@ Page({
     }
   },
 
+  // 搜索按钮点击
+  onSearchBtnTap() {
+    const keyword = this.data.searchKeyword.trim();
+    if (keyword.length > 0) {
+      this.searchFoods(keyword);
+    } else {
+      wx.showToast({
+        title: '请输入搜索关键词',
+        icon: 'none'
+      });
+    }
+  },
+
   // 搜索食物
   searchFoods(keyword) {
     // 安全检查

@@ -14,26 +14,32 @@
 .search-section {
   display: flex;
   align-items: center;
-  gap: 20rpx;
-  margin-bottom: 20rpx;
+  gap: 15rpx;
+  margin-bottom: 25rpx;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 10rpx;
 }
 
 /* 搜索框 */
 .search-box {
   position: relative;
   background: white;
-  border-radius: 12rpx;
+  border-radius: 16rpx;
   overflow: hidden;
   flex: 1;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+  min-width: 150rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+  border: 1rpx solid #f0f0f0;
 }
 
 .search-input {
   width: 100%;
-  padding: 30rpx 80rpx 30rpx 30rpx;
-  font-size: 30rpx;
+  padding: 24rpx 30rpx;
+  font-size: 28rpx;
   border: none;
   outline: none;
+  color: #333;
 }
 
 .search-icon {
@@ -42,6 +48,33 @@
   top: 50%;
   transform: translateY(-50%);
   color: #999;
+  font-size: 32rpx;
+}
+
+/* 搜索按钮 */
+.search-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12rpx;
+  padding: 0;
+  height: 60rpx;
+  width: 50rpx;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0;
+  line-height: 1;
+  transition: all 0.3s ease;
+  box-shadow: 0 2rpx 8rpx rgba(102, 126, 234, 0.3);
+}
+
+.search-btn:active {
+  transform: translateY(1rpx);
+}
+
+.search-btn-text {
   font-size: 32rpx;
 }
 
@@ -118,10 +151,23 @@
 /* 区块标题 */
 .section-title {
   color: #333;
-  font-size: 30rpx;
-  font-weight: bold;
+  font-size: 28rpx;
+  font-weight: 600;
   margin-bottom: 20rpx;
   padding: 0 10rpx;
+  position: relative;
+}
+
+.section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4rpx;
+  height: 24rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 2rpx;
 }
 
 .section-header {
@@ -317,20 +363,21 @@
 
 /* 拍照按钮 */
 .camera-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
   color: white;
   border: none;
   border-radius: 12rpx;
-  width: 100rpx;
-  height: 80rpx;
+  min-width: 50rpx;
+  height: 60rpx;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   font-size: 0;
   line-height: 1;
-  box-shadow: 0 2rpx 8rpx rgba(102, 126, 234, 0.3);
   transition: all 0.3s ease;
+  box-shadow: 0 2rpx 8rpx rgba(255, 107, 107, 0.3);
 }
 
 .camera-btn:active {
@@ -339,7 +386,14 @@
 }
 
 .camera-icon {
-  font-size: 36rpx;
+  font-size: 40rpx;
+}
+
+.camera-text {
+  font-size: 24rpx;
+  font-weight: 500;
+  margin-left: 12rpx;
+  color: #ff6b6b;
 }
 
 /* 搜索结果特殊样式 */
@@ -349,19 +403,16 @@
 
 .search-results .section-title {
   color: #667eea;
-  font-size: 30rpx;
 }
 
 /* 最近食物特殊样式 */
 .recent-foods .section-title {
   color: #333;
-  font-size: 32rpx;
 }
 
 /* 自定义食物特殊样式 */
 .custom-foods .section-title {
   color: #333;
-  font-size: 32rpx;
 }
 
 /* 左侧菜单占位不再需要，隐藏 */
@@ -448,7 +499,10 @@
 .food-name { font-size: 28rpx; }
 .food-calories { font-size: 22rpx; }
 .action-btn { font-size: 20rpx; }
-.section-title { font-size: 30rpx; }
+.section-title { 
+  font-size: 28rpx; 
+  padding-left: 20rpx;
+}
 
 .icon-circle.small {
   width: 36rpx;
