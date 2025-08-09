@@ -87,17 +87,15 @@
   </view>
   </view>  
 
-  <!-- 添加记录按钮 -->
-  <view class="add-record-section">
-    <view class="button-group">
-      <button class="add-record-btn" bindtap="addRecord">
-        <text class="add-icon">+</text>
-        <text class="add-text">添加记录</text>
-      </button>
-      <button class="quick-record-btn" bindtap="quickRecord">
-        <text class="quick-icon">⚡</text>
-        <text class="quick-text">快速记录</text>
-      </button>
+  <!-- 记录按钮（与 record 首页一致的样式） -->
+  <view class="record-buttons">
+    <view class="record-btn diet-btn" bindtap="addRecord" catchtap="addRecord">
+      <view class="btn-icon">🍽️</view>
+      <text class="btn-text">记录饮食</text>
+    </view>
+    <view class="record-btn exercise-btn" bindtap="addExercise" catchtap="addExercise">
+      <view class="btn-icon">🏃</view>
+      <text class="btn-text">记录运动</text>
     </view>
   </view>
 

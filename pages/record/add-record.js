@@ -71,6 +71,15 @@ Page({
   },
 
   onLoad() {
+    // 读取入口参数中的日期
+    try {
+      const pages = getCurrentPages();
+      const current = pages[pages.length - 1];
+      const options = (current && current.options) || {};
+      if (options.date) {
+        this._entryDate = options.date.includes('T') ? options.date.split('T')[0] : options.date;
+      }
+    } catch (e) {}
     // 首次进入：仅从本地读取并解析一次，避免多次互相触发
     this.refreshFromLocal();
     // 后台静默同步一次云端自定义食物，完成后若有变更再刷新最近
@@ -303,6 +312,24 @@ Page({
     wx.navigateTo({
       url: '/pages/record/add-custom-food'
     });
+  },
+
+  // 底部按钮：快速记录
+  goQuickRecord() {
+    // 带上当前选中的日期（若能取到记录页/列表页的日期，或入口参数）
+    const pages = getCurrentPages();
+    let selectedDate = new Date().toISOString().split('T')[0];
+    if (this._entryDate) selectedDate = this._entryDate;
+    const detailListPage = pages.find(page => page.route === 'pages/record/record-detail-list');
+    if (detailListPage && detailListPage.data.selectedDate) {
+      selectedDate = detailListPage.data.selectedDate;
+    } else {
+      const recordPage = pages.find(page => page.route === 'pages/record/record');
+      if (recordPage && recordPage.data.selectedDate) {
+        selectedDate = recordPage.data.selectedDate;
+      }
+    }
+    wx.navigateTo({ url: `/pages/record/quick-record?date=${encodeURIComponent(selectedDate)}` });
   },
 
   // 编辑自定义食物

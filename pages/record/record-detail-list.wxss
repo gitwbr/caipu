@@ -283,62 +283,14 @@
 .macro-number.carb { color: #00c853; }
 
 /* 添加记录按钮 */
-.add-record-section {
-  margin-bottom: 20rpx;
-}
-
-.button-group {
-  display: flex;
-  gap: 20rpx;
-}
-
-.add-record-btn {
-  flex: 1;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 16rpx;
-  padding: 30rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32rpx;
-  font-weight: 500;
-  box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
-}
-
-.quick-record-btn {
-  flex: 1;
-  background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
-  color: white;
-  border: none;
-  border-radius: 16rpx;
-  padding: 30rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32rpx;
-  font-weight: 500;
-  box-shadow: 0 4rpx 12rpx rgba(255, 154, 86, 0.3);
-}
-
-.add-icon {
-  font-size: 36rpx;
-  margin-right: 10rpx;
-}
-
-.add-text {
-  font-size: 32rpx;
-}
-
-.quick-icon {
-  font-size: 36rpx;
-  margin-right: 10rpx;
-}
-
-.quick-text {
-  font-size: 32rpx;
-}
+/* 采用 record 页面的按钮样式 */
+.record-buttons { display: flex; gap: 20rpx; margin-bottom: 20rpx; }
+.record-btn { flex: 1; background: rgba(255,255,255,0.8); border-radius: 16rpx; padding: 24rpx 20rpx; display: flex; flex-direction: column; align-items: center; box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06); position: relative; overflow: hidden; border: 1rpx solid rgba(255,255,255,0.5); }
+.record-btn::before { content: ''; position: absolute; top: 0; left: 0; right:0; height: 3rpx; background: linear-gradient(90deg,#69db7c,#51cf66); }
+.record-btn.exercise-btn::before { background: linear-gradient(90deg,#ffd43b,#fcc419); }
+.record-btn:active { transform: scale(0.96); box-shadow: 0 1rpx 6rpx rgba(0,0,0,0.08); }
+.btn-icon { font-size: 40rpx; margin-bottom: 12rpx; }
+.btn-text { font-size: 28rpx; font-weight: 500; color: #495057; }
 
 /* 记录列表 */
 .records-section {

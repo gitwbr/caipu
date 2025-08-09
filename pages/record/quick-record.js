@@ -11,11 +11,17 @@ Page({
     imageUrl: '',
     showImagePreview: false,
     submitting: false,
-    loading: false
+    loading: false,
+    recordDate: ''
   },
 
   onLoad(options) {
     // 如果有OCR识别的营养数据，自动填入
+    if (options.date) {
+      this.setData({ recordDate: options.date.includes('T') ? options.date.split('T')[0] : options.date });
+    } else {
+      this.setData({ recordDate: new Date().toISOString().split('T')[0] });
+    }
     if (options.nutritionData) {
       try {
         const nutritionData = JSON.parse(decodeURIComponent(options.nutritionData));
@@ -64,6 +70,17 @@ Page({
     const { value } = e.detail;
     this.setData({
       [field]: value
+    });
+  },
+
+  // 拍照
+  onCameraClick() {
+    wx.showActionSheet({
+      itemList: ['拍照', '从相册选择'],
+      success: (res) => {
+        if (res.tapIndex === 0) this.takePhoto();
+        if (res.tapIndex === 1) this.chooseImage();
+      }
     });
   },
 
@@ -168,6 +185,7 @@ Page({
       quick_carbohydrate_g: this.data.carbohydrate_g ? parseFloat(this.data.carbohydrate_g) : 0,
       quantity_g: 0, // 快速记录不需要重量，设为0
       notes: this.data.notes.trim(),
+      record_date: this.data.recordDate,
       quick_image_path: this.data.imagePath // 本地图片路径，用于上传
     };
 

@@ -1,6 +1,6 @@
 <!--pages/record/add-record.wxml-->
 <view class="container">
-  <!-- 搜索框和拍照按钮 -->
+  <!-- 搜索框 -->
   <view class="search-section">
     <view class="search-box">
       <input 
@@ -13,10 +13,18 @@
     <button class="search-btn" bindtap="onSearchBtnTap" style="width: 76rpx; display: flex; box-sizing: border-box; left: 0rpx; top: 0rpx">
       <text class="search-btn-text">🔍</text>
     </button>
-    <button class="camera-btn" bindtap="takePhoto" style="width: 76rpx; display: flex; box-sizing: border-box; left: 0rpx; top: 0rpx">
-      <text class="camera-icon">📷</text>
+  </view>
+
+  <!-- 操作条：营养识别 + 快速记录（放在搜索框下方） -->
+  <view class="bottom-actions">
+    <button class="ocr-btn" bindtap="takePhoto">
+      <text class="ocr-icon">📷</text>
+      <text class="ocr-text">营养成分表识别</text>
     </button>
-    <text class="camera-text">营养成分表识别</text>
+    <button class="quick-btn" bindtap="goQuickRecord">
+      <text class="quick-icon">⚡</text>
+      <text class="quick-text">快速记录</text>
+    </button>
   </view>
 
   <!-- 主要内容区域 -->
@@ -173,4 +181,5 @@
       </view>
     </view>
   </view>
+
 </view>

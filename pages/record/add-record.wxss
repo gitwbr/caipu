@@ -389,12 +389,7 @@
   font-size: 40rpx;
 }
 
-.camera-text {
-  font-size: 24rpx;
-  font-weight: 500;
-  margin-left: 12rpx;
-  color: #ff6b6b;
-}
+.camera-text { display: none; }
 
 /* 搜索结果特殊样式 */
 .search-results {
@@ -437,6 +432,31 @@
 .blank-content {
   width: 100%;
 }
+
+/* 底部操作条 */
+.bottom-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  background: transparent;
+  margin-bottom: 16rpx;
+}
+
+.ocr-btn, .quick-btn {
+  background: #fff;
+  color: #333;
+  border: none;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.06);
+}
+
+.ocr-icon, .quick-icon { font-size: 28rpx; }
+.ocr-text, .quick-text { font-size: 28rpx; }
 
 .icon-btn {
   width: 60rpx;

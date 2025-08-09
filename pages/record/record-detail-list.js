@@ -574,17 +574,17 @@ Page({
 
   // 添加记录
   addRecord() {
-    wx.navigateTo({
-      url: '/pages/record/add-record'
-    });
+    const date = this.data.selectedDate || new Date().toISOString().split('T')[0];
+    wx.navigateTo({ url: `/pages/record/add-record?date=${encodeURIComponent(date)}` });
+  },
+
+  // 记录运动（占位，后续接入运动记录页）
+  addExercise() {
+    wx.showToast({ title: '记录运动开发中', icon: 'none' });
   },
 
   // 快速记录
-  quickRecord() {
-    wx.navigateTo({
-      url: '/pages/record/quick-record'
-    });
-  },
+  // quickRecord 功能仅保留在其它页面，此页移除
 
   // 点击记录项
   onRecordTap(e) {
