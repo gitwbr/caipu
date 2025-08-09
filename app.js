@@ -159,11 +159,12 @@ App({
                   this.globalData.isLoggedIn = true;
                   wx.setStorageSync('token', res.data.token);
                   
-                  // 获取用户信息和所有饮食记录
+                  // 获取用户信息、所有饮食记录与自定义食物，并一次性写入本地
                   Promise.all([
                     this.getUserInfo(),
-                    this.getDietRecords() // 获取所有历史记录
-                  ]).then(([userInfo, dietRecords]) => {
+                    this.getDietRecords(), // 获取所有历史记录
+                    this.getCustomFoods()  // 获取自定义食物
+                  ]).then(([userInfo, dietRecords, customFoods]) => {
                     console.log('登录成功，获取到用户信息和饮食记录');
                     console.log('用户信息:', userInfo);
                     console.log('饮食记录原始数据:', dietRecords);
@@ -186,6 +187,11 @@ App({
                     
                     console.log('准备保存的记录数量:', recordsToSave.length);
                     this.saveDietRecordsToLocal(recordsToSave);
+
+                    // 保存自定义食物到本地
+                    const customFoodsArray = Array.isArray(customFoods) ? customFoods : (customFoods?.custom_foods || []);
+                    console.log('准备保存的自定义食物数量:', customFoodsArray.length);
+                    this.saveCustomFoodsToLocal(customFoodsArray);
                     
                     resolve(res.data);
                   }).catch(reject);
@@ -550,6 +556,17 @@ App({
             // 后端返回格式: { message: '添加成功', record: {...} }
             // 我们需要返回记录对象本身
             const record = res.data.record || res.data;
+            // 兜底补齐本地所需字段
+            if (!record.record_date) record.record_date = recordData.record_date;
+            if (!record.record_time && recordData.record_time) record.record_time = recordData.record_time;
+            if (!record.record_type && recordData.record_type) record.record_type = recordData.record_type;
+            if (record.quantity_g === undefined && recordData.quantity_g !== undefined) record.quantity_g = recordData.quantity_g;
+            if (record.food_id === undefined && recordData.food_id !== undefined) record.food_id = recordData.food_id;
+            if (record.custom_food_id === undefined && recordData.custom_food_id !== undefined) record.custom_food_id = recordData.custom_food_id;
+            // 规范日期为 YYYY-MM-DD
+            if (typeof record.record_date === 'string' && record.record_date.includes('T')) {
+              record.record_date = record.record_date.split('T')[0];
+            }
             console.log('添加记录成功，返回数据:', record);
             resolve(record);
           } else {
@@ -638,6 +655,16 @@ App({
             // 后端返回格式: { message: '更新成功', record: {...} }
             // 我们需要返回记录对象本身
             const record = res.data.record || res.data;
+            // 兜底补齐
+            if (!record.record_date) record.record_date = recordData.record_date;
+            if (!record.record_time && recordData.record_time) record.record_time = recordData.record_time;
+            if (!record.record_type && recordData.record_type) record.record_type = recordData.record_type;
+            if (record.quantity_g === undefined && recordData.quantity_g !== undefined) record.quantity_g = recordData.quantity_g;
+            if (record.food_id === undefined && recordData.food_id !== undefined) record.food_id = recordData.food_id;
+            if (record.custom_food_id === undefined && recordData.custom_food_id !== undefined) record.custom_food_id = recordData.custom_food_id;
+            if (typeof record.record_date === 'string' && record.record_date.includes('T')) {
+              record.record_date = record.record_date.split('T')[0];
+            }
             console.log('更新记录成功，返回数据:', record);
             resolve(record);
           } else {

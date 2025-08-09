@@ -371,62 +371,12 @@ Page({
         const imageUrl = await this.uploadImage(this.data.imagePath);
         formData.image_url = imageUrl;
       }
-      
-            // 调用API保存数据
-      return new Promise((resolve, reject) => {
-        wx.request({
-          url: `${app.globalData.serverUrl}/api/user-custom-foods`,
-          method: 'POST',
-          header: {
-            'Authorization': `Bearer ${app.globalData.token}`,
-            'Content-Type': 'application/json'
-          },
-          data: formData,
-          success: (res) => {
-            console.log('API响应:', res);
-            
-            if (res.statusCode === 200) {
-              // 保存成功后，同时更新本地数据
-              const newCustomFood = res.data.custom_food;
-              const localFoods = [...app.globalData.customFoods, newCustomFood];
-              app.globalData.customFoods = localFoods;
-              app.saveCustomFoodsToLocal(localFoods);
-              
-              wx.showToast({
-                title: '添加成功',
-                icon: 'success'
-              });
-              
-              // 返回上一页
-              setTimeout(() => {
-                wx.navigateBack();
-              }, 1500);
-              
-              resolve(res.data);
-            } else {
-              console.error('API错误:', res.data);
-              wx.showModal({
-                title: '添加失败',
-                content: res.data.error || '网络错误，请重试',
-                showCancel: false
-              });
-              reject(new Error(res.data.error || '添加失败'));
-            }
-          },
-          fail: (error) => {
-            console.error('请求失败:', error);
-            wx.showModal({
-              title: '网络错误',
-              content: '请检查网络连接后重试',
-              showCancel: false
-            });
-            reject(error);
-          },
-          complete: () => {
-            this.setData({ submitting: false });
-          }
-        });
-      });
+
+      // 统一接口：云端成功后自动保存本地
+      const saved = await app.addCustomFoodWithSync(formData);
+      wx.showToast({ title: '添加成功', icon: 'success' });
+      setTimeout(() => { wx.navigateBack(); }, 1200);
+      return saved;
     } catch (error) {
       console.error('保存自定义食物失败:', error);
       this.setData({ submitting: false });
@@ -474,64 +424,11 @@ Page({
         const imageUrl = await this.uploadImage(this.data.imagePath);
         formData.image_url = imageUrl;
       }
-      
-      // 调用API更新数据
-      return new Promise((resolve, reject) => {
-        wx.request({
-          url: `${app.globalData.serverUrl}/api/user-custom-foods/${this.data.food_id}`,
-          method: 'PUT',
-          header: {
-            'Authorization': `Bearer ${app.globalData.token}`,
-            'Content-Type': 'application/json'
-          },
-          data: formData,
-          success: (res) => {
-            console.log('API响应:', res);
-            
-            if (res.statusCode === 200) {
-              // 更新成功后，同时更新本地数据
-              const updatedCustomFood = res.data.custom_food;
-              const localFoods = app.globalData.customFoods.map(food => 
-                food.id === this.data.food_id ? updatedCustomFood : food
-              );
-              app.globalData.customFoods = localFoods;
-              app.saveCustomFoodsToLocal(localFoods);
-              
-              wx.showToast({
-                title: '更新成功',
-                icon: 'success'
-              });
-              
-              // 返回上一页
-              setTimeout(() => {
-                wx.navigateBack();
-              }, 1500);
-              
-              resolve(res.data);
-            } else {
-              console.error('API错误:', res.data);
-              wx.showModal({
-                title: '更新失败',
-                content: res.data.error || '网络错误，请重试',
-                showCancel: false
-              });
-              reject(new Error(res.data.error || '更新失败'));
-            }
-          },
-          fail: (error) => {
-            console.error('请求失败:', error);
-            wx.showModal({
-              title: '网络错误',
-              content: '请检查网络连接后重试',
-              showCancel: false
-            });
-            reject(error);
-          },
-          complete: () => {
-            this.setData({ submitting: false });
-          }
-        });
-      });
+
+      const updated = await app.updateCustomFoodWithSync(this.data.food_id, formData);
+      wx.showToast({ title: '更新成功', icon: 'success' });
+      setTimeout(() => { wx.navigateBack(); }, 1200);
+      return updated;
     } catch (error) {
       console.error('更新自定义食物失败:', error);
       this.setData({ submitting: false });

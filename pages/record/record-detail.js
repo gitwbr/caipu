@@ -232,7 +232,6 @@ Page({
       record_type: this.data.food.type === 'quick' ? 'quick' : 'standard'
     };
 
-    // 如果是快速记录，添加快速记录字段
     if (this.data.food.type === 'quick') {
       recordData.quick_food_name = this.data.food.display_name;
       recordData.quick_energy_kcal = this.data.food.display_energy_kcal;
@@ -241,71 +240,35 @@ Page({
       recordData.quick_carbohydrate_g = this.data.food.carbohydrate_g;
     }
 
-    const url = this.data.isEdit ? 
-      `${app.globalData.serverUrl}/api/diet-records/${this.data.recordId}` : 
-      `${app.globalData.serverUrl}/api/diet-records`;
+    const doAfter = () => {
+      // 重新计算当日热量
+      app.calculateDailyCalorieSummary(this.data.recordDate);
+      wx.showToast({
+        title: this.data.isEdit ? '更新成功' : '保存成功',
+        icon: 'success'
+      });
+      setTimeout(() => {
+        wx.navigateBack();
+      }, 1200);
+    };
 
-    const method = this.data.isEdit ? 'PUT' : 'POST';
-
-    wx.request({
-      url: url,
-      method: method,
-      header: {
-        'Authorization': `Bearer ${wx.getStorageSync('token')}`,
-        'Content-Type': 'application/json'
-      },
-      data: recordData,
-      success: (res) => {
-        if (res.statusCode === 200 || res.statusCode === 201) {
-          const savedRecord = res.data;
-          
-          // 更新本地数据
-          let records = app.globalData.dietRecords || [];
-          
-          if (this.data.isEdit) {
-            // 编辑模式：更新现有记录
-            const index = records.findIndex(r => r.id == this.data.recordId);
-            if (index !== -1) {
-              records[index] = { ...records[index], ...savedRecord };
-            }
-          } else {
-            // 新建模式：添加新记录
-            records.push(savedRecord);
-          }
-          
-          app.globalData.dietRecords = records;
-          
-          // 重新计算当日热量
-          app.calculateDailyCalorieSummary(this.data.recordDate);
-          
-          wx.showToast({
-            title: this.data.isEdit ? '更新成功' : '保存成功',
-            icon: 'success'
-          });
-          
-          // 返回上一页
-          setTimeout(() => {
-            wx.navigateBack();
-          }, 1500);
-        } else {
-          console.error('保存失败:', res);
-          wx.showToast({
-            title: '保存失败',
-            icon: 'error'
-          });
-        }
-      },
-      fail: (err) => {
-        console.error('网络请求失败:', err);
-        wx.showToast({
-          title: '网络错误',
-          icon: 'error'
-        });
-      },
-      complete: () => {
-        this.setData({ loading: false });
-      }
-    });
+    if (this.data.isEdit) {
+      app.updateDietRecordWithSync(this.data.recordId, recordData)
+        .then(() => doAfter())
+        .catch((err) => {
+          console.error('更新失败:', err);
+          wx.showToast({ title: '更新失败', icon: 'error' });
+        })
+        .finally(() => this.setData({ loading: false }));
+    } else {
+      app.addDietRecordWithSync(recordData)
+        .then(() => doAfter())
+        .catch((err) => {
+          console.error('保存失败:', err);
+          wx.showToast({ title: '保存失败', icon: 'error' });
+        })
+        .finally(() => this.setData({ loading: false }));
+    }
   },
 
   // 删除记录
@@ -316,50 +279,17 @@ Page({
       success: (res) => {
         if (res.confirm) {
           this.setData({ loading: true });
-          
-          wx.request({
-            url: `${app.globalData.serverUrl}/api/diet-records/${this.data.recordId}`,
-            method: 'DELETE',
-            header: {
-              'Authorization': `Bearer ${wx.getStorageSync('token')}`
-            },
-            success: (res) => {
-              if (res.statusCode === 200) {
-                // 从本地数据中删除
-                let records = app.globalData.dietRecords || [];
-                records = records.filter(r => r.id != this.data.recordId);
-                app.globalData.dietRecords = records;
-                
-                // 重新计算当日热量
-                app.calculateDailyCalorieSummary(this.data.recordDate);
-                
-                wx.showToast({
-                  title: '删除成功',
-                  icon: 'success'
-                });
-                
-                setTimeout(() => {
-                  wx.navigateBack();
-                }, 1500);
-              } else {
-                console.error('删除失败:', res);
-                wx.showToast({
-                  title: '删除失败',
-                  icon: 'error'
-                });
-              }
-            },
-            fail: (err) => {
-              console.error('网络请求失败:', err);
-              wx.showToast({
-                title: '网络错误',
-                icon: 'error'
-              });
-            },
-            complete: () => {
-              this.setData({ loading: false });
-            }
-          });
+          app.deleteDietRecordWithSync(this.data.recordId)
+            .then(() => {
+              app.calculateDailyCalorieSummary(this.data.recordDate);
+              wx.showToast({ title: '删除成功', icon: 'success' });
+              setTimeout(() => { wx.navigateBack(); }, 1000);
+            })
+            .catch((err) => {
+              console.error('删除失败:', err);
+              wx.showToast({ title: '删除失败', icon: 'error' });
+            })
+            .finally(() => this.setData({ loading: false }));
         }
       }
     });
