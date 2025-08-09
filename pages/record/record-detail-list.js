@@ -234,6 +234,19 @@ Page({
     });
     
     console.log(`日期 ${selectedDate} 的记录数量:`, dailyRecords.length);
+    // 将记录按时间倒序（record_time 降序），同时间则按创建时间/ID倒序
+    dailyRecords.sort((a, b) => {
+      const ta = (a.record_time || '').slice(0,5);
+      const tb = (b.record_time || '').slice(0,5);
+      if (ta && tb) {
+        if (ta > tb) return -1;
+        if (ta < tb) return 1;
+      }
+      // 次级排序：created_at 或 id
+      const ca = a.created_at || a.id || 0;
+      const cb = b.created_at || b.id || 0;
+      return String(cb).localeCompare(String(ca));
+    });
     
     // 获取食物信息并格式化记录
     const formattedRecords = dailyRecords.map(record => {
@@ -599,9 +612,12 @@ Page({
   // 点击记录项
   onRecordTap(e) {
     const { id } = e.currentTarget.dataset;
-    wx.navigateTo({
-      url: `/pages/record/record-detail?id=${id}`
-    });
+    const rec = (this.data.records || []).find(r => String(r.id) === String(id));
+    if (rec && rec.record_type === 'quick') {
+      //wx.showToast({ title: '快速记录不可编辑', icon: 'none' });
+      return;
+    }
+    wx.navigateTo({ url: `/pages/record/record-detail?id=${id}` });
   },
 
   // 删除记录

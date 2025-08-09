@@ -111,12 +111,13 @@ Page({
         food = app.findFoodNutritionById(record.food_id);
         if (food) {
           // 初始化键盘值
-          const quantity = record.quantity ? record.quantity.toString() : '100';
+          const quantity = (record.quantity_g || record.quantity) ? String(record.quantity_g || record.quantity) : '100';
           this.setData({
             keypadValue: quantity
           });
           food.type = 'standard';
           food.display_name = food.food_name;
+          food.display_energy_kcal = food.energy_kcal; // 确保卡路里有值
         }
       } else if (record.custom_food_id) {
         // 自定义食物
@@ -124,6 +125,7 @@ Page({
         if (food) {
           food.type = 'custom';
           food.display_name = food.food_name;
+          food.display_energy_kcal = food.energy_kcal;
         }
       }
       
@@ -136,9 +138,12 @@ Page({
           loading: false
         });
         
-        // 计算营养值
-        if (record.quantity_g) {
-          this.calculateNutrition(record.quantity_g.toString());
+        // 计算营养值（兼容 quantity/quantity_g）
+        const q = (record.quantity_g || record.quantity);
+        if (q) {
+          this.calculateNutrition(String(q));
+        } else {
+          this.calculateNutrition(this.data.keypadValue || '100');
         }
       } else {
         console.error('未找到对应的食物信息');

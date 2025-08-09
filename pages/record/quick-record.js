@@ -12,7 +12,8 @@ Page({
     showImagePreview: false,
     submitting: false,
     loading: false,
-    recordDate: ''
+    recordDate: '',
+    recordTime: ''
   },
 
   onLoad(options) {
@@ -22,6 +23,10 @@ Page({
     } else {
       this.setData({ recordDate: new Date().toISOString().split('T')[0] });
     }
+    // 设置默认时间为当前时间（HH:MM）
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0].substring(0, 5);
+    this.setData({ recordTime: timeStr });
     if (options.nutritionData) {
       try {
         const nutritionData = JSON.parse(decodeURIComponent(options.nutritionData));
@@ -30,6 +35,11 @@ Page({
         console.error('解析营养数据失败:', error);
       }
     }
+  },
+
+  // 时间选择
+  onTimeChange(e) {
+    this.setData({ recordTime: e.detail.value });
   },
 
   // 填入OCR识别的营养数据
@@ -186,6 +196,7 @@ Page({
       quantity_g: 0, // 快速记录不需要重量，设为0
       notes: this.data.notes.trim(),
       record_date: this.data.recordDate,
+      record_time: this.data.recordTime,
       quick_image_path: this.data.imagePath // 本地图片路径，用于上传
     };
 
