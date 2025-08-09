@@ -1,0 +1,7 @@
+---
+description:
+ 当我叫你设计数据库，新增或者修改数据库结构的时候，要同步修改DATABASE_TABELS.md，更新数据库的完整Create结构。
+globs: 
+- "**/*.md"
+alwaysApply: false
+---
