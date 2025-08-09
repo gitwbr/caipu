@@ -10,7 +10,9 @@ Page({
     isEdit: false,
     recordId: null,
     loading: false,
-    calculatedNutrition: null // 新增：用于存储计算后的营养值
+    calculatedNutrition: null, // 新增：用于存储计算后的营养值
+    // 数字键盘相关数据
+    keypadValue: '', // 当前键盘输入的值
   },
 
   onLoad(options) {
@@ -48,7 +50,8 @@ Page({
         const food = JSON.parse(decodeURIComponent(options.food));
         this.setData({
           food: food,
-          quantity: '100' // 新建记录默认100g
+          quantity: '100', // 新建记录默认100g
+          keypadValue: '100' // 初始化键盘值
         });
         
         // 计算默认营养值
@@ -63,6 +66,8 @@ Page({
       }
     }
   },
+
+
 
   // 加载记录数据（编辑模式）
   loadRecord(id) {
@@ -96,9 +101,13 @@ Page({
         // 标准食物
         food = app.findFoodNutritionById(record.food_id);
         if (food) {
+          // 初始化键盘值
+          const quantity = record.quantity ? record.quantity.toString() : '100';
+          this.setData({
+            keypadValue: quantity
+          });
           food.type = 'standard';
           food.display_name = food.food_name;
-          food.display_energy_kcal = food.energy_kcal;
         }
       } else if (record.custom_food_id) {
         // 自定义食物
@@ -106,40 +115,32 @@ Page({
         if (food) {
           food.type = 'custom';
           food.display_name = food.food_name;
-          food.display_energy_kcal = food.energy_kcal;
         }
       }
-
-      // 确保日期格式为 YYYY-MM-DD
-      let recordDate = record.record_date;
-      if (recordDate && typeof recordDate === 'string' && recordDate.includes('T')) {
-        // 如果是ISO时间戳格式，提取日期部分
-        recordDate = recordDate.split('T')[0];
-      }
-
-      this.setData({
-        food: food,
-        quantity: record.record_type === 'quick' ? '0' : record.quantity_g.toString(),
-        recordTime: record.record_time ? record.record_time.substring(0, 5) : record.record_time, // 不显示秒
-        recordDate: recordDate, // 添加记录日期
-        notes: record.notes || '',
-        loading: false
-      });
       
-      // 计算营养值（快速记录不需要计算，直接使用记录的值）
-      if (record.record_type === 'quick') {
+      if (food) {
         this.setData({
-          calculatedNutrition: {
-            calories: (parseFloat(record.quick_energy_kcal) || 0).toFixed(1),
-            protein: (parseFloat(record.quick_protein_g) || 0).toFixed(1),
-            fat: (parseFloat(record.quick_fat_g) || 0).toFixed(1),
-            carbohydrate: (parseFloat(record.quick_carbohydrate_g) || 0).toFixed(1)
-          }
+          food: food,
+          quantity: record.quantity_g ? record.quantity_g.toString() : '',
+          recordTime: record.record_time || '',
+          notes: record.notes || '',
+          loading: false
         });
+        
+        // 计算营养值
+        if (record.quantity_g) {
+          this.calculateNutrition(record.quantity_g.toString());
+        }
       } else {
-        this.calculateNutrition(record.quantity_g.toString());
+        console.error('未找到对应的食物信息');
+        wx.showToast({
+          title: '食物信息不存在',
+          icon: 'error'
+        });
+        wx.navigateBack();
       }
     } else {
+      console.error('未找到记录:', id);
       wx.showToast({
         title: '记录不存在',
         icon: 'error'
@@ -148,39 +149,43 @@ Page({
     }
   },
 
-  // 数量输入
+  // 数量输入处理
   onQuantityInput(e) {
-    const quantity = e.detail.value;
+    const value = e.detail.value;
     this.setData({
-      quantity: quantity
+      quantity: value
     });
     
-    // 计算营养值并格式化
-    this.calculateNutrition(quantity);
+    // 实时计算营养值
+    if (value && this.data.food) {
+      this.calculateNutrition(value);
+    }
   },
 
   // 计算营养值
   calculateNutrition(quantity) {
     if (!this.data.food || !quantity) {
-      this.setData({
-        calculatedNutrition: null
-      });
+      this.setData({ calculatedNutrition: null });
       return;
     }
 
-    const qty = parseFloat(quantity) || 0;
+    const qty = parseFloat(quantity);
+    if (isNaN(qty) || qty <= 0) {
+      this.setData({ calculatedNutrition: null });
+      return;
+    }
+
     const food = this.data.food;
-    
+    const ratio = qty / 100; // 按100g比例计算
+
     const calculatedNutrition = {
-      calories: ((food.display_energy_kcal * qty / 100) || 0).toFixed(1),
-      protein: ((food.protein_g * qty / 100) || 0).toFixed(1),
-      fat: ((food.fat_g * qty / 100) || 0).toFixed(1),
-      carbohydrate: ((food.carbohydrate_g * qty / 100) || 0).toFixed(1)
+      calories: (food.display_energy_kcal * ratio).toFixed(1),
+      protein: food.protein_g !== undefined ? (food.protein_g * ratio).toFixed(1) : '0.0',
+      fat: food.fat_g !== undefined ? (food.fat_g * ratio).toFixed(1) : '0.0',
+      carbohydrate: food.carbohydrate_g !== undefined ? (food.carbohydrate_g * ratio).toFixed(1) : '0.0'
     };
 
-    this.setData({
-      calculatedNutrition: calculatedNutrition
-    });
+    this.setData({ calculatedNutrition });
   },
 
   // 时间选择
@@ -199,20 +204,17 @@ Page({
 
   // 保存记录
   saveRecord() {
-    const { food, quantity, recordTime, notes, isEdit, recordId, recordDate } = this.data;
-
-    if (!food) {
+    if (!this.data.food) {
       wx.showToast({
-        title: '食物信息缺失',
+        title: '请选择食物',
         icon: 'error'
       });
       return;
     }
 
-    // 快速记录不需要验证数量
-    if (food.type !== 'quick' && (!quantity || parseFloat(quantity) <= 0)) {
+    if (this.data.food.type !== 'quick' && !this.data.keypadValue && !this.data.quantity) {
       wx.showToast({
-        title: '请输入有效数量',
+        title: '请输入数量',
         icon: 'error'
       });
       return;
@@ -221,77 +223,93 @@ Page({
     this.setData({ loading: true });
 
     const recordData = {
-      record_time: recordTime,
-      notes: notes,
-      record_date: recordDate // 使用传递过来的日期
+      food_id: this.data.food.type === 'standard' ? this.data.food.id : null,
+      custom_food_id: this.data.food.type === 'custom' ? this.data.food.id : null,
+      quantity_g: this.data.food.type !== 'quick' ? parseFloat(this.data.keypadValue || this.data.quantity) : 0,
+      record_time: this.data.recordTime,
+      notes: this.data.notes,
+      record_date: this.data.recordDate,
+      record_type: this.data.food.type === 'quick' ? 'quick' : 'standard'
     };
 
-    // 根据食物类型设置不同的字段
-    if (food.type === 'quick') {
-      // 快速记录
-      recordData.record_type = 'quick';
-      recordData.quick_food_name = food.display_name;
-      recordData.quick_energy_kcal = food.display_energy_kcal;
-      recordData.quick_protein_g = food.protein_g;
-      recordData.quick_fat_g = food.fat_g;
-      recordData.quick_carbohydrate_g = food.carbohydrate_g;
-      recordData.quantity_g = 0; // 快速记录数量为0
-    } else if (food.type === 'standard') {
-      // 标准食物
-      recordData.food_id = food.id;
-      recordData.quantity_g = parseFloat(quantity);
-    } else {
-      // 自定义食物
-      recordData.custom_food_id = food.id;
-      recordData.quantity_g = parseFloat(quantity);
+    // 如果是快速记录，添加快速记录字段
+    if (this.data.food.type === 'quick') {
+      recordData.quick_food_name = this.data.food.display_name;
+      recordData.quick_energy_kcal = this.data.food.display_energy_kcal;
+      recordData.quick_protein_g = this.data.food.protein_g;
+      recordData.quick_fat_g = this.data.food.fat_g;
+      recordData.quick_carbohydrate_g = this.data.food.carbohydrate_g;
     }
 
-    console.log('保存记录数据:', recordData);
+    const url = this.data.isEdit ? 
+      `${app.globalData.serverUrl}/api/diet-records/${this.data.recordId}` : 
+      `${app.globalData.serverUrl}/api/diet-records`;
 
-    const savePromise = isEdit 
-      ? app.updateDietRecordWithSync(recordId, recordData)
-      : app.addDietRecordWithSync(recordData);
+    const method = this.data.isEdit ? 'PUT' : 'POST';
 
-    savePromise.then(() => {
-      wx.showToast({
-        title: isEdit ? '更新成功' : '保存成功',
-        icon: 'success'
-      });
-      
-      // 延迟跳转，确保Toast显示完成
-      setTimeout(() => {
-        // 跳转到记录详情页面，传递当前选择的日期
-        wx.redirectTo({
-          url: `/pages/record/record-detail-list?date=${recordDate}`,
-          fail: () => {
-            // 如果redirectTo失败，尝试navigateTo
-            wx.navigateTo({
-              url: `/pages/record/record-detail-list?date=${recordDate}`,
-              fail: () => {
-                // 最后的备选方案，返回上一页
-                wx.navigateBack();
-              }
-            });
+    wx.request({
+      url: url,
+      method: method,
+      header: {
+        'Authorization': `Bearer ${wx.getStorageSync('token')}`,
+        'Content-Type': 'application/json'
+      },
+      data: recordData,
+      success: (res) => {
+        if (res.statusCode === 200 || res.statusCode === 201) {
+          const savedRecord = res.data;
+          
+          // 更新本地数据
+          let records = app.globalData.dietRecords || [];
+          
+          if (this.data.isEdit) {
+            // 编辑模式：更新现有记录
+            const index = records.findIndex(r => r.id == this.data.recordId);
+            if (index !== -1) {
+              records[index] = { ...records[index], ...savedRecord };
+            }
+          } else {
+            // 新建模式：添加新记录
+            records.push(savedRecord);
           }
+          
+          app.globalData.dietRecords = records;
+          
+          // 重新计算当日热量
+          app.calculateDailyCalorieSummary(this.data.recordDate);
+          
+          wx.showToast({
+            title: this.data.isEdit ? '更新成功' : '保存成功',
+            icon: 'success'
+          });
+          
+          // 返回上一页
+          setTimeout(() => {
+            wx.navigateBack();
+          }, 1500);
+        } else {
+          console.error('保存失败:', res);
+          wx.showToast({
+            title: '保存失败',
+            icon: 'error'
+          });
+        }
+      },
+      fail: (err) => {
+        console.error('网络请求失败:', err);
+        wx.showToast({
+          title: '网络错误',
+          icon: 'error'
         });
-      }, 1500); // 延迟1.5秒跳转
-    }).catch(err => {
-      wx.showToast({
-        title: isEdit ? '更新失败' : '保存失败',
-        icon: 'error'
-      });
-      console.error('保存记录失败:', err);
-    }).finally(() => {
-      this.setData({ loading: false });
+      },
+      complete: () => {
+        this.setData({ loading: false });
+      }
     });
   },
 
   // 删除记录
   deleteRecord() {
-    if (!this.data.isEdit) {
-      return;
-    }
-
     wx.showModal({
       title: '确认删除',
       content: '确定要删除这条记录吗？',
@@ -299,64 +317,112 @@ Page({
         if (res.confirm) {
           this.setData({ loading: true });
           
-          app.deleteDietRecordWithSync(this.data.recordId).then(() => {
-            wx.showToast({
-              title: '删除成功',
-              icon: 'success'
-            });
-            
-            // 延迟跳转，确保Toast显示完成
-            setTimeout(() => {
-              // 跳转到记录详情页面，传递当前选择的日期
-              wx.redirectTo({
-                url: `/pages/record/record-detail-list?date=${this.data.recordDate}`,
-                fail: () => {
-                  // 如果redirectTo失败，尝试navigateTo
-                  wx.navigateTo({
-                    url: `/pages/record/record-detail-list?date=${this.data.recordDate}`,
-                    fail: () => {
-                      // 最后的备选方案，返回上一页
-                      wx.navigateBack();
-                    }
-                  });
-                }
+          wx.request({
+            url: `${app.globalData.serverUrl}/api/diet-records/${this.data.recordId}`,
+            method: 'DELETE',
+            header: {
+              'Authorization': `Bearer ${wx.getStorageSync('token')}`
+            },
+            success: (res) => {
+              if (res.statusCode === 200) {
+                // 从本地数据中删除
+                let records = app.globalData.dietRecords || [];
+                records = records.filter(r => r.id != this.data.recordId);
+                app.globalData.dietRecords = records;
+                
+                // 重新计算当日热量
+                app.calculateDailyCalorieSummary(this.data.recordDate);
+                
+                wx.showToast({
+                  title: '删除成功',
+                  icon: 'success'
+                });
+                
+                setTimeout(() => {
+                  wx.navigateBack();
+                }, 1500);
+              } else {
+                console.error('删除失败:', res);
+                wx.showToast({
+                  title: '删除失败',
+                  icon: 'error'
+                });
+              }
+            },
+            fail: (err) => {
+              console.error('网络请求失败:', err);
+              wx.showToast({
+                title: '网络错误',
+                icon: 'error'
               });
-            }, 1500); // 延迟1.5秒跳转
-          }).catch(err => {
-            wx.showToast({
-              title: '删除失败',
-              icon: 'error'
-            });
-            console.error('删除记录失败:', err);
-          }).finally(() => {
-            this.setData({ loading: false });
+            },
+            complete: () => {
+              this.setData({ loading: false });
+            }
           });
         }
       }
     });
   },
 
-  // 在Page({...})内新增方法
+  // 编辑自定义食物
   editCustomFood(e) {
-    const food = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.food
-      ? e.currentTarget.dataset.food
-      : this.data.food;
+    const food = e.currentTarget.dataset.food;
+    const foodStr = encodeURIComponent(JSON.stringify(food));
+    wx.navigateTo({
+      url: `/pages/record/add-custom-food?food=${foodStr}&isEdit=true`
+    });
+  },
 
-    if (!food) return;
-
-    if (food.type !== 'custom') {
-      wx.showToast({ title: '标准食物不可编辑', icon: 'none' });
-      return;
+  // 数字键盘事件处理
+  onKeypadInput(e) {
+    const value = e.currentTarget.dataset.value;
+    let currentValue = this.data.keypadValue;
+    
+    // 如果是数字或小数点
+    if (value >= '0' && value <= '9' || value === '.') {
+      // 如果是小数点，检查是否已经存在
+      if (value === '.' && currentValue.includes('.')) {
+        return; // 已有小数点，忽略
+      }
+      
+      // 如果是第一个字符且是小数点，在前面加0
+      if (value === '.' && currentValue === '') {
+        currentValue = '0';
+      }
+      
+      // 限制总长度（包括小数点）
+      if (currentValue.length >= 6) {
+        return;
+      }
+      
+      currentValue += value;
     }
-
-    try {
-      const encoded = encodeURIComponent(JSON.stringify(food));
-      wx.navigateTo({
-        url: `/pages/record/add-custom-food?food=${encoded}`
+    
+    this.setData({
+      keypadValue: currentValue,
+      quantity: currentValue
+    });
+    
+    // 如果有值，计算营养值
+    if (currentValue && parseFloat(currentValue) > 0) {
+      this.calculateNutrition(currentValue);
+    } else {
+      this.setData({
+        calculatedNutrition: null
       });
-    } catch (err) {
-      wx.showToast({ title: '数据异常', icon: 'none' });
-      console.error('editCustomFood encode error:', err);
     }
-  }
+  },
+
+  // 清空按钮
+  onKeypadClear() {
+    this.setData({
+      keypadValue: '',
+      quantity: '',
+      calculatedNutrition: null
+    });
+  },
+
+
+
 });
