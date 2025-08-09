@@ -215,45 +215,72 @@
 }
 
 /* 卡路里汇总 */
-.calorie-summary {
-  background: white;
+/* 顶部三列与圆环 */
+.summary-card {
+  background: #ffffff;
   border-radius: 16rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+  padding: 20rpx 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.08);
+  margin-bottom: 12rpx;
 }
 
-.summary-item {
+.top-summary {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 1fr;
+  gap: 16rpx;
+}
+
+.summary-left, .summary-right {
+  background: transparent;
+  border-radius: 16rpx;
+  padding: 24rpx;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  margin-bottom: 20rpx;
+  box-shadow: none;
 }
 
-.summary-item:last-child {
-  margin-bottom: 0;
-  padding-top: 20rpx;
-  border-top: 1rpx solid #eee;
+.mini-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 6rpx;
 }
 
-.summary-label {
-  font-size: 28rpx;
-  color: #666;
-}
-
-.summary-value {
-  font-size: 32rpx;
+.mini-value {
+  font-size: 30rpx;
   font-weight: 600;
   color: #333;
 }
 
-.summary-value.consumed {
-  color: #ff6b6b;
+.mini-value.danger { color: #ff6b6b; }
+
+.summary-center {
+  background: transparent;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  position: relative;
+  width: 100%;
+  min-height: 200px;
 }
 
-.summary-value.remaining {
-  color: #4ecdc4;
-}
+.ring-wrap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 180px; height: 180px; }
+.ring-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; transform: translateZ(0); z-index: 1; }
+.ring-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+.ring-main { font-size: 26rpx; color: #333; display: block; }
+.ring-sub { font-size: 22rpx; color: #999; display: block; margin-top: 4rpx; }
+
+/* 三大营养素（无背景） */
+.macro-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12rpx; margin-bottom: 20rpx; }
+.macro-col { text-align: center; }
+.macro-label { font-size: 24rpx; color: #999; display: block; margin-bottom: 4rpx; }
+.macro-number { font-size: 30rpx; font-weight: 700; }
+.macro-number.protein { color: #3f8cff; }
+.macro-number.fat { color: #ff9a56; }
+.macro-number.carb { color: #00c853; }
 
 /* 添加记录按钮 */
 .add-record-section {
@@ -350,6 +377,11 @@
   align-items: center;
   padding: 20rpx 0;
   border-bottom: 1rpx solid #f0f0f0;
+}
+
+.record-item.highlight {
+  background: rgba(78,205,196,0.08);
+  border-radius: 12rpx;
 }
 
 .record-item:last-child {

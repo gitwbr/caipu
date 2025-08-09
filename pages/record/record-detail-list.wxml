@@ -12,9 +12,7 @@
       </view>
       <text class="calendar-icon">▼</text>
     </view>
-    <view class="navbar-right">
-      <text class="menu-btn">⋯</text>
-    </view>
+  <view class="navbar-right"></view>
   </view>
 </view>
 
@@ -52,21 +50,42 @@
     </view>
   </view>
 
-  <!-- 卡路里汇总 -->
-  <view class="calorie-summary">
-    <view class="summary-item">
-      <text class="summary-label">基础代谢</text>
-      <text class="summary-value">{{calorieBudget}} kcal</text>
+  <!-- 顶部三列与圆环 -->
+  <view class="summary-card">
+    <view class="top-summary">
+    <view class="summary-left">
+      <text class="mini-label">已摄入</text>
+      <text class="mini-value">{{consumedCalories}}</text>
     </view>
-    <view class="summary-item">
-      <text class="summary-label">已摄入</text>
-      <text class="summary-value consumed">{{consumedCalories}} kcal</text>
+    <view class="summary-center">
+      <view class="ring-wrap">
+          <canvas canvas-id="ringCanvas" class="ring-canvas" width="{{ringSize}}" height="{{ringSize}}"></canvas>
+        <view class="ring-text">
+          <text class="ring-main">还可 {{remainingCalories}} kcal</text>
+          <text class="ring-sub">目标 {{calorieBudget}}</text>
+        </view>
+      </view>
     </view>
-    <view class="summary-item">
-      <text class="summary-label">还可摄入</text>
-      <text class="summary-value remaining">{{remainingCalories}} kcal</text>
+    <view class="summary-right">
+      <text class="mini-label">运动消耗</text>
+      <text class="mini-value danger">{{exerciseCalories}}</text>
+    </view>
+    </view>
+    <view class="macro-row">
+    <view class="macro-col">
+      <text class="macro-label">蛋白质</text>
+      <text class="macro-number protein">{{totalProtein}} g</text>
+    </view>
+    <view class="macro-col">
+      <text class="macro-label">脂肪</text>
+      <text class="macro-number fat">{{totalFat}} g</text>
+    </view>
+    <view class="macro-col">
+      <text class="macro-label">碳水</text>
+      <text class="macro-number carb">{{totalCarbs}} g</text>
     </view>
   </view>
+  </view>  
 
   <!-- 添加记录按钮 -->
   <view class="add-record-section">
@@ -90,7 +109,7 @@
     </view>
 
     <view class="records-list" wx:if="{{records.length > 0}}">
-      <view class="record-item" wx:for="{{records}}" wx:key="id" bindtap="onRecordTap" data-id="{{item.id}}">
+      <view id="rec-{{item.id}}" class="record-item {{item.id == highlightId ? 'highlight' : ''}}" wx:for="{{records}}" wx:key="id" bindtap="onRecordTap" data-id="{{item.id}}">
         <view class="record-info">
           <view class="food-header">
             <text class="food-name">{{item.food_name}}</text>

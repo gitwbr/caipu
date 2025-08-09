@@ -249,7 +249,7 @@ Page({
       recordData.quick_carbohydrate_g = this.data.food.carbohydrate_g;
     }
 
-    const doAfter = () => {
+    const doAfter = (resultRecord) => {
       // 重新计算当日热量
       app.calculateDailyCalorieSummary(this.data.recordDate);
       wx.showToast({
@@ -257,13 +257,20 @@ Page({
         icon: 'success'
       });
       setTimeout(() => {
-        wx.navigateBack();
-      }, 1200);
+        // 返回并跳转到记录列表页（按需求直达当天列表）
+        const targetDate = this.data.recordDate;
+        const highlightId = (resultRecord && resultRecord.id) ? resultRecord.id : (this.data.recordId || '');
+        const url = `/pages/record/record-detail-list?date=${encodeURIComponent(targetDate)}&highlightId=${encodeURIComponent(highlightId)}`;
+        wx.redirectTo({ url }).catch(() => {
+          // 兜底：若 redirectTo 失败则尝试 navigateTo
+          wx.navigateTo({ url });
+        });
+      }, 800);
     };
 
     if (this.data.isEdit) {
       app.updateDietRecordWithSync(this.data.recordId, recordData)
-        .then(() => doAfter())
+        .then((updated) => doAfter(updated))
         .catch((err) => {
           console.error('更新失败:', err);
           wx.showToast({ title: '更新失败', icon: 'error' });
@@ -271,7 +278,7 @@ Page({
         .finally(() => this.setData({ loading: false }));
     } else {
       app.addDietRecordWithSync(recordData)
-        .then(() => doAfter())
+        .then((created) => doAfter(created))
         .catch((err) => {
           console.error('保存失败:', err);
           wx.showToast({ title: '保存失败', icon: 'error' });

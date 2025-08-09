@@ -13,15 +13,22 @@ Page({
     calorieBudget: 0,
     consumedCalories: 0,
     remainingCalories: 0,
+    exerciseCalories: 0,
+    totalProtein: 0,
+    totalFat: 0,
+    totalCarbs: 0,
+    ringSize: 180,
     records: [],
-    loading: false
+    loading: false,
+    _dateHasRecordMap: null
   },
 
   onLoad(options) {
     console.log('record-detail-list onLoad, options:', options);
     
-    // 获取传递过来的日期，如果没有则使用今天
+    // 获取传递过来的日期与高亮ID，如果没有则使用今天
     let selectedDate = options.date || new Date().toISOString().split('T')[0];
+    this.highlightId = options.highlightId ? String(options.highlightId) : '';
     
     // 确保日期格式为 YYYY-MM-DD
     if (selectedDate && selectedDate.includes('T')) {
@@ -276,20 +283,100 @@ Page({
     // 计算已摄入卡路里，保留2位小数
     const consumedCalories = parseFloat(summary.total_calories || 0);
     const consumedCaloriesFormatted = parseFloat(consumedCalories.toFixed(2));
-    
+
     // 计算剩余卡路里，保留2位小数
     const remainingCalories = Math.max(0, bmr - consumedCaloriesFormatted);
     const remainingCaloriesFormatted = parseFloat(remainingCalories.toFixed(2));
-    
+
+    // 统计宏量营养素总摄入
+    let totalProtein = 0, totalFat = 0, totalCarbs = 0;
+    for (const r of dailyRecords) {
+      if (r.record_type === 'quick') {
+        totalProtein += parseFloat(r.quick_protein_g || 0);
+        totalFat += parseFloat(r.quick_fat_g || 0);
+        totalCarbs += parseFloat(r.quick_carbohydrate_g || 0);
+      } else if (r.food_id) {
+        const f = app.findFoodNutritionById(r.food_id);
+        if (f && r.quantity_g) {
+          const ratio = r.quantity_g / 100;
+          totalProtein += (parseFloat(f.protein_g || 0) * ratio);
+          totalFat += (parseFloat(f.fat_g || 0) * ratio);
+          totalCarbs += (parseFloat(f.carbohydrate_g || 0) * ratio);
+        }
+      } else if (r.custom_food_id) {
+        const f = app.findCustomFoodById(r.custom_food_id);
+        if (f && r.quantity_g) {
+          const ratio = r.quantity_g / 100;
+          totalProtein += (parseFloat(f.protein_g || 0) * ratio);
+          totalFat += (parseFloat(f.fat_g || 0) * ratio);
+          totalCarbs += (parseFloat(f.carbohydrate_g || 0) * ratio);
+        }
+      }
+    }
+    totalProtein = parseFloat(totalProtein.toFixed(1));
+    totalFat = parseFloat(totalFat.toFixed(1));
+    totalCarbs = parseFloat(totalCarbs.toFixed(1));
+
     this.setData({
       calorieBudget: bmr,
       consumedCalories: consumedCaloriesFormatted,
       remainingCalories: remainingCaloriesFormatted,
       records: formattedRecords,
+      totalProtein,
+      totalFat,
+      totalCarbs,
       loading: false
+    }, () => {
+      // 在页面渲染完成后再绘制
+      setTimeout(() => this.drawRing(consumedCaloriesFormatted, bmr), 50);
+      if (this.highlightId) {
+        const idStr = this.highlightId;
+        const exists = this.data.records.some(r => String(r.id) === idStr);
+        if (exists) {
+          this.setData({ highlightId: idStr }, () => {
+            // 平滑滚动到高亮项
+            wx.pageScrollTo({ selector: `#rec-${idStr}`, duration: 300, offsetTop: 0 });
+          });
+        } else {
+          this.highlightId = '';
+        }
+      }
     });
     
     console.log('页面数据已更新:', this.data);
+  },
+
+  // 绘制中间圆环
+  drawRing(consumed, target) {
+    try {
+      const ctx = wx.createCanvasContext('ringCanvas', this);
+      console.log('[ring] draw start', { consumed, target, size: this.data.ringSize });
+      const size = this.data.ringSize || 180; // 与 wxml width/height 一致
+      const dpr = wx.getSystemInfoSync().pixelRatio || 1;
+      // 适配高分屏：按像素比缩放坐标系
+      ctx.scale(1, 1);
+      const center = size / 2;
+      const radius = center - 10;
+      ctx.clearRect(0, 0, size, size);
+      ctx.setLineWidth(10);
+      ctx.setStrokeStyle('#eeeeee');
+      ctx.beginPath();
+      ctx.arc(center, center, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      const percent = target > 0 ? Math.min(consumed / target, 1) : 0;
+      const remaining = (target || 0) - (consumed || 0);
+      const progressColor = remaining <= 0 ? '#ff6b6b' : '#4ecdc4';
+      ctx.setLineCap('round');
+      ctx.setStrokeStyle(progressColor);
+      ctx.beginPath();
+      ctx.arc(center, center, radius, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * percent, false);
+      ctx.stroke();
+      ctx.draw(false, () => {
+        console.log('[ring] draw done');
+      });
+    } catch (e) {
+      console.error('[ring] draw error', e);
+    }
   },
 
   // 生成日历数据
@@ -309,6 +396,8 @@ Page({
     console.log('当月总天数:', daysInMonth);
     
     const calendarDays = [];
+    // 构建当月日期 -> 是否有记录 的缓存，避免每格遍历全量记录
+    const dateToHasRecord = this._buildDateHasRecordMap(currentYear, currentMonth);
     const today = new Date();
     
     // 计算上个月需要显示的天数
@@ -355,8 +444,8 @@ Page({
         const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
         const isToday = dateStr === todayStr;
         
-        // 检查是否有记录
-        const hasRecord = this.checkHasRecord(dateStr);
+        // 从缓存获取是否有记录
+        const hasRecord = !!dateToHasRecord[dateStr];
         
         calendarDays.push({
           date: dateStr,
@@ -392,6 +481,33 @@ Page({
       }
       return recordDate === dateStr;
     });
+  },
+
+  // 生成某年某月的“日期是否有记录”缓存表
+  _buildDateHasRecordMap(year, month) {
+    const cacheKey = `${year}-${month}`;
+    if (this.data._dateHasRecordMap && this.data._dateHasRecordMap.key === cacheKey) {
+      return this.data._dateHasRecordMap.map;
+    }
+    const map = Object.create(null);
+    const records = app.globalData.dietRecords || [];
+    for (const record of records) {
+      if (!record.record_date) continue;
+      let d;
+      if (typeof record.record_date === 'string') {
+        d = record.record_date.includes('T') ? record.record_date.split('T')[0] : record.record_date;
+      } else if (record.record_date instanceof Date) {
+        d = record.record_date.toISOString().split('T')[0];
+      } else {
+        continue;
+      }
+      // 仅缓存该月的
+      if (d.startsWith(`${year}-${String(month).padStart(2,'0')}-`)) {
+        map[d] = true;
+      }
+    }
+    this.setData({ _dateHasRecordMap: { key: cacheKey, map } });
+    return map;
   },
 
   // 选择日期
