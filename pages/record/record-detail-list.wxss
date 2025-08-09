@@ -418,8 +418,8 @@
 }
 
 /* 复用小圆形图标样式（已在 add-record.wxss 定义）。若需要单页定义： */
-.icon-circle { width: 48rpx; height: 48rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26rpx; color: #fff; box-shadow: 0 3rpx 8rpx rgba(0,0,0,0.10); }
-.icon-circle.danger { background: #ff6b6b; }
+.icon-circle { width: 48rpx; height: 48rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26rpx; box-shadow: none; }
+.icon-circle.danger { background: transparent; border: 2rpx solid #ff6b6b; color: #ff6b6b; box-shadow: none; }
 .icon-circle.small { width: 40rpx; height: 40rpx; font-size: 22rpx; }
 
 /* 空状态 */

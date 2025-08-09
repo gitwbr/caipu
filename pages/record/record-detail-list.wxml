@@ -109,7 +109,7 @@
     <view class="records-list" wx:if="{{records.length > 0}}">
       <view id="rec-{{item.id}}" class="record-item {{item.id == highlightId ? 'highlight' : ''}}" wx:for="{{records}}" wx:key="id" bindtap="onRecordTap" data-id="{{item.id}}">
         <view class="record-thumb">
-          <image wx:if="{{item.image_full_url}}" class="thumb" src="{{item.image_full_url}}" mode="aspectFill" />
+          <image wx:if="{{item.image_full_url}}" class="thumb" src="{{item.image_full_url}}" mode="aspectFill" lazy-load />
           <text wx:else class="thumb-placeholder">🍽️</text>
         </view>
         <view class="record-info">

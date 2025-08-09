@@ -232,7 +232,7 @@
   width: 80rpx;
   height: 80rpx;
   border-radius: 8rpx;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: #f3f4f6; /* 与列表缩略图占位一致 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -248,8 +248,8 @@
 }
 
 .food-placeholder {
-  font-size: 40rpx;
-  color: white;
+  font-size: 36rpx; /* 与列表一致 */
+  color: #cbd5e1;
 }
 
 .food-name {

@@ -95,9 +95,9 @@
               <image 
                 wx:if="{{item.image_url}}" 
                 class="food-thumbnail" 
-                src="{{item.image_full_url}}" 
-                mode="aspectFill"
-                lazy-load
+                 src="{{item.image_full_url}}" 
+                 mode="aspectFill"
+                 lazy-load
                 data-src="{{item.image_full_url}}"
                 data-origin="recent"
                 binderror="onImgError"
@@ -136,8 +136,9 @@
               <image 
                 wx:if="{{item.image_url}}" 
                 class="food-thumbnail" 
-                src="{{item.image_full_url}}" 
-                mode="aspectFill"
+                 src="{{item.image_full_url}}" 
+                 mode="aspectFill"
+                 lazy-load
                 data-src="{{item.image_full_url}}"
                 data-origin="custom"
                 binderror="onImgError"

@@ -1,7 +1,7 @@
 <!--pages/profile/edit.wxml-->
 <view class="edit-container">
   <view class="edit-avatar-box">
-    <image class="edit-avatar" src="{{avatarPreview || (userInfo && userInfo.avatar_url) || '/images/profile.png'}}" mode="aspectFit" bindtap="chooseAvatar"></image>
+   <image class="edit-avatar" src="{{avatarPreview || (userInfo && userInfo.avatar_url) || '/images/profile.png'}}" mode="aspectFit" bindtap="chooseAvatar" lazy-load></image>
     <text class="edit-avatar-tip">点击头像可更换</text>
   </view>
   <view class="edit-nickname-box">

@@ -78,7 +78,7 @@
       <view class="image-inline-slot">
         <view wx:if="{{!(imagePath || imageUrl)}}" class="camera-btn-mini" bindtap="onCameraClick">📷</view>
         <view wx:else class="thumb-wrap">
-          <image class="thumb" src="{{imagePath || imageUrl}}" mode="aspectFill" />
+          <image class="thumb" src="{{imagePath || imageUrl}}" mode="aspectFill" lazy-load />
           <view class="remove-thumb" bindtap="removeImage">−</view>
         </view>
       </view>

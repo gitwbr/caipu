@@ -5,7 +5,7 @@
   </view>
   
   <view class="profile-info">
-    <image class="avatar" src="{{localAvatar || '/images/profile.png'}}" mode="aspectFit"></image>
+   <image class="avatar" src="{{localAvatar || '/images/profile.png'}}" mode="aspectFit" lazy-load></image>
     <text class="nickname">
       {{
         !isLoggedIn ? '未登录' :
