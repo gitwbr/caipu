@@ -84,7 +84,18 @@
             data-food="{{item}}"
           >
             <view class="food-image">
-              <text class="food-placeholder">🍽️</text>
+              <image 
+                wx:if="{{item.image_url}}" 
+                class="food-thumbnail" 
+                src="{{item.image_full_url}}" 
+                mode="aspectFill"
+                lazy-load
+                data-src="{{item.image_full_url}}"
+                data-origin="recent"
+                binderror="onImgError"
+                bindload="onImgLoad"
+              />
+              <text wx:else class="food-placeholder">🍽️</text>
             </view>
             <view class="food-info">
               <text class="food-name">{{item.display_name}}</text>
@@ -117,8 +128,12 @@
               <image 
                 wx:if="{{item.image_url}}" 
                 class="food-thumbnail" 
-                src="{{item.image_url}}" 
+                src="{{item.image_full_url}}" 
                 mode="aspectFill"
+                data-src="{{item.image_full_url}}"
+                data-origin="custom"
+                binderror="onImgError"
+                bindload="onImgLoad"
               />
               <text wx:else class="food-placeholder">🍽️</text>
             </view>

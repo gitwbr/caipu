@@ -107,6 +107,7 @@
     fat_g: number,
     carbohydrate_g: number,
     na_mg?: number,
+    image_url?: string  // 仅保存“路径”（如 /uploads/xxx.jpg），不含协议与域名
     // 其余维生素/矿物质字段可能存在（数值型）
   }
 ]
@@ -154,6 +155,7 @@
   - `getApp().updateCustomFoodWithSync(foodId, foodData)`
   - `getApp().deleteCustomFoodWithSync(foodId)`
   - 内部保证：云端成功 → `saveCustomFoodsToLocal(customFoods)`。
+  - 图片字段规范：写入前使用 `normalizeImageUrlToPath(url)` 转为路径；读取显示时使用 `buildImageUrl(path)` 拼接为完整 URL（基于 `serverUrl`）。
 
 - 登录刷新：
   - `getApp().wxLogin()` 成功后并行拉取 用户信息 / 全部饮食记录 / 自定义食物，并分别写入 `userInfo`、`dietRecords`、`customFoods`。

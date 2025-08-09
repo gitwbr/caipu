@@ -14,6 +14,7 @@ Page({
     // 图片相关
     imagePath: '',
     imageUrl: '',
+    imageFullUrl: '',
     showImagePreview: false,
     
     // 宏量营养素
@@ -115,6 +116,7 @@ Page({
       vitamin_c_mg: (food.vitamin_c_mg || 0).toString(),
       cholesterol_mg: (food.cholesterol_mg || 0).toString(),
       imageUrl: food.image_url || '',
+      imageFullUrl: food.image_url ? getApp().buildImageUrl(food.image_url) : '',
       showImagePreview: food.image_url ? true : false
     });
     
@@ -204,9 +206,9 @@ Page({
       wx.previewImage({
         urls: [this.data.imagePath]
       });
-    } else if (this.data.imageUrl) {
+    } else if (this.data.imageFullUrl) {
       wx.previewImage({
-        urls: [this.data.imageUrl]
+        urls: [this.data.imageFullUrl]
       });
     }
   },
@@ -216,6 +218,7 @@ Page({
     this.setData({
       imagePath: '',
       imageUrl: '',
+      imageFullUrl: '',
       showImagePreview: false
     });
   },
@@ -379,7 +382,8 @@ Page({
       // 如果有新图片，先上传图片
       if (this.data.imagePath) {
         const imageUrl = await this.uploadImage(this.data.imagePath);
-        formData.image_url = imageUrl;
+        // 存库仅存路径部分
+        formData.image_url = getApp().normalizeImageUrlToPath(imageUrl);
       }
 
       // 统一接口：云端成功后自动保存本地
@@ -432,7 +436,8 @@ Page({
       // 如果有新图片，先上传图片
       if (this.data.imagePath) {
         const imageUrl = await this.uploadImage(this.data.imagePath);
-        formData.image_url = imageUrl;
+        // 存库仅存路径部分
+        formData.image_url = getApp().normalizeImageUrlToPath(imageUrl);
       }
 
       const updated = await app.updateCustomFoodWithSync(this.data.food_id, formData);

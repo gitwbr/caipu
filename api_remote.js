@@ -955,6 +955,18 @@ app.get('/api/food-nutrition/search', async (req, res) => {
 
 // --- 图片上传接口 ---
 
+// 工具：将绝对URL或以/uploads开头的路径统一转换为“仅路径”（/uploads/...）
+function normalizeToPathOnly(urlOrPath) {
+  if (!urlOrPath) return null;
+  try {
+    if (/^https?:\/\//i.test(urlOrPath)) {
+      const u = new URL(urlOrPath);
+      return u.pathname; // /uploads/.../file
+    }
+  } catch (_) {}
+  return urlOrPath; // 已是路径
+}
+
 // POST /api/upload-image 图片上传接口
 app.post('/api/upload-image', upload.single('image'), async (req, res) => {
   try {
@@ -970,20 +982,17 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: '没有上传图片文件' });
     }
     
-    // 构建图片URL
+    // 构建图片URL（仅路径）
     const relativePath = path.relative(UPLOAD_DIR, req.file.path);
-    const imageUrl = `${UPLOAD_URL_PREFIX}/${relativePath.replace(/\\/g, '/')}`;
+    const imagePathOnly = `/uploads/${relativePath.replace(/\\/g, '/')}`;
     
     console.log('图片上传成功:', {
       originalName: req.file.originalname,
       savedPath: req.file.path,
-      imageUrl: imageUrl
+      imageUrl: imagePathOnly
     });
     
-    res.json({
-      success: true,
-      imageUrl: imageUrl
-    });
+    res.json({ success: true, imageUrl: imagePathOnly });
   } catch (error) {
     console.error('图片上传失败:', error);
     res.status(500).json({ error: '图片上传失败', message: error.message });
@@ -1392,15 +1401,12 @@ app.delete('/api/diet-records/:id', async (req, res) => {
     if (record.record_type === 'quick' && record.quick_image_url) {
       console.log('检测到快速记录且有图片URL');
       try {
-        // 从URL中提取相对路径
-        // URL格式: http://server:port/uploads/userId/filename
-        const urlParts = record.quick_image_url.split('/uploads/');
-        console.log('URL分割结果:', urlParts);
-        if (urlParts.length > 1) {
-          imagePath = path.join(UPLOAD_DIR, urlParts[1]);
+        // quick_image_url 可能是完整URL或路径，统一转为文件系统路径
+        const pathname = normalizeToPathOnly(record.quick_image_url); // /uploads/...
+        if (pathname && pathname.startsWith('/uploads/')) {
+          const relative = pathname.replace('/uploads/', '');
+          imagePath = path.join(UPLOAD_DIR, relative);
           console.log('解析出的图片路径:', imagePath);
-        } else {
-          console.log('URL格式不正确，无法提取图片路径');
         }
       } catch (error) {
         console.error('解析图片路径失败:', error);
@@ -1598,7 +1604,7 @@ app.post('/api/user-custom-foods', async (req, res) => {
       fe_mg || 0,
       vitamin_c_mg || 0,
       cholesterol_mg || 0,
-      image_url || null
+      normalizeToPathOnly(image_url) || null
     ]);
     client.release();
     
@@ -1654,6 +1660,20 @@ app.put('/api/user-custom-foods/:id', async (req, res) => {
     }
     
     const client = await pool.connect();
+
+    // 先取旧图片路径以便更新后删除
+    const selectQuery = `SELECT image_url FROM user_custom_foods WHERE id = $1 AND user_id = $2`;
+    const selectRes = await client.query(selectQuery, [id, payload.userId]);
+    if (selectRes.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error: '自定义食物不存在或无权限修改' });
+    }
+    const oldImagePathname = normalizeToPathOnly(selectRes.rows[0].image_url);
+
+    // 准备新图片路径（若请求体包含 image_url 字段）
+    const imageProvided = Object.prototype.hasOwnProperty.call(req.body, 'image_url');
+    const newImagePathname = imageProvided ? (normalizeToPathOnly(image_url) || null) : oldImagePathname;
+
     const query = `
       UPDATE user_custom_foods
       SET food_name = $1, energy_kcal = $2, protein_g = $3, fat_g = $4, carbohydrate_g = $5, fiber_g = $6,
@@ -1662,18 +1682,37 @@ app.put('/api/user-custom-foods/:id', async (req, res) => {
       WHERE id = $19 AND user_id = $20
       RETURNING *;
     `;
-    
+
     const result = await client.query(query, [
       food_name, energy_kcal, protein_g || 0, fat_g || 0, carbohydrate_g || 0, fiber_g || 0,
       moisture_g || 0, vitamin_a_ug || 0, vitamin_b1_mg || 0, vitamin_b2_mg || 0, vitamin_b3_mg || 0, vitamin_e_mg || 0,
-      na_mg || 0, ca_mg || 0, fe_mg || 0, vitamin_c_mg || 0, cholesterol_mg || 0, image_url || null, id, payload.userId
+      na_mg || 0, ca_mg || 0, fe_mg || 0, vitamin_c_mg || 0, cholesterol_mg || 0, newImagePathname, id, payload.userId
     ]);
     client.release();
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: '自定义食物不存在或无权限修改' });
     }
-    
+
+    // 若请求包含 image_url 且新旧不同，或显式清空图片，则删除旧文件
+    try {
+      if (imageProvided) {
+        const changed = oldImagePathname !== newImagePathname;
+        if (oldImagePathname && changed && oldImagePathname.startsWith('/uploads/')) {
+          const relative = oldImagePathname.replace('/uploads/', '');
+          const filePath = path.join(UPLOAD_DIR, relative);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log('更新自定义食物：已删除旧图片文件', filePath);
+          } else {
+            console.log('更新自定义食物：旧图片文件不存在，跳过删除', filePath);
+          }
+        }
+      }
+    } catch (delErr) {
+      console.error('更新自定义食物：删除旧图片失败（不影响更新结果）:', delErr.message);
+    }
+
     res.json({
       message: '更新成功',
       custom_food: result.rows[0]
@@ -1736,13 +1775,17 @@ app.delete('/api/user-custom-foods/:id', async (req, res) => {
     if (food.image_url) {
       console.log('检测到图片URL，准备删除图片文件');
       try {
-        // 从URL中提取文件路径
-        const urlPath = food.image_url.replace(UPLOAD_URL_PREFIX, '');
-        const filePath = path.join(UPLOAD_DIR, urlPath);
+        // 兼容完整URL或仅路径
+        const pathname = normalizeToPathOnly(food.image_url); // 例如 /uploads/31/xxx.png
+        let filePath = null;
+        if (pathname && pathname.startsWith('/uploads/')) {
+          const relative = pathname.replace('/uploads/', ''); // 31/xxx.png
+          filePath = path.join(UPLOAD_DIR, relative);
+        }
         console.log('解析出的图片路径:', filePath);
         
         // 检查文件是否存在并删除
-        if (fs.existsSync(filePath)) {
+        if (filePath && fs.existsSync(filePath)) {
           console.log('图片文件存在，开始删除');
           fs.unlinkSync(filePath);
           console.log('删除图片文件成功:', filePath);

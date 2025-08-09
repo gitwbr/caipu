@@ -57,7 +57,7 @@
             <text class="camera-icon">📷</text>
           </view>
           <view wx:else class="thumb-wrap">
-            <image class="thumb" src="{{imagePath || imageUrl}}" mode="aspectFill" bindtap="previewImage" />
+            <image class="thumb" src="{{imagePath || imageFullUrl}}" mode="aspectFill" />
             <view class="remove-thumb" bindtap="removeImage">−</view>
           </view>
         </view>

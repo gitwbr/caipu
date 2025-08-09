@@ -12,61 +12,133 @@ Page({
     searching: false,
     processingImage: false
   },
+  
+  // 内部状态（不放入data，避免触发渲染）
+  _lastRecentKey: '',
+  _lastCustomUpdate: '',
+  _hasSyncedOnce: false,
+  
+  // 将最近引用解析为可展示项（查两张表）
+  async resolveRecentItems(refs) {
+    const app = getApp();
+    const recent = [];
+    (refs || []).forEach(ref => {
+      if (ref.type === 'standard') {
+        const food = app.findFoodNutritionById(ref.id);
+        if (food) {
+          recent.push({
+            id: ref.id,
+            type: 'standard',
+            display_name: food.food_name,
+            display_energy_kcal: food.energy_kcal,
+            protein_g: food.protein_g,
+            fat_g: food.fat_g,
+            carbohydrate_g: food.carbohydrate_g,
+            image_url: food.image_url,
+            image_full_url: food.image_url ? app.buildImageUrl(food.image_url) : ''
+          });
+        }
+      } else if (ref.type === 'custom') {
+        const food = app.findCustomFoodById(ref.id);
+        if (food) {
+          recent.push({
+            id: ref.id,
+            type: 'custom',
+            display_name: food.food_name,
+            display_energy_kcal: food.energy_kcal,
+            protein_g: food.protein_g,
+            fat_g: food.fat_g,
+            carbohydrate_g: food.carbohydrate_g,
+            image_url: food.image_url,
+            image_full_url: food.image_url ? app.buildImageUrl(food.image_url) : ''
+          });
+        }
+      }
+    });
+    return recent;
+  },
+
+  onImgLoad(e) {
+    const src = e.currentTarget.dataset.src;
+    const origin = e.currentTarget.dataset.origin;
+    console.log('[image load]', origin, src);
+  },
+
+  onImgError(e) {
+    const src = e.currentTarget.dataset.src;
+    const origin = e.currentTarget.dataset.origin;
+    console.error('[image error]', origin, src, e.detail);
+  },
 
   onLoad() {
-    console.log('=== 页面加载 ===');
-    console.log('初始activeTab:', this.data.activeTab);
-    
-    this.loadRecentFoods();
-    this.loadCustomFoods();
-    
-    console.log('=== 数据加载完成 ===');
-    console.log('recentFoods:', this.data.recentFoods);
-    console.log('customFoods:', this.data.customFoods);
+    // 首次进入：仅从本地读取并解析一次，避免多次互相触发
+    this.refreshFromLocal();
+    // 后台静默同步一次云端自定义食物，完成后若有变更再刷新最近
+    this.syncCustomFoodsInBackground();
   },
 
   onShow() {
-    // 页面显示时刷新自定义食物列表
-    this.loadCustomFoods();
+    // 返回本页时，增量刷新本地数据（仅在变更时更新）
+    this.refreshFromLocal();
   },
 
   // 加载最近食物
-  loadRecentFoods() {
-    const recentFoods = app.globalData.recentFoods || [];
-    this.setData({
-      recentFoods: recentFoods.slice(0, 10) // 只显示最近10个
-    });
+  async loadRecentFoods(silent = true) {
+    const refs = app.globalData.recentFoods || [];
+    // 基于 type:id 构建签名，避免重复解析/打印
+    const key = (refs || []).map(r => `${r.type}:${r.id}`).join(',');
+    if (key === this._lastRecentKey) {
+      if (!silent) console.log('[recent] refs 未变化，跳过刷新');
+      return;
+    }
+    this._lastRecentKey = key;
+    if (!silent) console.log('[recent] refs 变化，长度:', refs.length);
+    const resolved = await this.resolveRecentItems(refs.slice(0, 10));
+    if (!silent) console.log('[recent] resolved 更新，长度:', resolved.length);
+    this.setData({ recentFoods: resolved });
   },
 
   // 加载自定义食物
-  loadCustomFoods() {
-    console.log('=== 加载自定义食物 ===');
-    
-    // 只使用本地数据，不进行网络请求
+  loadCustomFoods(silent = true) {
+    // 使用本地数据；仅当最近一次更新时间变化时才刷新UI与最近
     const localFoods = app.globalData.customFoods || [];
-    console.log('本地自定义食物:', localFoods);
-    
-    this.setData({
-      customFoods: localFoods
-    });
-    
-    console.log('设置后的customFoods:', this.data.customFoods);
-    
-    // 可选：在后台静默同步（不影响用户体验）
-    setTimeout(() => {
-      app.getCustomFoods().then(customFoods => {
-        console.log('云端同步的自定义食物:', customFoods);
-        // 更新本地缓存
-        app.saveCustomFoodsToLocal(customFoods || []);
-        this.setData({
-          customFoods: customFoods || []
-        });
-        console.log('同步后的customFoods:', this.data.customFoods);
-      }).catch(error => {
-        // 静默失败，不影响用户
-        console.log('后台同步失败，继续使用本地数据');
+    const lastUpdate = app.globalData.customFoodsLastUpdate || '';
+    if (lastUpdate === this._lastCustomUpdate) {
+      if (!silent) console.log('[custom] 本地自定义食物未变化，跳过刷新');
+      return;
+    }
+    this._lastCustomUpdate = lastUpdate;
+    const foodsWithUrl = (localFoods || []).map(f => ({
+      ...f,
+      image_full_url: f.image_url ? getApp().buildImageUrl(f.image_url) : ''
+    }));
+    if (!silent) console.log('[custom] 更新本地自定义食物，数量:', foodsWithUrl.length);
+    this.setData({ customFoods: foodsWithUrl });
+    // 自定义食物变化会影响最近解析
+    this.loadRecentFoods(silent);
+  },
+
+  // 本地数据快速刷新（幂等）
+  refreshFromLocal() {
+    this.loadCustomFoods(true);
+    this.loadRecentFoods(true);
+  },
+
+  // 云端同步（后台一次），只有拿到数据且产生变化时才会写本地并触发刷新
+  syncCustomFoodsInBackground() {
+    if (this._hasSyncedOnce) return;
+    this._hasSyncedOnce = true;
+    app.getCustomFoods()
+      .then(customFoods => {
+        if (Array.isArray(customFoods)) {
+          app.saveCustomFoodsToLocal(customFoods || []);
+          // saveCustomFoodsToLocal 会更新 globalData 的 lastUpdate
+          this.loadCustomFoods(true);
+        }
+      })
+      .catch(() => {
+        // 静默失败即可
       });
-    }, 1000); // 延迟1秒执行，避免阻塞页面加载
   },
 
   // 切换标签页
@@ -191,6 +263,10 @@ Page({
       processedFood.protein_g = food.protein_g;
       processedFood.fat_g = food.fat_g;
       processedFood.carbohydrate_g = food.carbohydrate_g;
+      // 最近列表需要缩略图，带上（仅存路径）
+      if (food.image_url) {
+        processedFood.image_url = getApp().normalizeImageUrlToPath(food.image_url);
+      }
     }
     
     // 添加到最近食物
@@ -216,8 +292,9 @@ Page({
     console.log('处理后的食物数据:', processedFood);
     
     // 跳转到记录详情页面，传递食物和日期信息
+    const origin = this.data.activeTab || 'unknown';
     wx.navigateTo({
-      url: `/pages/record/record-detail?food=${encodeURIComponent(JSON.stringify(processedFood))}&date=${selectedDate}`
+      url: `/pages/record/record-detail?food=${encodeURIComponent(JSON.stringify(processedFood))}&date=${selectedDate}&origin=${origin}`
     });
   },
 

@@ -52,11 +52,16 @@ Page({
       // 新建记录模式 - 设置默认数量为100g
       try {
         const food = JSON.parse(decodeURIComponent(options.food));
+        const origin = options.origin || '';
         this.setData({
           food: food,
           quantity: '100', // 新建记录默认100g
           keypadValue: '100' // 初始化键盘值
         });
+        // 如果来源是最近(recent)，即使是自定义食物也不显示编辑按钮
+        if (origin === 'recent' && food.type === 'custom') {
+          this.setData({ hideCustomEdit: true });
+        }
         
         // 计算默认营养值
         this.calculateNutrition('100');

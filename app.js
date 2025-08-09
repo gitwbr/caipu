@@ -19,6 +19,31 @@ App({
     customFoodsLastUpdate: null,
     recentFoods: [] // 最近选择的食物
   },
+  // --- URL/图片工具 ---
+  // 将完整URL转换为仅路径（去掉协议与域名），用于存库
+  normalizeImageUrlToPath(url) {
+    if (!url) return '';
+    try {
+      // 已经是路径
+      if (url.startsWith('/')) return url;
+      // 绝对URL -> 取pathname + search（通常没有search）
+      const u = new URL(url);
+      return u.pathname + (u.search || '');
+    } catch (e) {
+      // 非法URL，原样返回
+      return url;
+    }
+  },
+
+  // 读取时拼接成完整URL（若已是绝对URL则原样返回）
+  buildImageUrl(pathOrUrl) {
+    if (!pathOrUrl) return '';
+    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+    const base = this.globalData.serverUrl.replace(/\/$/, '');
+    const path = pathOrUrl.startsWith('/') ? pathOrUrl : '/' + pathOrUrl;
+    return base + path;
+  },
+
 
   onLaunch() {
     // 检查API密钥配置
@@ -1093,9 +1118,17 @@ App({
   // 保存自定义食物数据到本地
   saveCustomFoodsToLocal(customFoods) {
     try {
-      wx.setStorageSync('customFoods', customFoods);
+      // 统一将图片URL规范为仅路径后再存库
+      const normalized = (customFoods || []).map(food => {
+        const f = { ...food };
+        if (f.image_url) {
+          f.image_url = this.normalizeImageUrlToPath(f.image_url);
+        }
+        return f;
+      });
+      wx.setStorageSync('customFoods', normalized);
       wx.setStorageSync('customFoodsLastUpdate', new Date().toISOString());
-      this.globalData.customFoods = customFoods;
+      this.globalData.customFoods = normalized;
       this.globalData.customFoodsLastUpdate = new Date().toISOString();
     } catch (error) {
       console.error('保存自定义食物数据失败:', error);
@@ -1290,30 +1323,35 @@ App({
     );
   },
 
-  // 添加到最近食物
+  // 添加到最近食物（仅保存引用：type + id + ts）
   addToRecentFoods(food) {
-    const recentFoods = this.globalData.recentFoods || [];
-    
-    // 移除已存在的相同食物
-    const filteredFoods = recentFoods.filter(item => 
-      !(item.id === food.id && item.type === food.type)
-    );
-    
-    // 添加到开头
-    filteredFoods.unshift(food);
-    
-    // 限制数量为20个
-    if (filteredFoods.length > 20) {
-      filteredFoods.splice(20);
-    }
-    
-    this.globalData.recentFoods = filteredFoods;
-    wx.setStorageSync('recentFoods', filteredFoods);
+    // 兼容旧调用：传入完整对象时提取引用
+    const refType = food.type;
+    const refId = food.id;
+    if (!refType || !refId) return;
+    const recentRefs = this.globalData.recentFoods || [];
+    // 去重
+    const filtered = recentRefs.filter(item => !(String(item.id) === String(refId) && item.type === refType));
+    // 压入引用
+    filtered.unshift({ type: refType, id: refId, ts: Date.now() });
+    // 限制数量
+    if (filtered.length > 20) filtered.splice(20);
+    this.globalData.recentFoods = filtered;
+    wx.setStorageSync('recentFoods', filtered);
   },
 
   // 加载最近食物数据
   loadRecentFoods() {
-    const recentFoods = wx.getStorageSync('recentFoods') || [];
-    this.globalData.recentFoods = recentFoods;
+    const recentRefs = wx.getStorageSync('recentFoods') || [];
+    // 历史迁移：若存的是完整对象，转换为引用
+    const migrated = recentRefs.map(item => {
+      if (item && item.type && item.id) return { type: item.type, id: item.id, ts: item.ts || Date.now() };
+      // 兜底：尝试从标准/自定义字段推断
+      if (item && item.food_id) return { type: 'standard', id: item.food_id, ts: Date.now() };
+      if (item && item.custom_food_id) return { type: 'custom', id: item.custom_food_id, ts: Date.now() };
+      return null;
+    }).filter(Boolean);
+    this.globalData.recentFoods = migrated;
+    wx.setStorageSync('recentFoods', migrated);
   }
 }) 

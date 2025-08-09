@@ -12,7 +12,7 @@
         <text class="food-name">{{food.display_name}}</text>
         <view class="food-header-right">
           <text class="food-type">{{food.type === 'standard' ? '标准食物' : food.type === 'custom' ? '自定义食物' : '快速记录'}}</text>
-          <text class="edit-icon icon-circle primary" wx:if="{{food.type === 'custom'}}" catchtap="editCustomFood" data-food="{{food}}">✏️</text>
+          <text class="edit-icon icon-circle primary" wx:if="{{food.type === 'custom' && !hideCustomEdit}}" catchtap="editCustomFood" data-food="{{food}}">✏️</text>
         </view>
       </view>
       <view class="food-nutrition">
