@@ -156,11 +156,9 @@ Page({
         });
       },
       fail: (error) => {
+        if (error && error.errMsg && error.errMsg.includes('cancel')) return;
         console.error('拍照失败:', error);
-        wx.showToast({
-          title: '拍照失败',
-          icon: 'none'
-        });
+        wx.showToast({ title: '拍照失败', icon: 'none' });
       }
     });
   },
@@ -179,11 +177,23 @@ Page({
         });
       },
       fail: (error) => {
+        if (error && error.errMsg && error.errMsg.includes('cancel')) return;
         console.error('选择图片失败:', error);
-        wx.showToast({
-          title: '选择图片失败',
-          icon: 'none'
-        });
+        wx.showToast({ title: '选择图片失败', icon: 'none' });
+      }
+    });
+  },
+
+  // 相机按钮点击：弹出选择来源
+  onCameraClick() {
+    wx.showActionSheet({
+      itemList: ['拍照', '从相册选择'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          this.takePhoto();
+        } else if (res.tapIndex === 1) {
+          this.chooseImage();
+        }
       }
     });
   },

@@ -4,20 +4,30 @@
   display: flex;
   flex-direction: column;
   background-color: #f5f5f5;
+  padding: 0;                 /* 覆盖 app.wxss 的 .container 全局 padding */
+  align-items: stretch;       /* 覆盖全局对齐，避免内容被居中 */
+  justify-content: flex-start;/* 顶部对齐 */
 }
 
 /* 页面头部 */
-.header {
+.header { display: none; }
+
+.header-subtitle { display: none; }
+
+.section-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20rpx 30rpx;
-  background-color: #fff;
-  border-bottom: 1rpx solid #e0e0e0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
 }
+
+.section-left {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.section-hint { color: #9aa0a6; font-size: 24rpx; }
+.section-hint-inline { color: #9aa0a6; font-size: 24rpx; }
 
 
 
@@ -27,18 +37,20 @@
   color: #333;
 }
 
-.clear-btn {
+/* 顶部图标按钮（清空） */
+.icon-btn {
   background: none;
   border: none;
-  color: #ff3b30;
-  font-size: 28rpx;
-  padding: 10rpx;
+  padding: 8rpx 12rpx;
+  font-size: 36rpx;
 }
+
+.clear-icon { color: #ff6b6b; }
 
 /* 表单容器 */
 .form-container {
   flex: 1;
-  padding: 20rpx;
+  padding: 0 20rpx 20rpx; /* 置顶：去掉顶部留白 */
 }
 
 /* 表单区块 */
@@ -51,12 +63,12 @@
 }
 
 .section-title {
-  font-size: 32rpx;
-  font-weight: 600;
+  font-size: 30rpx;
+  font-weight: 700;
   color: #333;
-  margin-bottom: 30rpx;
-  padding-bottom: 15rpx;
-  border-bottom: 2rpx solid #f0f0f0;
+  margin-bottom: 24rpx;
+  padding-bottom: 14rpx;
+  border-bottom: 2rpx solid #f5f6fa;
 }
 
 /* 表单行 */
@@ -98,12 +110,30 @@
   border: 2rpx solid #e0e0e0;
   border-radius: 12rpx;
   font-size: 28rpx;
+  background: #fbfbfb;
 }
 
 /* 图片上传样式 */
 .image-section {
   margin-top: 10rpx;
 }
+
+/* 行内图片区域 */
+.image-inline { display: flex; align-items: center; justify-content: space-between; }
+.image-inline .label { margin: 0; }
+.camera-slot { display: flex; align-items: center; }
+.camera-btn {
+  padding: 12rpx 22rpx;
+  background: #f1f5ff;
+  color: #4a67ff;
+  border: 1rpx solid #d9e2ff;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+}
+.camera-icon { font-size: 32rpx; line-height: 1; }
+.thumb-wrap { position: relative; width: 140rpx; height: 140rpx; border-radius: 12rpx; overflow: hidden; box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.08); }
+.thumb { width: 100%; height: 100%; background: #f6f6f6; }
+.remove-thumb { position: absolute; top: 6rpx; right: 6rpx; width: 32rpx; height: 32rpx; border-radius: 50%; background: #ff5757; color: #fff; font-size: 24rpx; line-height: 32rpx; text-align: center; box-shadow: 0 2rpx 6rpx rgba(255,87,87,0.3); }
 
 .image-buttons {
   display: flex;
@@ -114,7 +144,7 @@
 .image-btn {
   flex: 1;
   height: 80rpx;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea 0%, #6a88f7 100%);
   color: white;
   border: none;
   border-radius: 12rpx;
@@ -222,7 +252,7 @@
 .submit-btn {
   width: 100%;
   height: 88rpx;
-  background: linear-gradient(135deg, #007aff, #0056cc);
+  background: linear-gradient(135deg, #00c9a7, #00a387);
   color: #fff;
   border: none;
   border-radius: 44rpx;
@@ -234,10 +264,7 @@
   transition: all 0.3s ease;
 }
 
-.submit-btn:active {
-  transform: scale(0.98);
-  background: linear-gradient(135deg, #0056cc, #004499);
-}
+.submit-btn:active { transform: scale(0.98); }
 
 .submit-btn.loading {
   background: #ccc;

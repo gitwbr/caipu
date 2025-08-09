@@ -1,0 +1,26 @@
+---
+description: |
+  存储规范同步规则：凡涉及接口（新增/修改/删除）或数据结构（请求/响应、本地存储键或字段）变更，必须同步更新根目录的 LOCAL_STORAGE.md，并确保“云端成功即本地同步；页面只读本地；登录全量刷新”。
+globs:
+  - "**/*.js"
+  - "**/*.ts"
+  - "**/*.json"
+  - "**/*.wxml"
+  - "**/*.md"
+alwaysApply: true
+---
+
+- 必须同步更新的内容：
+  - LOCAL_STORAGE.md 的键名清单、结构定义（含示例）、统一写入接口说明、登录全量刷新说明。
+  - 任何新增/修改的字段需注明类型与单位；`record_date` 统一为 YYYY-MM-DD，`record_time` 为 HH:MM。
+- 代码约束：
+  - 页面不得直接 `wx.request` 改动记录；不得直接改 `app.globalData` 的记录/食物数组。
+  - 一律使用 `add/update/delete*WithSync` 接口，内部负责“云端成功→本地写入”。
+- 提交流程检查清单：
+  1) 修改代码后，检查是否涉及接口/结构变化；
+  2) 若有，编辑 LOCAL_STORAGE.md 对应章节；
+  3) 若键新增/移除，检查并更新 `saveDietRecordsToLocal` / `saveCustomFoodsToLocal` 与相关加载逻辑；
+  4) 自测：保存一条记录，确认本地 `dietRecords` 新条目的字段完整、`record_date` 已规范。
+- 提交要求：
+  - 如有变化，提交中必须包含对 LOCAL_STORAGE.md 的对应修改；
+  - 如无变化，在提交说明中显式注明“无本地存储结构变化”。

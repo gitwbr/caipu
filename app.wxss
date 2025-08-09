@@ -1,11 +1,9 @@
 /**app.wxss**/
+/* 注意：页面各自定义 .container 会覆盖此处。避免强制内边距影响业务页 */
 .container {
   height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  padding: 200rpx 0;
   box-sizing: border-box;
 }
 

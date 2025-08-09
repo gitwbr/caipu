@@ -6,13 +6,13 @@
   </view>
 
   <!-- 食物信息卡片 -->
-  <view class="card food-card" wx:if="{{food}}">
+  <view class="card food-card" wx:if="{{food}}" bindtap="showFoodNutrition">
     <view class="card-content">
       <view class="food-header">
         <text class="food-name">{{food.display_name}}</text>
         <view class="food-header-right">
           <text class="food-type">{{food.type === 'standard' ? '标准食物' : food.type === 'custom' ? '自定义食物' : '快速记录'}}</text>
-          <text class="edit-icon icon-circle primary" wx:if="{{food.type === 'custom'}}" bindtap="editCustomFood" data-food="{{food}}">✏️</text>
+          <text class="edit-icon icon-circle primary" wx:if="{{food.type === 'custom'}}" catchtap="editCustomFood" data-food="{{food}}">✏️</text>
         </view>
       </view>
       <view class="food-nutrition">
@@ -128,5 +128,24 @@
   <!-- 加载状态 -->
   <view class="loading" wx:if="{{loading && !food}}">
     <text>加载中...</text>
+  </view>
+
+  <!-- 营养信息弹层 -->
+  <view class="nutri-mask" wx:if="{{showNutritionPanel}}" catchtouchmove="true">
+    <view class="nutri-sheet">
+      <view class="nutri-header">
+        <text class="nutri-title">{{nutritionTitle}}</text>
+        <text class="nutri-close" bindtap="closeNutritionPanel">×</text>
+      </view>
+      <scroll-view scroll-y class="nutri-body">
+        <view class="nutri-grid">
+          <view class="nutri-item" wx:for="{{nutritionItems}}" wx:key="label">
+            <text class="nutri-label">{{item.label}}</text>
+            <text class="nutri-value">{{item.value}}</text>
+            <text class="nutri-unit">{{item.unit}}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
   </view>
 </view>

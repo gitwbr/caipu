@@ -13,6 +13,10 @@ Page({
     calculatedNutrition: null, // 新增：用于存储计算后的营养值
     // 数字键盘相关数据
     keypadValue: '', // 当前键盘输入的值
+    // 营养信息弹层
+    showNutritionPanel: false,
+    nutritionTitle: '',
+    nutritionItems: []
   },
 
   onLoad(options) {
@@ -269,6 +273,85 @@ Page({
         })
         .finally(() => this.setData({ loading: false }));
     }
+  },
+
+  // 点击食物卡片，展示食物营养信息（标准/自定义）
+  showFoodNutrition() {
+    const foodLocal = this.data.food;
+    if (!foodLocal) return;
+    // 快速记录不展示完整营养面板
+    if (foodLocal.type === 'quick') {
+      wx.showToast({ title: '快速记录不含完整营养信息', icon: 'none' });
+      return;
+    }
+
+    // 优先通过 id 精准查找（标准: food_id，自定义: custom_food_id）
+    const recordId = this.data.recordId;
+    let foodId = foodLocal.type === 'standard' ? foodLocal.id : null;
+    let customFoodId = foodLocal.type === 'custom' ? foodLocal.id : null;
+    if ((!foodId && !customFoodId) && recordId) {
+      const rec = (app.globalData.dietRecords || []).find(r => r.id == recordId);
+      if (rec) {
+        if (rec.food_id) foodId = rec.food_id;
+        if (rec.custom_food_id) customFoodId = rec.custom_food_id;
+      }
+    }
+
+    const foodStd = foodId ? app.findFoodNutritionById(foodId) : null;
+    const foodCustom = (!foodStd && customFoodId) ? app.findCustomFoodById(customFoodId) : null;
+    const info = foodStd || foodCustom || {
+      food_name: foodLocal.display_name,
+      energy_kcal: foodLocal.display_energy_kcal,
+      protein_g: foodLocal.protein_g,
+      fat_g: foodLocal.fat_g,
+      carbohydrate_g: foodLocal.carbohydrate_g
+    };
+
+    if (!info) {
+      wx.showToast({ title: '未找到营养数据', icon: 'none' });
+      return;
+    }
+
+    const items = [];
+    const push = (label, val, unit = '', decimals = 1) => {
+      if (val === undefined || val === null || val === '') return;
+      const num = Number(val);
+      items.push({ label, value: isNaN(num) ? val : num.toFixed(decimals), unit });
+    };
+
+    // 宏量营养素（每100g）
+    push('能量', info.energy_kcal, ' kcal/100g');
+    push('蛋白质', info.protein_g, ' g');
+    push('脂肪', info.fat_g, ' g');
+    push('碳水化合物', info.carbohydrate_g, ' g');
+    push('膳食纤维', info.fiber_g, ' g');
+    push('水分', info.moisture_g, ' g');
+
+    // 矿物质（每100g）
+    push('钠', info.na_mg, ' mg');
+    push('钙', info.ca_mg, ' mg');
+    push('铁', info.fe_mg, ' mg');
+
+    // 胆固醇（每100g）
+    push('胆固醇', info.cholesterol_mg, ' mg');
+
+    // 维生素（每100g）
+    push('维生素A', info.vitamin_a_ug, ' µg', 0);
+    push('维生素B1', info.vitamin_b1_mg, ' mg');
+    push('维生素B2', info.vitamin_b2_mg, ' mg');
+    push('维生素B3', info.vitamin_b3_mg, ' mg');
+    push('维生素C', info.vitamin_c_mg, ' mg');
+    push('维生素E', info.vitamin_e_mg, ' mg');
+
+    this.setData({
+      nutritionTitle: info.food_name || foodLocal.display_name || '营养信息',
+      nutritionItems: items,
+      showNutritionPanel: true
+    });
+  },
+
+  closeNutritionPanel() {
+    this.setData({ showNutritionPanel: false });
   },
 
   // 删除记录

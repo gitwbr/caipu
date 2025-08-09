@@ -1,16 +1,19 @@
 <!--pages/record/add-custom-food.wxml-->
 <view class="container">
-  <!-- 页面头部 -->
-  <view class="header">
-    <text class="page-title">{{(isEditMode && food_id) ? '编辑自定义食物' : '添加自定义食物'}}</text>
-    <button class="clear-btn" bindtap="onClear">清空</button>
-  </view>
+  <!-- 页面头部（移除占位） -->
+  
 
   <!-- 表单内容 -->
   <scroll-view class="form-container" scroll-y="true">
     <!-- 基本信息 -->
     <view class="form-section">
-      <view class="section-title">基本信息</view>
+      <view class="section-bar">
+        <view class="section-left">
+          <view class="section-title">🍽️ 基本信息</view>
+          
+        </view>
+        <button class="icon-btn clear-icon" aria-label="清空" bindtap="onClear" style="position: relative; left: 236rpx; top: -9rpx; width: 130rpx; display: block; box-sizing: border-box">×</button>
+      </view>
       
       <view class="form-item">
         <text class="label required">食物名称</text>
@@ -46,25 +49,16 @@
         <text class="unit-hint">/100g</text>
       </view>
 
-      <!-- 图片上传 -->
-      <view class="form-item">
+      <!-- 图片上传（行内：左侧标题，右侧相机/缩略图） -->
+      <view class="form-item image-inline">
         <text class="label">食物图片</text>
-        <view class="image-section">
-          <view class="image-buttons">
-            <button class="image-btn" bindtap="takePhoto">拍照</button>
-            <button class="image-btn" bindtap="chooseImage">选择图片</button>
+        <view class="camera-slot">
+          <view wx:if="{{!(imagePath || imageUrl)}}" class="camera-btn" bindtap="onCameraClick">
+            <text class="camera-icon">📷</text>
           </view>
-          
-          <view class="image-preview" wx:if="{{showImagePreview}}">
-            <image 
-              class="preview-image" 
-              src="{{imagePath || imageUrl}}" 
-              mode="aspectFit"
-              bindtap="previewImage"
-            />
-            <view class="image-actions">
-              <button class="action-btn remove" bindtap="removeImage">删除</button>
-            </view>
+          <view wx:else class="thumb-wrap">
+            <image class="thumb" src="{{imagePath || imageUrl}}" mode="aspectFill" bindtap="previewImage" />
+            <view class="remove-thumb" bindtap="removeImage">−</view>
           </view>
         </view>
       </view>
@@ -72,7 +66,7 @@
 
     <!-- 宏量营养素 -->
     <view class="form-section">
-      <view class="section-title">宏量营养素 (g/100g)</view>
+      <view class="section-title">🥑 宏量营养素 (g/100g)</view>
       
       <view class="form-row">
         <view class="form-item half">
@@ -141,7 +135,7 @@
 
     <!-- 维生素 -->
     <view class="form-section">
-      <view class="section-title">维生素</view>
+      <view class="section-title">🍊 维生素</view>
       
       <view class="form-row">
         <view class="form-item half">
@@ -224,7 +218,7 @@
 
     <!-- 矿物质 -->
     <view class="form-section">
-      <view class="section-title">矿物质 (mg/100g)</view>
+      <view class="section-title">🧂 矿物质 (mg/100g)</view>
       
       <view class="form-row">
         <view class="form-item half">
@@ -267,7 +261,7 @@
 
     <!-- 其他 -->
     <view class="form-section">
-      <view class="section-title">其他</view>
+      <view class="section-title">🧪 其他</view>
       
       <view class="form-item">
         <text class="label">胆固醇 (mg/100g)</text>
