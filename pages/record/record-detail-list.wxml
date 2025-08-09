@@ -108,6 +108,10 @@
 
     <view class="records-list" wx:if="{{records.length > 0}}">
       <view id="rec-{{item.id}}" class="record-item {{item.id == highlightId ? 'highlight' : ''}}" wx:for="{{records}}" wx:key="id" bindtap="onRecordTap" data-id="{{item.id}}">
+        <view class="record-thumb">
+          <image wx:if="{{item.image_full_url}}" class="thumb" src="{{item.image_full_url}}" mode="aspectFill" />
+          <text wx:else class="thumb-placeholder">🍽️</text>
+        </view>
         <view class="record-info">
           <view class="food-header">
             <text class="food-name">{{item.food_name}}</text>
@@ -122,8 +126,8 @@
         <view class="record-calories">
           <text class="calories-value">{{item.calculated_calories}} kcal</text>
         </view>
-        <view class="record-actions">
-          <button class="delete-btn" catchtap="deleteRecord" data-id="{{item.id}}">删除</button>
+        <view class="record-actions" catchtap="deleteRecord" data-id="{{item.id}}">
+          <view class="icon-circle danger small">🗑️</view>
         </view>
       </view>
     </view>

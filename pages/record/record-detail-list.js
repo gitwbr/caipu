@@ -239,6 +239,7 @@ Page({
     const formattedRecords = dailyRecords.map(record => {
       let foodInfo = null;
       let calculatedCalories = '0.0';
+      let imageUrl = '';
       
       if (record.record_type === 'quick') {
         // 快速记录
@@ -251,17 +252,25 @@ Page({
         };
         // 快速记录直接使用记录的热量，不需要计算
         calculatedCalories = (parseFloat(record.quick_energy_kcal) || 0).toFixed(1);
+        // 快速记录图片直接来自记录表
+        imageUrl = record.quick_image_url ? app.buildImageUrl(record.quick_image_url) : '';
       } else if (record.food_id) {
         // 标准食物
         foodInfo = app.findFoodNutritionById(record.food_id);
         if (foodInfo && record.quantity_g) {
           calculatedCalories = ((foodInfo.energy_kcal * record.quantity_g / 100) || 0).toFixed(1);
         }
+        if (foodInfo && foodInfo.image_url) {
+          imageUrl = app.buildImageUrl(foodInfo.image_url);
+        }
       } else if (record.custom_food_id) {
         // 自定义食物
         foodInfo = app.findCustomFoodById(record.custom_food_id);
         if (foodInfo && record.quantity_g) {
           calculatedCalories = ((foodInfo.energy_kcal * record.quantity_g / 100) || 0).toFixed(1);
+        }
+        if (foodInfo && foodInfo.image_url) {
+          imageUrl = app.buildImageUrl(foodInfo.image_url);
         }
       }
       
@@ -273,6 +282,7 @@ Page({
         fat_g: foodInfo ? foodInfo.fat_g : 0,
         carbohydrate_g: foodInfo ? foodInfo.carbohydrate_g : 0,
         calculated_calories: calculatedCalories,
+        image_full_url: imageUrl,
         record_type_display: record.record_type === 'quick' ? '快速记录' : 
                             record.record_type === 'custom' ? '自定义' : '标准'
       };
