@@ -1,6 +1,6 @@
 <view class="container">
-  <view class="date-display" wx:if="{{record.record_date}}">
-    <text class="date-text">{{record.record_date}} {{record.record_time}}</text>
+  <view class="date-display" wx:if="{{display_date}}">
+    <text class="date-text">{{display_date}}</text>
   </view>
 
   <view class="card">
@@ -32,24 +32,24 @@
     </view>
   </view>
 
-  <view class="card">
-    <view class="section-title">参数</view>
-    <view class="param-row">
-      <text class="p-label">时间</text>
-      <picker mode="time" value="{{record_time}}" data-key="record_time" bindchange="onTimeChange">
-        <view class="picker-content">
-          <text class="picker-value">{{record_time}}</text>
-          <text class="picker-arrow">></text>
-        </view>
-      </picker>
-    </view>
+  <view class="card form-card">
+    <view class="card-content">
+      <view class="form-item">
+        <picker mode="time" value="{{record_time}}" bindchange="onTimeChange">
+          <view class="picker-content">
+            <text class="picker-value">{{record_time}}</text>
+            <text class="picker-arrow">></text>
+          </view>
+        </picker>
+      </view>
+      <view class="section-title">参数</view>
     <block wx:for="{{dynamicFields}}" wx:key="key">
       <view class="param-row">
         <text class="p-label">{{item.label}}</text>
         <block wx:if="{{item.type==='enum'}}">
           <picker range="{{item.options}}" range-key="label" value="{{item.index}}" data-key="{{item.key}}" bindchange="onEnumChange">
             <view class="picker-content">
-              <text class="picker-value">{{item.options[item.index].label}}</text>
+              <text class="picker-value">{{item.index !== undefined ? item.options[item.index].label : '请选择'}} </text>
               <text class="picker-arrow">></text>
             </view>
           </picker>
@@ -62,6 +62,7 @@
     <view class="bottom-hints" wx:if="{{bottomHintsText}}">
       <view class="bottom-hints-title">合理范围推荐</view>
       <view class="bottom-hints-text">{{bottomHintsText}}</view>
+    </view>
     </view>
   </view>
 

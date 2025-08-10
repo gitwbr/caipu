@@ -19,6 +19,7 @@ Page({
     totalCarbs: 0,
     ringSize: 180,
     records: [],
+    exerciseList: [],
     loading: false,
     _dateHasRecordMap: null
   },
@@ -185,11 +186,11 @@ Page({
     const bmr = userInfo.bmr || 1500; // 直接使用存储的BMR
     console.log('基础代谢率:', bmr);
     
-    // 获取当日卡路里汇总
+    // 获取当日卡路里汇总（饮食）
     const summary = app.calculateDailyCalorieSummary(selectedDate);
     console.log('卡路里汇总:', summary);
     
-    // 直接从本地获取所有记录
+    // 直接从本地获取所有饮食记录
     let allRecords = app.globalData.dietRecords || [];
     
     // 检查数据格式，确保是数组
@@ -301,7 +302,7 @@ Page({
       };
     });
     
-    console.log('格式化后的记录:', formattedRecords);
+    console.log('格式化后的饮食记录:', formattedRecords);
     
     // 计算已摄入卡路里，保留2位小数
     const consumedCalories = parseFloat(summary.total_calories || 0);
@@ -340,11 +341,47 @@ Page({
     totalFat = parseFloat(totalFat.toFixed(1));
     totalCarbs = parseFloat(totalCarbs.toFixed(1));
 
+    // 运动记录：本地优先
+    const allEx = (app.globalData.exerciseRecords || wx.getStorageSync('exerciseRecords') || []);
+    const types = wx.getStorageSync('exerciseTypes') || [];
+    const typeById = Object.create(null);
+    types.forEach(t => { typeById[t.id] = t; });
+    const dailyEx = (allEx || []).filter(r => {
+      if (!r.record_date) return false;
+      const d = typeof r.record_date === 'string' ? (r.record_date.includes('T') ? r.record_date.split('T')[0] : r.record_date) : (r.record_date instanceof Date ? r.record_date.toISOString().split('T')[0] : '');
+      return d === selectedDate;
+    }).sort((a,b) => {
+      const ta = (a.record_time || '').slice(0,5);
+      const tb = (b.record_time || '').slice(0,5);
+      if (ta && tb) return ta > tb ? -1 : ta < tb ? 1 : 0;
+      return String(b.id||0).localeCompare(String(a.id||0));
+    });
+    const methodLabel = (m) => ({
+      acsm_walking:'ACSM 走路', acsm_running:'ACSM 跑步', cycling_speed_table:'骑行-速度', swimming_stroke:'游泳-泳姿配速', met_fixed:'强度/RPE'
+    })[m] || m;
+    const exList = dailyEx.map(r => {
+      const t = typeById[r.type_id] || {};
+      const icon = t.code ? `/images/exercise/${t.code}.png` : '';
+      return {
+        id: r.id,
+        type_name: t.name || '运动',
+        type_code: t.code || '',
+        method_label: methodLabel(r.calc_method),
+        record_time: r.record_time || '',
+        duration_min: r.duration_min || 0,
+        calories_burned_kcal: Number(r.calories_burned_kcal || 0).toFixed(1),
+        icon_url: icon
+      };
+    });
+    const exCalories = exList.reduce((sum, r) => sum + Number(r.calories_burned_kcal || 0), 0);
+
     this.setData({
       calorieBudget: bmr,
       consumedCalories: consumedCaloriesFormatted,
       remainingCalories: remainingCaloriesFormatted,
       records: formattedRecords,
+      exerciseList: exList,
+      exerciseCalories: Number(exCalories.toFixed(1)),
       totalProtein,
       totalFat,
       totalCarbs,
@@ -619,6 +656,42 @@ Page({
       return;
     }
     wx.navigateTo({ url: `/pages/record/record-detail?id=${id}` });
+  },
+
+  // 点击运动项 → 进入编辑
+  onExerciseTap(e) {
+    const { id } = e.currentTarget.dataset;
+    if (!id) return;
+    wx.navigateTo({ url: `/pages/exercise/exercise-detail?id=${id}` });
+  },
+
+  // 删除运动
+  deleteExercise(e) {
+    const { id } = e.currentTarget.dataset;
+    wx.showModal({
+      title: '确认删除',
+      content: '确定要删除这条运动记录吗？',
+      success: (res) => {
+        if (res.confirm) {
+          if (app && typeof app.deleteExerciseRecordWithSync === 'function') {
+            app.deleteExerciseRecordWithSync(Number(id)).then(() => {
+              wx.showToast({ title: '删除成功', icon: 'success' });
+              this.loadDailyData();
+            }).catch(err => {
+              console.error('删除运动失败', err);
+              wx.showToast({ title: '删除失败', icon: 'none' });
+            });
+          } else {
+            // 本地兜底
+            const list = wx.getStorageSync('exerciseRecords') || [];
+            const after = list.filter(r => Number(r.id) !== Number(id));
+            wx.setStorageSync('exerciseRecords', after);
+            wx.showToast({ title: '删除成功', icon: 'success' });
+            this.loadDailyData();
+          }
+        }
+      }
+    });
   },
 
   // 删除记录

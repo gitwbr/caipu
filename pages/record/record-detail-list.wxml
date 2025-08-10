@@ -99,10 +99,10 @@
     </view>
   </view>
 
-  <!-- 记录列表 -->
+  <!-- 饮食记录列表 -->
   <view class="records-section">
     <view class="section-title">
-      <text class="title-text">{{selectedDate}} 记录</text>
+      <text class="title-text">饮食记录</text>
       <text class="record-count">({{records.length}})</text>
     </view>
 
@@ -142,6 +142,42 @@
     <!-- 加载状态 -->
     <view class="loading-state" wx:if="{{loading}}">
       <text class="loading-text">加载中...</text>
+    </view>
+  </view>
+
+  <!-- 运动记录列表 -->
+  <view class="records-section" wx:if="{{true}}" style="margin-top:16rpx;">
+    <view class="section-title">
+      <text class="title-text">运动记录</text>
+      <text class="record-count">({{exerciseList.length}})</text>
+    </view>
+    <view class="records-list" wx:if="{{exerciseList.length > 0}}">
+      <view class="record-item" wx:for="{{exerciseList}}" wx:key="id" bindtap="onExerciseTap" data-id="{{item.id}}">
+        <view class="record-thumb">
+          <image wx:if="{{item.icon_url}}" class="thumb" src="{{item.icon_url}}" mode="aspectFill" lazy-load />
+          <text wx:else class="thumb-placeholder">🏃</text>
+        </view>
+        <view class="record-info">
+          <view class="food-header">
+            <text class="food-name">{{item.type_name}}</text>
+            <text class="record-type-tag standard">{{item.method_label}}</text>
+          </view>
+          <view class="food-details">
+            <text class="food-quantity">{{item.duration_min}} min</text>
+            <text class="food-time" wx:if="{{item.record_time}}">{{item.record_time}}</text>
+          </view>
+        </view>
+        <view class="record-calories">
+          <text class="calories-value">{{item.calories_burned_kcal}} kcal</text>
+        </view>
+        <view class="record-actions" catchtap="deleteExercise" data-id="{{item.id}}">
+          <view class="icon-circle danger small">🗑️</view>
+        </view>
+      </view>
+    </view>
+    <view class="empty-state" wx:if="{{exerciseList.length === 0 && !loading}}">
+      <text class="empty-icon">🏃</text>
+      <text class="empty-text">{{selectedDate}} 暂无运动记录</text>
     </view>
   </view>
 </view> 

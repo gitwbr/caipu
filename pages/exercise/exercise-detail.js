@@ -26,7 +26,8 @@ Page({
       this.loadRecord(Number(id));
       return;
     }
-    this.setData({ typeId: Number(typeId), method: method, recordDate: date || this._today() });
+    const d = (date && String(date).includes('T')) ? String(date).split('T')[0] : (date || this._today());
+    this.setData({ typeId: Number(typeId), method: method, recordDate: d, display_date: d, record_time: this._nowHM() });
     this.initForm();
   },
 
@@ -53,7 +54,13 @@ Page({
     const { fields: dynamicFields, bottomHints } = this._buildFieldsFromSchema(rec.calc_method, rec);
     const topHints = this._getTopHints(rec.calc_method);
     const bottomHintsText = (bottomHints || []).filter(h => !/^体重/.test(h)).join(' / ');
+    const rd = rec.record_date ? String(rec.record_date).split('T')[0] : this._today();
+    const rt = rec.record_time ? String(rec.record_time).slice(0,5) : this._nowHM();
     this.setData({
+      typeId: rec.type_id || this.data.typeId,
+      method: rec.calc_method || this.data.method,
+      recordDate: rd,
+      display_date: rd,
       record: rec,
       typeName,
       methodLabel,
@@ -61,7 +68,7 @@ Page({
       duration_min: String(rec.duration_min || ''),
       weight_kg_at_time: rec.weight_kg_at_time ? String(rec.weight_kg_at_time) : '',
       calories_burned_kcal: rec.calories_burned_kcal ? String(rec.calories_burned_kcal) : '',
-      record_time: rec.record_time || this._nowHM(),
+      record_time: rt,
       durationHint: topHints.durationHint,
       weightHint: '',
       bottomHints,
@@ -120,13 +127,18 @@ Page({
     if (method === 'met_fixed' && key === 'intensity_level' && (pre === undefined || pre === null || pre === '')) {
       pre = 'moderate';
     }
-    const index = pre ? Math.max(0, options.findIndex(o => o.value === pre)) : undefined;
+    let index = undefined;
+    if (pre !== undefined && pre !== null && pre !== '') {
+      const found = options.findIndex(o => o.value === pre);
+      index = found >= 0 ? found : undefined;
+    }
         const hint = options.length ? `${label.replace(/（.*?）/, '')}：${options.map(o=>o.label).join(' / ')}` : '';
         if (hint) hints.push(hint);
         result.push({ key, label, type: 'enum', options, index });
       } else {
-        let value = preset[key] !== undefined ? String(preset[key]) : (def.min !== undefined ? String(def.min) : '');
-        if (method === 'met_fixed' && key === 'rpe') {
+        let value = preset[key] !== undefined && preset[key] !== null ? String(preset[key]) : (def.min !== undefined ? String(def.min) : '');
+        // 新增时默认 RPE 为空；编辑时尊重已有值
+        if (method === 'met_fixed' && key === 'rpe' && !preset.id) {
           value = '';
         }
         const hint = this._buildRangeHint(def, label);
@@ -371,7 +383,24 @@ Page({
         return;
       }
       const params = {};
-      this.data.dynamicFields.forEach(f => params[f.key] = Number(f.value || 0));
+      this.data.dynamicFields.forEach(f => {
+        if (f.type === 'enum') {
+          const hasIndex = typeof f.index === 'number' && !isNaN(f.index);
+          const opt = hasIndex && Array.isArray(f.options) ? f.options[f.index] : null;
+          if (opt) params[f.key] = opt.value;
+          else params[f.key] = null;
+        } else {
+          const raw = f.value;
+          if (raw === '' || raw === undefined || raw === null) {
+            params[f.key] = null;
+          } else {
+            params[f.key] = Number(raw);
+          }
+        }
+      });
+      // 互斥：若选择了强度，则 RPE 置空；若填写了 RPE，则强度置空
+      if (params.intensity_level) params.rpe = null;
+      if (params.rpe !== null && params.rpe !== undefined && params.rpe !== '' ) params.intensity_level = null;
       const duration_min = Number(this.data.duration_min || 0);
       const weight = Number(params.weight_kg_at_time || this.data.weight_kg_at_time || (app.globalData.userInfo && (app.globalData.userInfo.weight_kg || app.globalData.userInfo.weight)) || 0);
       // 若未填写体重，使用用户体重
@@ -389,18 +418,30 @@ Page({
       };
       // 附带快照
       Object.assign(record, params);
+      const isEdit = !!(this.data.record && this.data.record.id);
       let saved;
-      if (app && typeof app.addExerciseRecordWithSync === 'function') {
-        saved = await app.addExerciseRecordWithSync(record);
+      if (isEdit) {
+        const rid = Number(this.data.record.id);
+        if (app && typeof app.updateExerciseRecordWithSync === 'function') {
+          saved = await app.updateExerciseRecordWithSync(rid, record);
+        } else {
+          const list = (wx.getStorageSync('exerciseRecords') || []).map(r => String(r.id) === String(rid) ? { ...r, ...record, id: rid } : r);
+          wx.setStorageSync('exerciseRecords', list);
+          saved = list.find(r => String(r.id) === String(rid));
+        }
       } else {
-        const list = wx.getStorageSync('exerciseRecords') || [];
-        const temp = { id: Date.now(), ...record };
-        list.push(temp);
-        wx.setStorageSync('exerciseRecords', list);
-        saved = temp;
+        if (app && typeof app.addExerciseRecordWithSync === 'function') {
+          saved = await app.addExerciseRecordWithSync(record);
+        } else {
+          const list = wx.getStorageSync('exerciseRecords') || [];
+          const temp = { id: Date.now(), ...record };
+          list.push(temp);
+          wx.setStorageSync('exerciseRecords', list);
+          saved = temp;
+        }
       }
       wx.showToast({ title:'已保存', icon:'success' });
-      const date = record.record_date;
+      const date = saved && saved.record_date ? (String(saved.record_date).split('T')[0]) : record.record_date;
       const hid = saved && saved.id ? `&highlightId=${saved.id}` : '';
       wx.redirectTo({ url: `/pages/record/record-detail-list?date=${date}${hid}` });
     } catch (e) {
