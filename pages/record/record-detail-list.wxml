@@ -61,14 +61,16 @@
       <view class="ring-wrap">
           <canvas canvas-id="ringCanvas" class="ring-canvas" width="{{ringSize}}" height="{{ringSize}}"></canvas>
         <view class="ring-text">
-          <text class="ring-main">还可 {{remainingCalories}} kcal</text>
-          <text class="ring-sub">目标 {{calorieBudget}}</text>
+          <text class="ring-main">还可摄入</text>
+          <text class="mini-value danger">{{remainingCalories}} </text>
+          <text class="ring-sub">基础代谢 {{bmr}} 可摄入总量{{calorieBudget}}</text>
+          <text class="ring-sub">kcal</text>
         </view>
       </view>
     </view>
     <view class="summary-right">
       <text class="mini-label">运动消耗</text>
-      <text class="mini-value danger">{{exerciseCalories}}</text>
+      <text class="mini-value">{{exerciseCalories}}</text>
     </view>
     </view>
     <view class="macro-row">

@@ -11,6 +11,7 @@ Page({
     formattedDate: '',
     weekdayText: '',
     calorieBudget: 0,
+    bmr: 0,
     consumedCalories: 0,
     remainingCalories: 0,
     exerciseCalories: 0,
@@ -162,6 +163,12 @@ Page({
     } else {
       // 已登录，直接使用本地数据
       this.loadDailyData();
+      // 如果运动有改动标记，回到列表时强制重算并清除标记
+      const dirty = wx.getStorageSync('exerciseDirty');
+      if (dirty) {
+        try { wx.removeStorageSync('exerciseDirty'); } catch(_) {}
+        this.loadDailyData();
+      }
     }
   },
 
@@ -308,39 +315,6 @@ Page({
     const consumedCalories = parseFloat(summary.total_calories || 0);
     const consumedCaloriesFormatted = parseFloat(consumedCalories.toFixed(2));
 
-    // 计算剩余卡路里，保留2位小数
-    const remainingCalories = Math.max(0, bmr - consumedCaloriesFormatted);
-    const remainingCaloriesFormatted = parseFloat(remainingCalories.toFixed(2));
-
-    // 统计宏量营养素总摄入
-    let totalProtein = 0, totalFat = 0, totalCarbs = 0;
-    for (const r of dailyRecords) {
-      if (r.record_type === 'quick') {
-        totalProtein += parseFloat(r.quick_protein_g || 0);
-        totalFat += parseFloat(r.quick_fat_g || 0);
-        totalCarbs += parseFloat(r.quick_carbohydrate_g || 0);
-      } else if (r.food_id) {
-        const f = app.findFoodNutritionById(r.food_id);
-        if (f && r.quantity_g) {
-          const ratio = r.quantity_g / 100;
-          totalProtein += (parseFloat(f.protein_g || 0) * ratio);
-          totalFat += (parseFloat(f.fat_g || 0) * ratio);
-          totalCarbs += (parseFloat(f.carbohydrate_g || 0) * ratio);
-        }
-      } else if (r.custom_food_id) {
-        const f = app.findCustomFoodById(r.custom_food_id);
-        if (f && r.quantity_g) {
-          const ratio = r.quantity_g / 100;
-          totalProtein += (parseFloat(f.protein_g || 0) * ratio);
-          totalFat += (parseFloat(f.fat_g || 0) * ratio);
-          totalCarbs += (parseFloat(f.carbohydrate_g || 0) * ratio);
-        }
-      }
-    }
-    totalProtein = parseFloat(totalProtein.toFixed(1));
-    totalFat = parseFloat(totalFat.toFixed(1));
-    totalCarbs = parseFloat(totalCarbs.toFixed(1));
-
     // 运动记录：本地优先
     const allEx = (app.globalData.exerciseRecords || wx.getStorageSync('exerciseRecords') || []);
     const types = wx.getStorageSync('exerciseTypes') || [];
@@ -375,8 +349,43 @@ Page({
     });
     const exCalories = exList.reduce((sum, r) => sum + Number(r.calories_burned_kcal || 0), 0);
 
+    // 目标 = BMR + 运动消耗；还可以吃 = 目标 - 已摄入
+    const calorieBudgetValue = bmr + exCalories;
+    const remainingCalories = calorieBudgetValue - consumedCaloriesFormatted;
+    const remainingCaloriesFormatted = parseFloat(remainingCalories.toFixed(2));
+
+    // 统计宏量营养素总摄入
+    let totalProtein = 0, totalFat = 0, totalCarbs = 0;
+    for (const r of dailyRecords) {
+      if (r.record_type === 'quick') {
+        totalProtein += parseFloat(r.quick_protein_g || 0);
+        totalFat += parseFloat(r.quick_fat_g || 0);
+        totalCarbs += parseFloat(r.quick_carbohydrate_g || 0);
+      } else if (r.food_id) {
+        const f = app.findFoodNutritionById(r.food_id);
+        if (f && r.quantity_g) {
+          const ratio = r.quantity_g / 100;
+          totalProtein += (parseFloat(f.protein_g || 0) * ratio);
+          totalFat += (parseFloat(f.fat_g || 0) * ratio);
+          totalCarbs += (parseFloat(f.carbohydrate_g || 0) * ratio);
+        }
+      } else if (r.custom_food_id) {
+        const f = app.findCustomFoodById(r.custom_food_id);
+        if (f && r.quantity_g) {
+          const ratio = r.quantity_g / 100;
+          totalProtein += (parseFloat(f.protein_g || 0) * ratio);
+          totalFat += (parseFloat(f.fat_g || 0) * ratio);
+          totalCarbs += (parseFloat(f.carbohydrate_g || 0) * ratio);
+        }
+      }
+    }
+    totalProtein = parseFloat(totalProtein.toFixed(1));
+    totalFat = parseFloat(totalFat.toFixed(1));
+    totalCarbs = parseFloat(totalCarbs.toFixed(1));
+
     this.setData({
-      calorieBudget: bmr,
+      calorieBudget: parseFloat(calorieBudgetValue.toFixed(2)),
+      bmr: parseFloat(bmr.toFixed(2)),
       consumedCalories: consumedCaloriesFormatted,
       remainingCalories: remainingCaloriesFormatted,
       records: formattedRecords,
@@ -387,8 +396,8 @@ Page({
       totalCarbs,
       loading: false
     }, () => {
-      // 在页面渲染完成后再绘制
-      setTimeout(() => this.drawRing(consumedCaloriesFormatted, bmr), 50);
+      // 在页面渲染完成后再绘制（目标 = BMR + 运动）
+      setTimeout(() => this.drawRing(consumedCaloriesFormatted, calorieBudgetValue), 50);
       if (this.highlightId) {
         const idStr = this.highlightId;
         const exists = this.data.records.some(r => String(r.id) === idStr);

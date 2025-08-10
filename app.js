@@ -17,7 +17,10 @@ App({
     // 个人自定义食物数据
     customFoods: [],
     customFoodsLastUpdate: null,
-    recentFoods: [] // 最近选择的食物
+    recentFoods: [], // 最近选择的食物
+    // 运动记录数据（本地优先）
+    exerciseRecords: [],
+    exerciseRecordsLastUpdate: null
   },
   // --- URL/图片工具 ---
   // 将完整URL转换为仅路径（去掉协议与域名），用于存库
@@ -69,6 +72,8 @@ App({
 
     // 预加载运动基础字典
     this.loadExerciseMeta();
+    // 加载本地运动记录
+    this.loadExerciseRecords();
   },
 
   // 检查API密钥是否已配置
@@ -191,8 +196,9 @@ App({
                   Promise.all([
                     this.getUserInfo(),
                     this.getDietRecords(), // 获取所有历史记录
-                    this.getCustomFoods()  // 获取自定义食物
-                  ]).then(([userInfo, dietRecords, customFoods]) => {
+                    this.getCustomFoods(),  // 获取自定义食物
+                    this.getExerciseRecords() // 获取全部运动记录
+                  ]).then(([userInfo, dietRecords, customFoods, exerciseRecords]) => {
                     console.log('登录成功，获取到用户信息和饮食记录');
                     console.log('用户信息:', userInfo);
                     console.log('饮食记录原始数据:', dietRecords);
@@ -220,6 +226,11 @@ App({
                     const customFoodsArray = Array.isArray(customFoods) ? customFoods : (customFoods?.custom_foods || []);
                     console.log('准备保存的自定义食物数量:', customFoodsArray.length);
                     this.saveCustomFoodsToLocal(customFoodsArray);
+
+                    // 保存运动记录到本地
+                    const exerciseArray = Array.isArray(exerciseRecords) ? exerciseRecords : (exerciseRecords?.data || []);
+                    console.log('准备保存的运动记录数量:', exerciseArray.length);
+                    this.saveExerciseRecordsToLocal(exerciseArray);
                     
                     resolve(res.data);
                   }).catch(reject);
@@ -566,6 +577,24 @@ App({
     });
   },
 
+  // 本地：加载/保存 运动记录
+  loadExerciseRecords() {
+    const list = wx.getStorageSync('exerciseRecords') || [];
+    const last = wx.getStorageSync('exerciseRecordsLastUpdate');
+    this.globalData.exerciseRecords = Array.isArray(list) ? list : [];
+    this.globalData.exerciseRecordsLastUpdate = last || null;
+    return this.globalData.exerciseRecords;
+  },
+
+  saveExerciseRecordsToLocal(list) {
+    const arr = Array.isArray(list) ? list : [];
+    wx.setStorageSync('exerciseRecords', arr);
+    const ts = new Date().toISOString();
+    wx.setStorageSync('exerciseRecordsLastUpdate', ts);
+    this.globalData.exerciseRecords = arr;
+    this.globalData.exerciseRecordsLastUpdate = ts;
+  },
+
   updateExerciseRecord(recordId, recordData) {
     return new Promise((resolve, reject) => {
       if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
@@ -597,7 +626,7 @@ App({
     return this.addExerciseRecord(recordData).then(rec => {
       const list = wx.getStorageSync('exerciseRecords') || [];
       list.push(rec);
-      wx.setStorageSync('exerciseRecords', list);
+      this.saveExerciseRecordsToLocal(list);
       return rec;
     });
   },
@@ -605,7 +634,7 @@ App({
   updateExerciseRecordWithSync(recordId, recordData) {
     return this.updateExerciseRecord(recordId, recordData).then(rec => {
       const list = (wx.getStorageSync('exerciseRecords') || []).map(r => r.id === recordId ? rec : r);
-      wx.setStorageSync('exerciseRecords', list);
+      this.saveExerciseRecordsToLocal(list);
       return rec;
     });
   },
@@ -613,7 +642,7 @@ App({
   deleteExerciseRecordWithSync(recordId) {
     return this.deleteExerciseRecord(recordId).then(() => {
       const list = (wx.getStorageSync('exerciseRecords') || []).filter(r => r.id !== recordId);
-      wx.setStorageSync('exerciseRecords', list);
+      this.saveExerciseRecordsToLocal(list);
     });
   },
 

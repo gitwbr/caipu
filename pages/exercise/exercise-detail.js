@@ -441,6 +441,7 @@ Page({
         }
       }
       wx.showToast({ title:'已保存', icon:'success' });
+      try { wx.setStorageSync('exerciseDirty', Date.now()); } catch(_) {}
       const date = saved && saved.record_date ? (String(saved.record_date).split('T')[0]) : record.record_date;
       const hid = saved && saved.id ? `&highlightId=${saved.id}` : '';
       wx.redirectTo({ url: `/pages/record/record-detail-list?date=${date}${hid}` });

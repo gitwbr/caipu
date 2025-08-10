@@ -85,16 +85,22 @@ Page({
     const consumedCalories = parseFloat(summary.total_calories || 0);
     const consumedCaloriesFormatted = parseFloat(consumedCalories.toFixed(2));
     
-    // 运动卡路里暂时设为0
-    const exerciseCalories = 0;
+    // 统计当日运动消耗（本地优先）
+    const allEx = (app.globalData.exerciseRecords || wx.getStorageSync('exerciseRecords') || []);
+    const exerciseCalories = (allEx || []).reduce((sum, r) => {
+      if (!r.record_date) return sum;
+      const d = typeof r.record_date === 'string' ? (r.record_date.includes('T') ? r.record_date.split('T')[0] : r.record_date) : (r.record_date instanceof Date ? r.record_date.toISOString().split('T')[0] : '');
+      if (d !== selectedDate) return sum;
+      return sum + Number(r.calories_burned_kcal || 0);
+    }, 0);
     
     // 计算剩余卡路里，保留2位小数
-    const remainingCalories = Math.max(0, bmr - consumedCaloriesFormatted + exerciseCalories);
+    const remainingCalories = Math.max(0, bmr + exerciseCalories - consumedCaloriesFormatted);
     const remainingCaloriesFormatted = parseFloat(remainingCalories.toFixed(2));
     
     this.setData({
       consumedCalories: consumedCaloriesFormatted,
-      exerciseCalories: exerciseCalories,
+      exerciseCalories: parseFloat(exerciseCalories.toFixed(1)),
       remainingCalories: remainingCaloriesFormatted,
       loading: false
     });

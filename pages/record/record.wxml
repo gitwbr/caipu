@@ -5,7 +5,7 @@
     <view class="card diet-exercise-card" bindtap="onTapRecordArea">
       <view class="card-header">
         <text class="card-title">饮食运动记录</text>
-        <text class="card-status">今日未记录</text>
+        <!--<text class="card-status">今日未记录</text>-->
       </view>
       
       <view class="calorie-summary">
