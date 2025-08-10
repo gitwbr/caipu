@@ -52,7 +52,7 @@ Page({
             // 用户取消登录，跳转到"我的"页面
             console.log('用户取消登录，跳转到"我的"页面');
             wx.switchTab({
-              url: '/pages/profile/profile'
+              url: '/pages/index/index'
             });
           }
         }

@@ -8,7 +8,8 @@ Page({
     localAvatar: '',
     bmr: 0,
     calculatedAge: null, // 新增：用于存储计算出的年龄
-    formattedBirthday: null // 新增：用于存储格式化后的生日
+    formattedBirthday: null, // 新增：用于存储格式化后的生日
+    bmi: null
   },
 
   onLoad: function () {
@@ -19,10 +20,16 @@ Page({
   },
 
   onShow: function () {
-    // 每次页面显示时都刷新用户信息和本地头像
+    // 每次页面显示时都刷新用户信息和本地头像，并统一弹出登录框
     const localAvatar = wx.getStorageSync('localAvatar') || '';
     this.setData({ localAvatar });
-    this.updateLoginStatus();
+    if (!app.globalData.isLoggedIn && typeof app.checkLoginAndShowModal === 'function') {
+      app.checkLoginAndShowModal()
+        .then(() => this.updateLoginStatus())
+        .catch(() => this.updateLoginStatus());
+    } else {
+      this.updateLoginStatus();
+    }
   },
 
   // 更新登录状态
@@ -49,10 +56,20 @@ Page({
       userInfo: userInfo,
       bmr: userInfo ? userInfo.bmr || 1500 : 1500,
       calculatedAge: calculatedAge,
-      formattedBirthday: formattedBirthday
+      formattedBirthday: formattedBirthday,
+      bmi: this.calcBMI(userInfo)
     });
     
     console.log('页面数据已更新:', this.data);
+  },
+
+  // 计算 BMI = 体重(kg) / 身高(m)^2
+  calcBMI(userInfo) {
+    if (!userInfo || !userInfo.height_cm || !userInfo.weight_kg) return null;
+    const h = Number(userInfo.height_cm) / 100;
+    const w = Number(userInfo.weight_kg);
+    if (!h || !w) return null;
+    return (w / (h * h)).toFixed(1);
   },
 
   // 从生日计算年龄
@@ -116,4 +133,13 @@ Page({
       url: '/pages/profile/edit'
     });
   }
+  ,
+  // 顶部卡片点击 → 进入编辑
+  goEdit() { this.editUserInfo(); },
+  // 收藏
+  goFavorites() { wx.navigateTo({ url: '/pages/favorites/favorites' }); },
+  // 帮助与反馈
+  goHelp() { wx.showToast({ title: '敬请期待', icon: 'none' }); },
+  // 关于我们
+  goAbout() { wx.showModal({ title: '关于我们', content: '卡路里记录小助手', showCancel: false }); }
 }); 

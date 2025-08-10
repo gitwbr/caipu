@@ -1,61 +1,79 @@
-<!--pages/profile/profile.wxml-->
+<!-- pages/profile/profile.wxml -->
 <view class="container">
-  <view class="profile-header">
-    <button class="edit-btn" type="default" size="mini" bindtap="editUserInfo" wx:if="{{isLoggedIn}}">编辑个人资料</button>
-  </view>
-  
-  <view class="profile-info">
-   <image class="avatar" src="{{localAvatar || '/images/profile.png'}}" mode="aspectFit" lazy-load></image>
-    <text class="nickname">
-      {{
-        !isLoggedIn ? '未登录' :
-        (userInfo && userInfo.nickname ? userInfo.nickname : '微信用户')
-      }}
-    </text>
-    <text class="login-status" wx:if="{{isLoggedIn}}">已登录</text>
-  </view>
 
-  <!-- 登录/登出按钮 -->
-  <view class="auth-buttons">
-    <button type="primary" class="login-btn" bindtap="handleLogin" wx:if="{{!isLoggedIn}}">微信一键登录</button>
-    <button type="warn" class="logout-btn" bindtap="handleLogout" wx:if="{{isLoggedIn}}">退出登录</button>
-  </view>
-
-  <!-- 身体信息 -->
-  <view class="body-info" wx:if="{{isLoggedIn && userInfo}}">
-    <view class="info-section">
-      <text class="section-title">身体信息</text>
-      <view class="info-grid">
-        <view class="info-item">
-          <text class="info-label">身高</text>
-          <text class="info-value">{{userInfo.height_cm || '未设置'}} cm</text>
-        </view>
-        <view class="info-item">
-          <text class="info-label">体重</text>
-          <text class="info-value">{{userInfo.weight_kg || '未设置'}} kg</text>
-        </view>
-        <view class="info-item">
-          <text class="info-label">生日</text>
-          <text class="info-value">{{formattedBirthday || '未设置'}}{{calculatedAge ? ' (' + calculatedAge + '岁)' : ''}}</text>
-        </view>
-        <view class="info-item">
-          <text class="info-label">性别</text>
-          <text class="info-value">{{userInfo.gender === 'male' ? '男' : (userInfo.gender === 'female' ? '女' : '未设置')}}</text>
-        </view>
+  <!-- 顶部信息卡（可点击） -->
+  <view class="top-card" bindtap="goEdit">
+    <view class="top-card__upper">
+      <image class="avatar" src="{{localAvatar || '/images/profile.png'}}" mode="aspectFill"></image>
+      <view class="namebox {{ (isLoggedIn && userInfo && userInfo.phone) ? '' : 'namebox--single' }}">
+        <text class="nickname">
+          {{ !isLoggedIn ? '未登录' : (userInfo.nickname || '微信用户') }}
+        </text>
+        <text class="uid" wx:if="{{isLoggedIn && userInfo && userInfo.phone}}">
+          {{ userInfo.phone }}
+        </text>
       </view>
     </view>
-    
-    <view class="bmr-section" wx:if="{{userInfo.height_cm && userInfo.weight_kg && userInfo.birthday && userInfo.gender}}">
-      <text class="section-title">基础代谢率 (BMR)</text>
-      <text class="bmr-value">{{bmr}} kcal/天</text>
-      <text class="bmr-desc">这是您每日的基础卡路里需求</text>
+
+    <!-- 分割线 -->
+    <view class="split-line">
+      <view class="split-dot"></view>
+      <view class="split-hr"></view>
+      <view class="split-dot"></view>
+    </view>
+
+    <view class="top-card__lower">
+      <view class="metric">
+        <text class="metric-label">体重</text>
+        <text class="metric-value">{{ userInfo.weight_kg || '--' }}<text class="unit">kg</text></text>
+      </view>
+      <view class="metric">
+        <text class="metric-label">BMI</text>
+        <text class="metric-value">{{ bmi || '--' }}</text>
+      </view>
+      <view class="metric">
+        <text class="metric-label">BMR</text>
+        <text class="metric-value">{{ bmr || '--' }}<text class="unit">kcal/天</text></text>
+      </view>
     </view>
   </view>
 
-  <view class="menu-list">
-    <view class="menu-item">
-      <text>关于我们</text>
-      <text class="arrow">></text>
+
+
+  <!-- 功能卡片宫格（图片风格） -->
+  <view class="grid-cards">
+    <view class="grid-card" hover-class="grid-card--hover" bindtap="goEdit">
+      <image class="grid-bg" src="/images/card-basic.jpg" mode="aspectFill"></image>
+      <view class="grid-mask"></view>
+      <view class="grid-title">基本信息</view>
+    </view>
+
+    <view class="grid-card" hover-class="grid-card--hover" bindtap="goFavorites">
+      <image class="grid-bg" src="/images/card-fav.jpg" mode="aspectFill"></image>
+      <view class="grid-mask"></view>
+      <view class="grid-title">收藏的菜谱</view>
     </view>
   </view>
-</view> 
+
+  <!-- 设置列表 -->
+  <view class="menu-list">
+    <view class="menu-item" bindtap="goHelp">
+      <image class="menu-icon" src="/images/home.png" mode="widthFix"></image>
+      <text class="menu-text">帮助与反馈</text>
+      <text class="arrow">›</text>
+    </view>
+
+    <view class="menu-item" bindtap="goAbout">
+      <image class="menu-icon" src="/images/profile-active.png" mode="widthFix"></image>
+      <text class="menu-text">关于我们</text>
+      <text class="arrow">›</text>
+    </view>
+
+     <view class="menu-item" bindtap="handleLogout" wx:if="{{isLoggedIn}}">
+       <image class="menu-icon" src="/images/profile.png" mode="widthFix"></image>
+       <text class="menu-text">退出登录</text>
+       <text class="arrow">›</text>
+     </view>
+  </view>
+
+</view>
