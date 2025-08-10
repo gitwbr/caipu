@@ -118,13 +118,9 @@ Page({
 
   // 记录运动
   addExercise() {
-    wx.showToast({
-      title: '运动记录功能开发中',
-      icon: 'none'
+    const { selectedDate } = this.data;
+    wx.navigateTo({
+      url: `/pages/exercise/add-exercise?date=${selectedDate}`
     });
-    // TODO: 实现运动记录功能
-    // wx.navigateTo({
-    //   url: '/pages/record/add-exercise'
-    // });
   }
 });

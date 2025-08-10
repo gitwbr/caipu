@@ -1,0 +1,18 @@
+<view class="container">
+  <view class="date-display" wx:if="{{recordDate}}">
+    <text class="date-text">{{recordDate}}</text>
+  </view>
+
+  <view class="list">
+    <block wx:for="{{items}}" wx:key="id">
+      <view class="item" bindtap="onSelect" data-type-id="{{item.type_id}}" data-method="{{item.calc_method}}">
+        <view class="item-main">
+          <view class="title">{{item.type_name}}</view>
+          <view class="subtitle">{{item.method_label}}</view>
+        </view>
+        <text class="arrow">></text>
+      </view>
+    </block>
+  </view>
+</view>
+

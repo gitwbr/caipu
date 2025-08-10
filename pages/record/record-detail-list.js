@@ -601,9 +601,10 @@ Page({
     wx.navigateTo({ url: `/pages/record/add-record?date=${encodeURIComponent(date)}` });
   },
 
-  // 记录运动（占位，后续接入运动记录页）
+  // 记录运动 → 跳转到添加运动记录页
   addExercise() {
-    wx.showToast({ title: '记录运动开发中', icon: 'none' });
+    const date = this.data.selectedDate || new Date().toISOString().split('T')[0];
+    wx.navigateTo({ url: `/pages/exercise/add-exercise?date=${encodeURIComponent(date)}` });
   },
 
   // 快速记录

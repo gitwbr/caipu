@@ -1,0 +1,11 @@
+.container { padding: 24rpx; min-height: 100vh; background: linear-gradient(135deg,#f8f9fa 0%,#eef1f4 100%); }
+.date-display { background: rgba(255,255,255,.9); border-radius: 20rpx; margin-bottom: 16rpx; box-shadow: 0 4rpx 20rpx rgba(0,0,0,.06); border: 1rpx solid rgba(255,255,255,.3); padding: 20rpx 30rpx; text-align: center; }
+.date-text { font-size: 32rpx; font-weight: 700; color: #495057; background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.list { background: #fff; border-radius: 20rpx; padding: 8rpx 0; box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.06); border: 1rpx solid rgba(255,255,255,0.6); }
+.item { display:flex; align-items:center; justify-content:space-between; padding: 26rpx 28rpx; border-bottom: 1rpx solid #f0f2f5; }
+.item:last-child { border-bottom: none; }
+.item-main { display:flex; flex-direction:column; }
+.title { font-size: 32rpx; color:#111827; font-weight: 700; }
+.subtitle { font-size: 26rpx; color:#6b7280; margin-top: 4rpx; }
+.arrow { color:#9aa0a6; font-size: 28rpx; }
+

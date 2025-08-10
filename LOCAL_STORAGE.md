@@ -12,8 +12,10 @@
 
 - token: string
 - userInfo: 对象（见下）
-- dietRecords: 数组<记录对象>（见下）
+ - dietRecords: 数组<记录对象>（见下）
 - dietRecordsLastUpdate: ISOString
+ - exerciseRecords: 数组<运动记录对象>（见下）
+ - exerciseRecordsLastUpdate: ISOString
 - customFoods: 数组<自定义食物对象>（见下）
 - customFoodsLastUpdate: ISOString
 - foodNutritionData: 数组<营养数据对象>
@@ -21,6 +23,9 @@
 - recentFoods: 数组<最近食物对象>
 - favorites: 数组（默认空）
 - history: 数组（默认空）
+ - exerciseTypes: 数组<运动类型对象>（可选缓存）
+ - exercises: 数组<标准运动对象>（可选缓存）
+ - customExercises: 数组<自定义运动对象>（可选缓存）
 
 ### userInfo 结构
 
@@ -159,6 +164,58 @@
 
 - 登录刷新：
   - `getApp().wxLogin()` 成功后并行拉取 用户信息 / 全部饮食记录 / 自定义食物，并分别写入 `userInfo`、`dietRecords`、`customFoods`。
+
+### 运动本地结构与键
+
+- 基础字典缓存（可选）：
+  - `exerciseTypes`: 数组<{ id: number, code?: string, name: string, description?: string }>
+  - `exerciseCalcMethods`: 数组<{
+      id: number,
+      type_id: number,
+      calc_method: 'met_fixed'|'acsm_walking'|'acsm_running'|'cycling_speed_table'|'cycling_power'|'swimming_stroke'|'interval_weighted',
+      params_schema: object,
+      description?: string
+    }>
+  - 各映射缓存（可选，用于离线）：
+    - `cyclingSpeedMap`: 数组<{ method_id:number, speed_min_kmh:number, speed_max_kmh:number, met:number }>
+    - `cyclingPowerMap`: 数组<{ method_id:number, power_min_w:number, power_max_w:number, met:number }>
+    - `swimmingStrokePaceMap`: 数组<{ method_id:number, stroke:'freestyle'|'breaststroke'|'backstroke'|'butterfly', pace_min_sec_per_100m:number, pace_max_sec_per_100m:number, met:number }>
+    - `strengthIntensityMap`: 数组<{ method_id:number, intensity_level:'low'|'moderate'|'high', rpe_min?:number, rpe_max?:number, met:number }>
+
+- `exerciseRecords` 结构（与 `dietRecords` 对齐）：
+
+```
+[
+  {
+    id: number,
+    record_date: 'YYYY-MM-DD',
+    record_time: 'HH:MM' | '',
+    type_id: number,              // 运动类型ID（走路/跑步/骑行/游泳/力量等）
+    calc_method: 'met_fixed'|'acsm_walking'|'acsm_running'|'cycling_speed_table'|'cycling_power'|'swimming_stroke'|'interval_weighted',
+    duration_min: number,
+    met_used?: number,              // 使用的 MET 值
+    weight_kg_at_time?: number,
+    calories_burned_kcal?: number,  // 客户端计算后可持久化，便于快速显示与统计
+    // 可选计算快照（按方法填充，均为可选）：
+    distance_km?: number,           // km
+    avg_speed_kmh?: number,         // km/h
+    incline_percent?: number,       // %
+    power_watts?: number,           // W
+    stroke?: 'freestyle'|'breaststroke'|'backstroke'|'butterfly',
+    pace_sec_per_100m?: number,     // s/100m
+    intensity_level?: 'low'|'moderate'|'high',
+    rpe?: number,                   // 1~10
+    notes?: string,
+    // 备注：无模板概念后，不再区分标准/自定义/快速
+  }
+]
+```
+
+- 统一写入接口（需新增，对齐饮食）：
+  - `getApp().addExerciseRecordWithSync(recordData)`
+  - `getApp().updateExerciseRecordWithSync(recordId, recordData)`
+  - `getApp().deleteExerciseRecordWithSync(recordId)`
+  - 登录刷新时新增并行拉取：全部运动记录/自定义运动 → 写入 `exerciseRecords`/`customExercises`
 
 ### 读取建议
 

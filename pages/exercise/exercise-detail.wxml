@@ -1,0 +1,72 @@
+<view class="container">
+  <view class="date-display" wx:if="{{record.record_date}}">
+    <text class="date-text">{{record.record_date}} {{record.record_time}}</text>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <view class="col">
+        <view class="label">类型</view>
+        <view class="value">{{typeName}}</view>
+      </view>
+      <view class="col">
+        <view class="label">方法</view>
+        <view class="value">{{methodLabel}}</view>
+      </view>
+    </view>
+    <view class="row">
+      <view class="col">
+        <view class="label">时长(min)</view>
+        <input class="value-input" type="digit" value="{{duration_min}}" bindinput="onInput" data-key="duration_min" placeholder="请输入时长" />
+      </view>
+      <view class="col">
+        <view class="label">体重(kg)</view>
+        <input class="value-input" type="digit" value="{{weight_kg_at_time}}" bindinput="onInput" data-key="weight_kg_at_time" placeholder="未填则用个人资料体重" />
+      </view>
+    </view>
+    <view class="row">
+      <view class="col">
+        <view class="label">热量(kcal)</view>
+        <view class="value highlight">{{calories_burned_kcal}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">参数</view>
+    <block wx:for="{{dynamicFields}}" wx:key="key">
+      <view class="param-row">
+        <text class="p-label">{{item.label}}</text>
+        <block wx:if="{{item.type==='enum'}}">
+          <picker range="{{item.options}}" range-key="label" value="{{item.index}}" data-key="{{item.key}}" bindchange="onEnumChange">
+            <view class="picker-content">
+              <text class="picker-value">{{item.options[item.index].label}}</text>
+              <text class="picker-arrow">></text>
+            </view>
+          </picker>
+        </block>
+        <block wx:else>
+          <input class="p-input" type="digit" value="{{item.value}}" placeholder="{{item.placeholder}}" data-key="{{item.key}}" bindinput="onParamInput" />
+        </block>
+      </view>
+    </block>
+    <view class="bottom-hints" wx:if="{{bottomHintsText}}">
+      <view class="bottom-hints-title">合理范围推荐</view>
+      <view class="bottom-hints-text">{{bottomHintsText}}</view>
+    </view>
+  </view>
+
+ 
+
+  <view class="strength-help" wx:if="{{isIntensityType}}">
+    <view class="help-title">参数说明</view>
+    <view class="help-line">- 强度：选择“低/中/高”，对应不同 MET 估算；若不清楚，先选“中等强度”。（HIIT 同样适用）</view>
+    <view class="help-line">- RPE：主观用力程度 1–10（1 很轻松，10 极限）；若已选择强度，可不填。二者互斥：填 RPE 将清空强度；选强度将清空 RPE。</view>
+  </view>
+
+  <view class="actions">
+    <button class="btn btn-secondary" bindtap="onCancel">取消</button>
+    <button class="btn btn-primary" bindtap="onSave">保存</button>
+  </view>
+</view>
+

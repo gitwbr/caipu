@@ -11,7 +11,9 @@
     "pages/record/add-custom-food",
     "pages/record/quick-record",
     "pages/record/record-detail",
-    "pages/record/record-detail-list"
+    "pages/record/record-detail-list",
+    "pages/exercise/add-exercise",
+    "pages/exercise/exercise-detail"
   ],
   "window": {
     "backgroundTextStyle": "light",

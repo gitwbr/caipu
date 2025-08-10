@@ -1969,6 +1969,188 @@ app.post('/api/baidu-ocr/upload', ocrUpload.single('image'), async (req, res) =>
   }
 });
 
+// --- 运动相关接口（与 DATABASE_TABELS.md 对齐） ---
+
+// GET /api/exercise/meta 获取运动基础字典（类型/方法/schema 与映射表）
+app.get('/api/exercise/meta', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    // token 不涉及用户资源，仅校验格式
+    jwt.verify(authHeader.replace('Bearer ', ''), JWT_SECRET);
+
+    const client = await pool.connect();
+    const [types, methods, cyclingSpeed, swimStroke, strengthIntensity] = await Promise.all([
+      client.query('SELECT id, code, name, description FROM exercise_types ORDER BY id'),
+      client.query('SELECT id, type_id, calc_method, params_schema, description FROM exercise_calc_methods ORDER BY id'),
+      client.query('SELECT id, method_id, speed_min_kmh, speed_max_kmh, met FROM cycling_speed_map ORDER BY speed_min_kmh'),
+      client.query("SELECT id, method_id, stroke, pace_min_sec_per_100m, pace_max_sec_per_100m, met FROM swimming_stroke_pace_map ORDER BY stroke, pace_min_sec_per_100m"),
+      client.query('SELECT id, method_id, intensity_level, rpe_min, rpe_max, met FROM strength_intensity_map ORDER BY intensity_level, rpe_min')
+    ]);
+    client.release();
+    res.json({
+      success: true,
+      exerciseTypes: types.rows,
+      exerciseCalcMethods: methods.rows,
+      cyclingSpeedMap: cyclingSpeed.rows,
+      swimmingStrokePaceMap: swimStroke.rows,
+      strengthIntensityMap: strengthIntensity.rows
+    });
+  } catch (error) {
+    console.error('获取运动基础字典出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// GET /api/exercise-records 获取当前用户运动记录（可选 date=YYYY-MM-DD）
+app.get('/api/exercise-records', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+    const { date } = req.query;
+
+    const client = await pool.connect();
+    let query = `
+      SELECT id, user_id, type_id, calc_method, duration_min, met_used, weight_kg_at_time,
+             calories_burned_kcal, distance_km, avg_speed_kmh, incline_percent, power_watts,
+             stroke, pace_sec_per_100m, intensity_level, rpe, record_date, record_time, notes,
+             created_at, updated_at
+      FROM exercise_records
+      WHERE user_id = $1`;
+    const params = [payload.userId];
+    if (date) {
+      query += ' AND record_date = $2';
+      params.push(date);
+    }
+    query += ' ORDER BY record_date DESC, record_time DESC, id DESC';
+
+    const result = await client.query(query, params);
+    client.release();
+    res.json({ success: true, data: result.rows, count: result.rows.length, date: date || 'all' });
+  } catch (error) {
+    console.error('获取运动记录出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// POST /api/exercise-records 新增运动记录
+app.post('/api/exercise-records', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+
+    // 从请求体解析字段（与表结构对齐）
+    const {
+      type_id, calc_method, duration_min, met_used, weight_kg_at_time,
+      calories_burned_kcal, distance_km, avg_speed_kmh, incline_percent, power_watts,
+      stroke, pace_sec_per_100m, intensity_level, rpe, record_date, record_time, notes
+    } = req.body;
+
+    if (!type_id || !calc_method || !duration_min) {
+      return res.status(400).json({ error: '缺少必要参数：type_id/calc_method/duration_min' });
+    }
+
+    const client = await pool.connect();
+    const insertSql = `
+      INSERT INTO exercise_records (
+        user_id, type_id, calc_method, duration_min, met_used, weight_kg_at_time,
+        calories_burned_kcal, distance_km, avg_speed_kmh, incline_percent, power_watts,
+        stroke, pace_sec_per_100m, intensity_level, rpe, record_date, record_time, notes
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+      ) RETURNING *;
+    `;
+    const values = [
+      payload.userId, type_id, calc_method, duration_min, met_used || null, weight_kg_at_time || null,
+      calories_burned_kcal || null, distance_km || null, avg_speed_kmh || null, incline_percent || null, power_watts || null,
+      stroke || null, pace_sec_per_100m || null, intensity_level || null, rpe || null,
+      (record_date || new Date().toISOString().split('T')[0]),
+      (record_time ? String(record_time).substring(0,5) : new Date().toTimeString().substring(0,5)),
+      notes || null
+    ];
+    const result = await client.query(insertSql, values);
+    client.release();
+    res.json({ message: '添加成功', record: result.rows[0] });
+  } catch (error) {
+    console.error('添加运动记录出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// PUT /api/exercise-records/:id 更新运动记录
+app.put('/api/exercise-records/:id', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+    const { id } = req.params;
+
+    const allowed = ['type_id','calc_method','duration_min','met_used','weight_kg_at_time','calories_burned_kcal','distance_km','avg_speed_kmh','incline_percent','power_watts','stroke','pace_sec_per_100m','intensity_level','rpe','record_date','record_time','notes'];
+    const fields = [];
+    const values = [];
+    let idx = 1;
+    for (const k of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body, k)) {
+        if (k === 'record_time' && req.body[k]) {
+          fields.push(`${k} = $${idx++}`);
+          values.push(String(req.body[k]).substring(0,5));
+        } else {
+          fields.push(`${k} = $${idx++}`);
+          values.push(req.body[k]);
+        }
+      }
+    }
+    if (fields.length === 0) return res.status(400).json({ error: '缺少更新字段' });
+    fields.push('updated_at = NOW()');
+    const sql = `UPDATE exercise_records SET ${fields.join(', ')} WHERE id = $${idx} AND user_id = $${idx+1} RETURNING *;`;
+    values.push(id, payload.userId);
+
+    const client = await pool.connect();
+    const result = await client.query(sql, values);
+    client.release();
+    if (result.rows.length === 0) return res.status(404).json({ error: '记录不存在或无权限修改' });
+    res.json({ message: '更新成功', record: result.rows[0] });
+  } catch (error) {
+    console.error('更新运动记录出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// DELETE /api/exercise-records/:id 删除运动记录
+app.delete('/api/exercise-records/:id', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+    const { id } = req.params;
+
+    const client = await pool.connect();
+    const result = await client.query('DELETE FROM exercise_records WHERE id = $1 AND user_id = $2 RETURNING id', [id, payload.userId]);
+    client.release();
+    if (result.rows.length === 0) return res.status(404).json({ error: '记录不存在或无权限删除' });
+    res.json({ message: '删除成功' });
+  } catch (error) {
+    console.error('删除运动记录出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
 // GET /api/baidu-ocr/health 百度OCR健康检查
 app.get('/api/baidu-ocr/health', async (req, res) => {
   try {

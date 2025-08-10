@@ -66,6 +66,9 @@ App({
     
     // 加载最近食物数据
     this.loadRecentFoods();
+
+    // 预加载运动基础字典
+    this.loadExerciseMeta();
   },
 
   // 检查API密钥是否已配置
@@ -508,6 +511,109 @@ App({
       fail: (error) => {
         console.error('网络错误，获取食物营养数据失败:', error);
       }
+    });
+  },
+
+  // 预加载运动类型/方法/schema与映射
+  loadExerciseMeta() {
+    wx.request({
+      url: this.globalData.serverUrl + '/api/exercise/meta',
+      method: 'GET',
+      header: { 'Authorization': 'Bearer ' + (this.globalData.token || wx.getStorageSync('token')) },
+      success: (res) => {
+        if (res.statusCode === 200 && res.data.success) {
+          const { exerciseTypes, exerciseCalcMethods, cyclingSpeedMap, swimmingStrokePaceMap, strengthIntensityMap } = res.data;
+          wx.setStorageSync('exerciseTypes', exerciseTypes || []);
+          wx.setStorageSync('exerciseCalcMethods', exerciseCalcMethods || []);
+          wx.setStorageSync('cyclingSpeedMap', cyclingSpeedMap || []);
+          wx.setStorageSync('swimmingStrokePaceMap', swimmingStrokePaceMap || []);
+          wx.setStorageSync('strengthIntensityMap', strengthIntensityMap || []);
+        }
+      }
+    });
+  },
+
+  // --- 运动记录相关API ---
+  addExerciseRecord(recordData) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      wx.request({
+        url: this.globalData.serverUrl + '/api/exercise-records',
+        method: 'POST',
+        data: recordData,
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => {
+          if (res.statusCode === 200) resolve(res.data.record || res.data);
+          else reject(new Error(res.data.error || '添加运动记录失败'));
+        },
+        fail: reject
+      });
+    });
+  },
+
+  getExerciseRecords(date) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      const params = date ? { date } : {};
+      wx.request({
+        url: this.globalData.serverUrl + '/api/exercise-records',
+        method: 'GET',
+        data: params,
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => { if (res.statusCode === 200) resolve(res.data.data || []); else reject(new Error(res.data.error || '获取运动记录失败')); },
+        fail: reject
+      });
+    });
+  },
+
+  updateExerciseRecord(recordId, recordData) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      wx.request({
+        url: this.globalData.serverUrl + '/api/exercise-records/' + recordId,
+        method: 'PUT',
+        data: recordData,
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => { if (res.statusCode === 200) resolve(res.data.record || res.data); else reject(new Error(res.data.error || '更新运动记录失败')); },
+        fail: reject
+      });
+    });
+  },
+
+  deleteExerciseRecord(recordId) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      wx.request({
+        url: this.globalData.serverUrl + '/api/exercise-records/' + recordId,
+        method: 'DELETE',
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => { if (res.statusCode === 200) resolve(); else reject(new Error(res.data.error || '删除运动记录失败')); },
+        fail: reject
+      });
+    });
+  },
+
+  addExerciseRecordWithSync(recordData) {
+    return this.addExerciseRecord(recordData).then(rec => {
+      const list = wx.getStorageSync('exerciseRecords') || [];
+      list.push(rec);
+      wx.setStorageSync('exerciseRecords', list);
+      return rec;
+    });
+  },
+
+  updateExerciseRecordWithSync(recordId, recordData) {
+    return this.updateExerciseRecord(recordId, recordData).then(rec => {
+      const list = (wx.getStorageSync('exerciseRecords') || []).map(r => r.id === recordId ? rec : r);
+      wx.setStorageSync('exerciseRecords', list);
+      return rec;
+    });
+  },
+
+  deleteExerciseRecordWithSync(recordId) {
+    return this.deleteExerciseRecord(recordId).then(() => {
+      const list = (wx.getStorageSync('exerciseRecords') || []).filter(r => r.id !== recordId);
+      wx.setStorageSync('exerciseRecords', list);
     });
   },
 

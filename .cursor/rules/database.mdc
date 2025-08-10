@@ -1,4 +1,23 @@
 ---
+description: |
+  数据库结构同步规则：凡涉及数据库表/字段变更（新增/修改/删除）、索引、约束或触发器调整，必须同步更新：
+  1) 后端 API（请求/响应字段）；
+  2) LOCAL_STORAGE.md（新增本地键、字段、示例、单位/类型、record_date/record_time 规范）；
+  3) 小程序端统一写入接口（add/update/delete*WithSync）。
+  特别要求：运动与饮食的记录字段保持对齐（record_date: YYYY-MM-DD、record_time: HH:MM、record_type 三态）。
+  登录全量刷新时，需并行拉取饮食/运动相关表并落盘本地。
+  如果不涉及本地结构变化，请在提交说明中写明“无本地存储结构变化”。
+globs:
+  - "**/*.sql"
+  - "**/*.md"
+  - "**/*.js"
+  - "**/*.ts"
+  - "**/*.json"
+  - "**/*.wxml"
+  - "**/*.wxss"
+alwaysApply: true
+---
+---
 description:
  当我叫你设计数据库，新增或者修改数据库结构的时候，要同步修改DATABASE_TABELS.md，更新数据库的完整Create结构。
 globs: 
