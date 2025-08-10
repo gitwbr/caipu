@@ -6,11 +6,14 @@
   <view class="list">
     <block wx:for="{{items}}" wx:key="id">
       <view class="item" bindtap="onSelect" data-type-id="{{item.type_id}}" data-method="{{item.calc_method}}">
+        <image class="icon" mode="aspectFill" src="{{item.icon || '/images/exercise-placeholder.png'}}"></image>
         <view class="item-main">
-          <view class="title">{{item.type_name}}</view>
-          <view class="subtitle">{{item.method_label}}</view>
+          <view class="title-row">
+            <view class="title">{{item.type_name}}</view>
+            <view class="method-chip">{{item.method_label}}</view>
+          </view>
+          <view class="desc" wx:if="{{item.type_desc}}">{{item.type_desc}}</view>
         </view>
-        <text class="arrow">></text>
       </view>
     </block>
   </view>

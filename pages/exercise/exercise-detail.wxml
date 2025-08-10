@@ -34,6 +34,15 @@
 
   <view class="card">
     <view class="section-title">参数</view>
+    <view class="param-row">
+      <text class="p-label">时间</text>
+      <picker mode="time" value="{{record_time}}" data-key="record_time" bindchange="onTimeChange">
+        <view class="picker-content">
+          <text class="picker-value">{{record_time}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </picker>
+    </view>
     <block wx:for="{{dynamicFields}}" wx:key="key">
       <view class="param-row">
         <text class="p-label">{{item.label}}</text>
@@ -66,7 +75,7 @@
 
   <view class="actions">
     <button class="btn btn-secondary" bindtap="onCancel">取消</button>
-    <button class="btn btn-primary" bindtap="onSave">保存</button>
+    <button class="btn btn-primary" bindtap="onSave" disabled="{{saveDisabled}}">保存</button>
   </view>
 </view>
 

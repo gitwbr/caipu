@@ -5,6 +5,7 @@ Page({
     typeId: null,
     method: '',
     recordDate: '',
+    record_time: '',
     duration_min: '',
     weight_kg_at_time: '',
     calories_burned_kcal: '',
@@ -15,7 +16,8 @@ Page({
     durationHint: '',
     weightHint: '',
     focusMap: {},
-    bottomHints: []
+    bottomHints: [],
+    saveDisabled: true
   },
 
   onLoad(options) {
@@ -35,6 +37,13 @@ Page({
     return `${d.getFullYear()}-${mm}-${dd}`;
   },
 
+  _nowHM() {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mi}`;
+  },
+
   loadRecord(id) {
     const list = wx.getStorageSync('exerciseRecords') || [];
     const rec = list.find(r => r.id === id) || {};
@@ -52,6 +61,7 @@ Page({
       duration_min: String(rec.duration_min || ''),
       weight_kg_at_time: rec.weight_kg_at_time ? String(rec.weight_kg_at_time) : '',
       calories_burned_kcal: rec.calories_burned_kcal ? String(rec.calories_burned_kcal) : '',
+      record_time: rec.record_time || this._nowHM(),
       durationHint: topHints.durationHint,
       weightHint: '',
       bottomHints,
@@ -83,6 +93,7 @@ Page({
       methodLabel,
       dynamicFields: fields,
       duration_min: durationDefault,
+      record_time: this._nowHM(),
       weight_kg_at_time: userWeight ? String(userWeight) : '',
       durationHint: topHints.durationHint,
       weightHint: '',
@@ -177,6 +188,9 @@ Page({
   },
 
   onInput(e) { this.setData({ [e.currentTarget.dataset.key]: e.detail.value }, () => this._recalc()); },
+  onTimeChange(e) {
+    this.setData({ record_time: e.detail.value });
+  },
   onParamInput(e) {
     const key = e.currentTarget.dataset.key;
     const value = e.detail.value;
@@ -238,7 +252,8 @@ Page({
     const kcal = met && params.duration_min && params.weight_kg_at_time ? met * 3.5 * params.weight_kg_at_time / 200 * params.duration_min : 0;
     const kcalStr = Number.isFinite(kcal) ? Number(kcal).toFixed(2) : '0.00';
     console.log('[exercise-detail] _recalc result ->', { met, kcal: kcalStr });
-    this.setData({ calories_burned_kcal: kcalStr });
+    const disabled = !(Number(params.duration_min) > 0 && Number(kcal) > 0);
+    this.setData({ calories_burned_kcal: kcalStr, saveDisabled: disabled });
   },
 
   // 计算 MET（与选择页保持一致）
@@ -347,6 +362,14 @@ Page({
   onCancel() { wx.navigateBack(); },
   async onSave() {
     try {
+      if (!Number(this.data.duration_min)) {
+        wx.showToast({ title: '请输入有效时长', icon: 'none' });
+        return;
+      }
+      if (!Number(this.data.calories_burned_kcal)) {
+        wx.showToast({ title: '参数不足，无法计算卡路里', icon: 'none' });
+        return;
+      }
       const params = {};
       this.data.dynamicFields.forEach(f => params[f.key] = Number(f.value || 0));
       const duration_min = Number(this.data.duration_min || 0);
@@ -362,19 +385,24 @@ Page({
         weight_kg_at_time: weight,
         calories_burned_kcal: Number(calories.toFixed(2)),
         record_date: this.data.record.record_date || this.data.recordDate,
-        record_time: (this.data.record.record_time || '12:00')
+        record_time: (this.data.record.record_time || this.data.record_time || this._nowHM())
       };
       // 附带快照
       Object.assign(record, params);
+      let saved;
       if (app && typeof app.addExerciseRecordWithSync === 'function') {
-        await app.addExerciseRecordWithSync(record);
+        saved = await app.addExerciseRecordWithSync(record);
       } else {
         const list = wx.getStorageSync('exerciseRecords') || [];
-        list.push({ id: Date.now(), ...record });
+        const temp = { id: Date.now(), ...record };
+        list.push(temp);
         wx.setStorageSync('exerciseRecords', list);
+        saved = temp;
       }
       wx.showToast({ title:'已保存', icon:'success' });
-      wx.navigateBack();
+      const date = record.record_date;
+      const hid = saved && saved.id ? `&highlightId=${saved.id}` : '';
+      wx.redirectTo({ url: `/pages/record/record-detail-list?date=${date}${hid}` });
     } catch (e) {
       console.error(e);
       wx.showToast({ title:'保存失败', icon:'none' });

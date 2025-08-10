@@ -36,16 +36,20 @@ Page({
     for (const t of types) {
       const m = methods.find(x => x.type_id === t.id && (!preferred[t.code] || x.calc_method === preferred[t.code])) || methods.find(x => x.type_id === t.id);
       if (!m) continue;
+      const icon = `/images/exercise/${t.code}.png`;
       pairs.push({
         id: `${t.id}_${m.id}`,
         type_id: t.id,
         type_name: t.name,
+        type_code: t.code,
+        type_desc: t.description || '',
+        icon,
         calc_method: m.calc_method,
         method_label: this._getMethodLabel(m.calc_method)
       });
     }
     // 排序：固定顺序
-    const order = ['walking','running','cycling','swimming','strength','hiit','yoga'];
+    const order = ['walking','running','cycling','swimming','strength','hiit','yoga','jump_rope'];
     pairs.sort((a,b)=> order.indexOf((types.find(t=>t.id===a.type_id)||{}).code) - order.indexOf((types.find(t=>t.id===b.type_id)||{}).code));
     this.setData({ items: pairs });
   },

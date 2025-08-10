@@ -349,6 +349,11 @@ CREATE INDEX idx_user_custom_foods_user_id ON user_custom_foods(user_id);
    ('yoga',     '瑜伽',    '静力拉伸/体式/呼吸')
  ON CONFLICT (code) DO NOTHING;
 
+  -- 新增：跳绳
+  INSERT INTO exercise_types(code, name, description) VALUES
+    ('jump_rope', '跳绳', '基础跳绳/双摇/间歇')
+  ON CONFLICT (code) DO NOTHING;
+
  -- 2) 计算方法（按类型配置）+ 参数 schema（驱动前端动态表单）
   -- 走路：ACSM 走路（速度/坡度→MET）
  INSERT INTO exercise_calc_methods(type_id, calc_method, params_schema, description)
@@ -448,6 +453,20 @@ CREATE INDEX idx_user_custom_foods_user_id ON user_custom_foods(user_id);
     '瑜伽：按强度估算 MET'
   ) ON CONFLICT DO NOTHING;
 
+  -- 跳绳：met_fixed（按强度/RPE 估算 MET）
+  INSERT INTO exercise_calc_methods(type_id, calc_method, params_schema, description)
+  VALUES (
+    (SELECT id FROM exercise_types WHERE code='jump_rope'),
+    'met_fixed',
+    '{
+       "intensity_level": {"type":"enum","enum":["low","moderate","high"],"labels":{"low":"低强度","moderate":"中等强度","high":"高强度"}},
+       "rpe": {"type":"number","unit":"1-10","min":1,"max":10,"step":1},
+       "duration_min": {"type":"number","unit":"min","min":5,"max":120,"step":1},
+       "weight_kg_at_time": {"type":"number","unit":"kg","min":20,"max":200,"step":0.5}
+     }'::jsonb,
+    '跳绳：按强度或 RPE 估算 MET（基础/双摇/间歇）'
+  ) ON CONFLICT DO NOTHING;
+
   -- 3) 映射表基础数据（仅针对保留的方法：骑行速度/游泳配速/强度RPE）
  -- 骑行：速度→MET（示例区间，按公开经验值近似）
  INSERT INTO cycling_speed_map(method_id, speed_min_kmh, speed_max_kmh, met) VALUES
@@ -501,5 +520,11 @@ INSERT INTO swimming_stroke_pace_map(method_id, stroke, pace_min_sec_per_100m, p
     ((SELECT id FROM exercise_calc_methods WHERE calc_method='met_fixed' AND type_id=(SELECT id FROM exercise_types WHERE code='hiit')), 'high',     9,10,10.0);
 
  -- 提示：如需扩充 HIIT，可为 running/cycling/swimming 增加 interval_weighted 方法，前端按分段加权求 MET 后写入记录
+
+  -- 跳绳：强度/RPE → MET（建议值）
+  INSERT INTO strength_intensity_map(method_id, intensity_level, rpe_min, rpe_max, met) VALUES
+    ((SELECT id FROM exercise_calc_methods WHERE calc_method='met_fixed' AND type_id=(SELECT id FROM exercise_types WHERE code='jump_rope')), 'low',      5, 6, 8.0),
+    ((SELECT id FROM exercise_calc_methods WHERE calc_method='met_fixed' AND type_id=(SELECT id FROM exercise_types WHERE code='jump_rope')), 'moderate', 7, 8,10.0),
+    ((SELECT id FROM exercise_calc_methods WHERE calc_method='met_fixed' AND type_id=(SELECT id FROM exercise_types WHERE code='jump_rope')), 'high',     9,10,12.0);
 
  */
