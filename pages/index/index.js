@@ -429,7 +429,12 @@ Page({
       if (params.dishType) {
         prompt += `属于"${params.dishType}"的`;
       }
-      prompt += `${params.type}。你收到的随机数是：${randomSeed}，请基于它生成不一样的搭配。要求：1. 食材清单中每个食材都要分别列出用量（如150g）、以及每100g所含的热量(千卡)、蛋白质(g)、脂肪(g)、碳水化合物(g)四项营养值。2. 不要直接给出本次用量的总营养值。3. 包含详细的制作步骤。4. 适合家庭制作。5. 包含烹饪技巧和注意事项。请以JSON格式返回。`;
+      prompt += `${params.type}。你收到的随机数是：${randomSeed}，请基于它生成不一样的搭配。严格要求：
+1) ingredients 为数组，数组中“每一项”必须是 { name, amount, nutrition_per_100g }，其中 nutrition_per_100g = { calories, protein, fat, carbohydrates }（单位：千卡/g/g/g，按每100g或每100ml）；
+2) amount 仅允许 g 或 ml（示例："150g"、"200ml"），严禁出现“个/勺/适量/约xxg”等文字；
+3) 顶层对象不要返回 nutrition 或 nutrition_per_100g，只在每个食材项内提供 nutrition_per_100g；
+4) 若某项难以给出，请依据常识合理估算，切勿省略字段；
+5) 仅返回纯 JSON（name/description/ingredients/steps/tips/tags）。`;
       
       const requestData = {
         model: 'deepseek',
@@ -511,24 +516,12 @@ Page({
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const recipe = JSON.parse(jsonMatch[0]);
-        // 自动汇总总营养，只统计有数字的食材
+        // 标准化：为每个食材保留 nutrition_per_100g，仅在详情页按 weight 计算总营养
         if (recipe.ingredients && Array.isArray(recipe.ingredients)) {
-          let totalCalories = 0, totalProtein = 0, totalFat = 0, totalCarbs = 0;
-          recipe.ingredients.forEach(item => {
-            // 只统计 amount 里有“g”或“ml”的
-            if (item.amount && /\d/.test(item.amount) && /(g|ml)/i.test(item.amount)) {
-              totalCalories += Number(item.calories) || 0;
-              totalProtein += Number(item.protein) || 0;
-              totalFat += Number(item.fat) || 0;
-              totalCarbs += Number(item.carbs) || 0;
-            }
-          });
-          recipe.nutrition = {
-            calories: Math.round(totalCalories),
-            protein: Math.round(totalProtein * 10) / 10,
-            fat: Math.round(totalFat * 10) / 10,
-            carbs: Math.round(totalCarbs * 10) / 10
-          };
+          recipe.ingredients = recipe.ingredients.map(it => ({
+            ...it,
+            nutrition_per_100g: it.nutrition_per_100g || it.nutrition || it.nutritionPer100g || {},
+          }));
         }
         if (recipe.name && recipe.ingredients && recipe.steps) {
           return {

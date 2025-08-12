@@ -51,22 +51,17 @@
         <view class="ingredient-main">
           <view class="ingredient-name">{{item.name}}</view>
           <view class="ingredient-input-group">
-            <block wx:if="{{item.hasNumericAmount}}">
-              <input 
-                type="number" 
-                value="{{item.weight}}"
-                data-index="{{index}}"
-                bindinput="updateIngredientWeight"
-                class="weight-input"
-              />
-              <text class="unit-text">{{item.unit}}</text>
-            </block>
-            <block wx:else>
-              <view class="amount-text">{{item.amount}}</view>
-            </block>
+            <input 
+              type="number" 
+              value="{{item.weight}}"
+              data-index="{{index}}"
+              bindinput="updateIngredientWeight"
+              class="weight-input"
+            />
+            <text class="unit-text">{{item.unitNormalized || 'g'}}</text>
           </view>
         </view>
-        <view class="ingredient-nutrition-grid" wx:if="{{item.hasNumericAmount}}">
+        <view class="ingredient-nutrition-grid">
           <view class="nutrition-cell">
             <view class="nutrition-value-small">{{item.nutritionInfo.calories}}</view>
             <view class="nutrition-label-small">热量(千卡)</view>
