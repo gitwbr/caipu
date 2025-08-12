@@ -828,6 +828,88 @@ app.delete('/api/favorites/:id', async (req, res) => {
   }
 });
 
+// PUT /api/favorites/:id 更新收藏（仅更新 recipe_name 与 recipe_data）
+app.put('/api/favorites/:id', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+
+    const { id } = req.params;
+    const { recipe_name, recipe_data } = req.body;
+    if (!recipe_name || !recipe_data) {
+      return res.status(400).json({ error: '缺少必要参数：recipe_name 或 recipe_data' });
+    }
+
+    const client = await pool.connect();
+    const updateQuery = `
+      UPDATE recipe_favorites
+      SET recipe_name = $1,
+          recipe_data = $2,
+          updated_at = NOW()
+      WHERE id = $3 AND user_id = $4
+      RETURNING id, recipe_id, recipe_name, recipe_data, updated_at;
+    `;
+    const result = await client.query(updateQuery, [recipe_name, recipe_data, id, payload.userId]);
+    client.release();
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: '收藏不存在或无权限更新' });
+    }
+
+    res.json({ message: '更新成功', favorite: result.rows[0] });
+  } catch (error) {
+    console.error('更新收藏出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
+// PUT /api/favorites/recipe/:recipeId 通过 recipe_id 更新收藏（避免收藏记录ID变动问题）
+app.put('/api/favorites/recipe/:recipeId', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: '未提供有效的 token' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = jwt.verify(token, JWT_SECRET);
+
+    const { recipeId } = req.params;
+    const { recipe_name, recipe_data } = req.body;
+    if (!recipeId || !recipe_name || !recipe_data) {
+      return res.status(400).json({ error: '缺少必要参数：recipeId、recipe_name 或 recipe_data' });
+    }
+
+    const client = await pool.connect();
+    const selectQuery = `SELECT id FROM recipe_favorites WHERE user_id = $1 AND recipe_id = $2 LIMIT 1`;
+    const sel = await client.query(selectQuery, [payload.userId, String(recipeId)]);
+    if (sel.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error: '未找到该菜谱的收藏记录' });
+    }
+    const favId = sel.rows[0].id;
+
+    const updateQuery = `
+      UPDATE recipe_favorites
+      SET recipe_name = $1,
+          recipe_data = $2,
+          updated_at = NOW()
+      WHERE id = $3 AND user_id = $4
+      RETURNING id, recipe_id, recipe_name, recipe_data, updated_at;
+    `;
+    const result = await client.query(updateQuery, [recipe_name, recipe_data, favId, payload.userId]);
+    client.release();
+
+    res.json({ message: '更新成功', favorite: result.rows[0] });
+  } catch (error) {
+    console.error('通过recipe_id更新收藏出错:', error);
+    res.status(500).json({ error: '服务器内部错误', message: error.message });
+  }
+});
+
 // POST /api/increment-generation 增加生成次数接口
 app.post('/api/increment-generation', async (req, res) => {
   try {

@@ -11,9 +11,13 @@ Page({
   onLoad(options) {
     if (options.recipe) {
       const recipe = JSON.parse(decodeURIComponent(options.recipe));
+      const fromFavorites = options.from === 'favorites';
+      // 若本地已收藏，优先用收藏里的 recipe_data 覆盖（保持最新编辑状态）
+      const fav = app.isRecipeFavorited && app.isRecipeFavorited(recipe.id) ? app.findFavoriteByRecipeId(recipe.id) : null;
+      const recipeToUse = fav ? { ...fav } : recipe;
       // 初始化每个食材的weight和unit
-      if (recipe.ingredients) {
-        recipe.ingredients.forEach(item => {
+      if (recipeToUse.ingredients) {
+        recipeToUse.ingredients.forEach(item => {
           // weight
           if (!item.weight) {
             const match = item.amount && item.amount.match(/\d+/);
@@ -31,14 +35,40 @@ Page({
         });
       }
       this.setData({
-        recipe,
-        originalNutrition: { ...recipe.nutrition }
+        recipe: recipeToUse,
+        originalNutrition: { ...recipe.nutrition },
+        fromFavorites
       }, () => {
         this.recalculateNutrition();
       });
       this.updateLoginStatus();
       this.checkFavoriteStatus();
     }
+  },
+
+  // 点击“更新”（仅从收藏进入时可见）：更新本地与云端收藏的 recipe_data
+  updateFavoriteRecipe() {
+    if (!app.globalData.isLoggedIn) {
+      app.checkLoginAndShowModal().then(() => this.updateFavoriteRecipe());
+      return;
+    }
+    const updatedRecipe = { ...this.data.recipe };
+    // 确保 ingredients 的 amount 与 weight 同步为数值+单位（默认g）
+    updatedRecipe.ingredients = (updatedRecipe.ingredients || []).map(it => {
+      const unit = it.unitNormalized || it.unit || 'g';
+      const weight = Number(it.weight) || 0;
+      return { ...it, unitNormalized: unit, unit, weight, amount: `${weight}${unit}` };
+    });
+    wx.showLoading({ title: '更新中...' });
+    app.updateFavoriteWithSync(updatedRecipe)
+      .then(() => {
+        wx.hideLoading();
+        wx.showToast({ title: '已更新', icon: 'success' });
+      })
+      .catch(err => {
+        wx.hideLoading();
+        wx.showToast({ title: err.message || '更新失败', icon: 'none' });
+      });
   },
 
   // 更新登录状态
@@ -48,30 +78,10 @@ Page({
 
   // 检查收藏状态
   checkFavoriteStatus() {
-    if (!app.globalData.isLoggedIn) {
-      this.setData({ isFavorite: false });
-      return;
-    }
-
-    // 从云端检查收藏状态
-    wx.request({
-      url: app.globalData.serverUrl + '/api/favorites',
-      method: 'GET',
-      header: {
-        'Authorization': 'Bearer ' + app.globalData.token,
-        'Content-Type': 'application/json'
-      },
-      success: (res) => {
-        if (res.statusCode === 200) {
-          const favorites = res.data;
-          const isFavorite = favorites.some(item => item.recipe_id === this.data.recipe.id);
-          this.setData({ isFavorite });
-        }
-      },
-      fail: () => {
-        this.setData({ isFavorite: false });
-      }
-    });
+    // 改为本地判断，避免每次进入详情都请求云端
+    const recipeId = this.data.recipe && this.data.recipe.id;
+    const isFavorite = recipeId ? (app.isRecipeFavorited ? app.isRecipeFavorited(recipeId) : false) : false;
+    this.setData({ isFavorite });
   },
 
   // 切换收藏状态

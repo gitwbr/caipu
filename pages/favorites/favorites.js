@@ -46,7 +46,7 @@ Page({
   viewRecipe(e) {
     const recipe = e.currentTarget.dataset.recipe;
     wx.navigateTo({
-      url: `/pages/recipe/recipe?recipe=${encodeURIComponent(JSON.stringify(recipe))}`
+      url: `/pages/recipe/recipe?from=favorites&recipe=${encodeURIComponent(JSON.stringify(recipe))}`
     });
   },
 

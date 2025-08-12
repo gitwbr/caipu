@@ -107,8 +107,7 @@
   <!-- 操作按钮 -->
   <view class="action-buttons">
     <button class="btn-primary" bindtap="shareRecipe">分享菜谱</button>
-    <button class="btn-secondary" bindtap="toggleFavorite">
-      {{isFavorite ? '取消收藏' : '收藏'}}
-    </button>
+    <button class="btn-secondary" wx:if="{{fromFavorites}}" bindtap="updateFavoriteRecipe">更新</button>
+    <button class="btn-secondary" wx:else bindtap="toggleFavorite">{{isFavorite ? '取消收藏' : '收藏'}}</button>
   </view>
 </view> 

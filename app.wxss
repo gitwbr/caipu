@@ -33,7 +33,7 @@
 }
 
 .btn-secondary {
-  background: #f0f0f0;
+  background:rgb(240, 240, 240);
   color: #333;
   border: 2rpx solid #ddd;
   border-radius: 50rpx;

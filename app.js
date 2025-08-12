@@ -156,6 +156,19 @@ App({
     this.globalData.favoritesLastUpdate = ts;
   },
 
+  // 本地：根据 recipe_id 查找收藏项（返回 recipe 对象，含 favoriteId）
+  findFavoriteByRecipeId(recipeId) {
+    const list = this.globalData.favorites && this.globalData.favorites.length > 0
+      ? this.globalData.favorites
+      : (wx.getStorageSync('favorites') || []);
+    return list.find(r => String(r.id) === String(recipeId));
+  },
+
+  // 本地：判断是否已收藏
+  isRecipeFavorited(recipeId) {
+    return !!this.findFavoriteByRecipeId(recipeId);
+  },
+
   getFavorites() {
     return new Promise((resolve, reject) => {
       if (!this.globalData.isLoggedIn) return resolve(this.globalData.favorites || []);
@@ -169,6 +182,39 @@ App({
             resolve(arr);
           } else {
             reject(new Error(res.data.error || '获取收藏失败'));
+          }
+        },
+        fail: reject
+      });
+    });
+  },
+
+  updateFavoriteWithSync(recipe) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+
+      const doLocalUpdate = () => {
+        const local = [...(this.globalData.favorites || [])];
+        const idxById = local.findIndex(r => String(r.id) === String(recipe.id));
+        const newItem = { ...recipe, favoriteId: recipe.favoriteId || (local[idxById] && local[idxById].favoriteId) };
+        if (idxById >= 0) local[idxById] = newItem; else local.unshift(newItem);
+        this.saveFavoritesToLocal(local);
+      };
+
+      wx.request({
+        url: this.globalData.serverUrl + '/api/favorites/recipe/' + encodeURIComponent(recipe.id),
+        method: 'PUT',
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        data: { recipe_name: recipe.name, recipe_data: recipe },
+        success: (res) => {
+          if (res.statusCode === 200) {
+            doLocalUpdate();
+            resolve();
+          } else if (res.statusCode === 404) {
+            // 未收藏则尝试新增
+            this.addFavoriteWithSync(recipe).then(resolve).catch(reject);
+          } else {
+            reject(new Error(res.data.error || '更新收藏失败'));
           }
         },
         fail: reject
