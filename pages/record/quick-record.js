@@ -19,9 +19,12 @@ Page({
   onLoad(options) {
     // 如果有OCR识别的营养数据，自动填入
     if (options.date) {
-      this.setData({ recordDate: options.date.includes('T') ? options.date.split('T')[0] : options.date });
+      const raw = options.date;
+      const normalized = getApp().toLocalYMD(raw);
+      console.log('[quick-record onLoad] options.date raw:', raw, 'normalized:', normalized);
+      this.setData({ recordDate: normalized });
     } else {
-      this.setData({ recordDate: new Date().toISOString().split('T')[0] });
+      this.setData({ recordDate: getApp().toLocalYMD(new Date()) });
     }
     // 设置默认时间为当前时间（HH:MM）
     const now = new Date();
@@ -252,13 +255,14 @@ Page({
        });
 
        // 跳转到记录详情列表页面
-       setTimeout(() => {
-         wx.redirectTo({
-           url: `/pages/record/record-detail-list?date=${new Date().toISOString().split('T')[0]}`,
+        setTimeout(() => {
+          const date = getApp().toLocalYMD(new Date());
+          wx.redirectTo({
+            url: `/pages/record/record-detail-list?date=${date}`,
            fail: () => {
              // 如果redirectTo失败，尝试navigateTo
              wx.navigateTo({
-               url: `/pages/record/record-detail-list?date=${new Date().toISOString().split('T')[0]}`,
+                url: `/pages/record/record-detail-list?date=${date}`,
                fail: () => {
                  // 最后的备选方案，返回上一页
                  wx.navigateBack();

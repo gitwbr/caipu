@@ -1,0 +1,32 @@
+<view class="container">
+  <view class="card">
+    <view class="row">
+      <text class="label">日期</text>
+      <picker mode="date" value="{{record_date}}" bindchange="onDateChange">
+        <view class="value">{{record_date}}</view>
+      </picker>
+    </view>
+    <view class="row">
+      <text class="label">时间</text>
+      <picker mode="time" value="{{record_time}}" bindchange="onTimeChange">
+        <view class="value">{{record_time}}</view>
+      </picker>
+    </view>
+    <view class="row">
+      <text class="label">体重</text>
+      <input class="input" type="digit" placeholder="例如 89.60" value="{{weight_kg}}" bindinput="onWeightInput"/>
+      <text class="unit">公斤</text>
+    </view>
+    <view class="row">
+      <text class="label">备注</text>
+      <input class="input" placeholder="可选" value="{{notes}}" bindinput="onNotesInput"/>
+    </view>
+  </view>
+
+  <view class="actions">
+    <button class="btn primary" bindtap="onSubmit">确认</button>
+    <button class="btn danger" wx:if="{{id}}" bindtap="onDelete">删除</button>
+  </view>
+</view>
+
+

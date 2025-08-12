@@ -109,37 +109,42 @@ Page({
     console.log('登录状态:', app.globalData.isLoggedIn);
     console.log('Token:', app.globalData.token);
     
-    app.updateUserInfo(updateData).then((result) => {
-      console.log('保存成功，服务器返回:', result);
-      wx.hideLoading();
-      wx.showToast({ title: '保存成功', icon: 'success' });
-      
-      // 延迟返回，确保Toast显示完成
-      setTimeout(() => {
-        // 尝试多种返回方式
-        wx.navigateBack({
-          fail: () => {
-            // 如果navigateBack失败，尝试switchTab到个人资料页面
-            wx.switchTab({
-              url: '/pages/profile/profile',
-              fail: () => {
-                // 最后的备选方案，使用redirectTo
-                wx.redirectTo({
-                  url: '/pages/profile/profile'
-                });
-              }
-            });
-          }
-        });
-      }, 1500);
-    }).catch((error) => {
+    app.updateUserInfo(updateData)
+      .then((result) => {
+        console.log('保存成功，服务器返回:', result);
+        // 强制刷新一次用户信息，确保BMR/BMI/体重重算
+        return app.getUserInfo();
+      })
+      .then(() => {
+        wx.hideLoading();
+        wx.showToast({ title: '保存成功', icon: 'success' });
+        // 延迟返回，确保Toast显示完成
+        setTimeout(() => {
+          // 尝试多种返回方式
+          wx.navigateBack({
+            fail: () => {
+              // 如果navigateBack失败，尝试switchTab到个人资料页面
+              wx.switchTab({
+                url: '/pages/profile/profile',
+                fail: () => {
+                  // 最后的备选方案，使用redirectTo
+                  wx.redirectTo({
+                    url: '/pages/profile/profile'
+                  });
+                }
+              });
+            }
+          });
+        }, 1500);
+      })
+      .catch((error) => {
       console.error('保存失败:', error);
       wx.hideLoading();
       wx.showToast({ 
         title: error.message || '保存失败', 
         icon: 'none' 
       });
-    });
+      });
   },
 
   getUserInfoFromServer: function() {
@@ -154,8 +159,7 @@ Page({
       // 格式化生日显示
       let formattedBirthday = null;
       if (userInfo.birthday) {
-        const birthDate = new Date(userInfo.birthday);
-        formattedBirthday = birthDate.toISOString().split('T')[0];
+        formattedBirthday = getApp().toLocalYMD(userInfo.birthday);
       }
       
       this.setData({

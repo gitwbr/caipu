@@ -20,7 +20,10 @@ App({
     recentFoods: [], // 最近选择的食物
     // 运动记录数据（本地优先）
     exerciseRecords: [],
-    exerciseRecordsLastUpdate: null
+    exerciseRecordsLastUpdate: null,
+    // 体重记录数据（可选本地缓存）
+    weightRecords: [],
+    weightRecordsLastUpdate: null
   },
   // --- URL/图片工具 ---
   // 将完整URL转换为仅路径（去掉协议与域名），用于存库
@@ -45,6 +48,32 @@ App({
     const base = this.globalData.serverUrl.replace(/\/$/, '');
     const path = pathOrUrl.startsWith('/') ? pathOrUrl : '/' + pathOrUrl;
     return base + path;
+  },
+
+  // 将任意日期输入（字符串或Date）规范为本地 YYYY-MM-DD 字符串
+  toLocalYMD(input) {
+    if (!input) return '';
+    try {
+      if (typeof input === 'string') {
+        if (input.includes('T')) {
+          const d = new Date(input);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        }
+        // 已经是 YYYY-MM-DD
+        return input;
+      }
+      if (input instanceof Date) {
+        const d = input;
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+    } catch (_) {}
+    return String(input);
   },
 
 
@@ -332,19 +361,30 @@ App({
       console.log('当前Token:', this.globalData.token);
       console.log('服务器URL:', this.globalData.serverUrl);
 
-      // 计算基础代谢率
-      const bmr = this.calculateBMR(userData.birthday, userData.height_cm, userData.weight_kg, userData.gender);
+      // 合并未填写字段，避免把现有值清空
+      const current = this.globalData.userInfo || {};
+      const mergedForCalc = {
+        birthday: userData.birthday !== undefined && userData.birthday !== null ? userData.birthday : current.birthday,
+        height_cm: userData.height_cm !== undefined && userData.height_cm !== null ? userData.height_cm : current.height_cm || current.height,
+        weight_kg: userData.weight_kg !== undefined && userData.weight_kg !== null ? userData.weight_kg : current.weight_kg || current.weight,
+        gender: userData.gender !== undefined && userData.gender !== null ? userData.gender : current.gender
+      };
+
+      // 计算基础代谢率（用合并后的字段）
+      const bmr = this.calculateBMR(mergedForCalc.birthday, mergedForCalc.height_cm, mergedForCalc.weight_kg, mergedForCalc.gender);
       console.log('计算的BMR:', bmr);
-      
-      // 更新本地用户信息（包含BMR）- 使用正确的字段名
-      const updatedUserInfo = { 
-        ...this.globalData.userInfo, 
-        nickname: userData.nickname,
-        height: userData.height_cm, // 转换为本地使用的字段名
-        weight: userData.weight_kg, // 转换为本地使用的字段名
-        gender: userData.gender,
-        birthday: userData.birthday,
-        bmr: bmr 
+
+      // 更新本地用户信息（包含BMR）
+      const updatedUserInfo = {
+        ...this.globalData.userInfo,
+        nickname: userData.nickname !== undefined ? userData.nickname : (current.nickname || ''),
+        height: mergedForCalc.height_cm,
+        weight: mergedForCalc.weight_kg,
+        gender: mergedForCalc.gender,
+        birthday: mergedForCalc.birthday,
+        height_cm: mergedForCalc.height_cm,
+        weight_kg: mergedForCalc.weight_kg,
+        bmr: bmr
       };
       console.log('更新后的本地用户信息:', updatedUserInfo);
       
@@ -544,6 +584,76 @@ App({
     });
   },
 
+  // --- 体重记录相关API ---
+  getWeightRecords(date) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      const params = date ? { date } : {};
+      wx.request({
+        url: this.globalData.serverUrl + '/api/weight-records',
+        method: 'GET',
+        data: params,
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => { if (res.statusCode === 200) resolve(res.data.data || []); else reject(new Error(res.data.error || '获取体重记录失败')); },
+        fail: reject
+      });
+    });
+  },
+
+  getWeightSummary() {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      wx.request({
+        url: this.globalData.serverUrl + '/api/weight-records/summary',
+        method: 'GET',
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => { if (res.statusCode === 200) resolve(res.data); else reject(new Error(res.data.error || '获取体重汇总失败')); },
+        fail: reject
+      });
+    });
+  },
+
+  addWeightRecord(data) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      wx.request({
+        url: this.globalData.serverUrl + '/api/weight-records',
+        method: 'POST',
+        data,
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => { if (res.statusCode === 200) resolve(res.data.record || res.data); else reject(new Error(res.data.error || '添加体重记录失败')); },
+        fail: reject
+      });
+    });
+  },
+
+  updateWeightRecord(id, data) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      wx.request({
+        url: this.globalData.serverUrl + '/api/weight-records/' + id,
+        method: 'PUT',
+        data,
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => { if (res.statusCode === 200) resolve(res.data.record || res.data); else reject(new Error(res.data.error || '更新体重记录失败')); },
+        fail: reject
+      });
+    });
+  },
+
+  deleteWeightRecord(id) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      wx.request({
+        url: this.globalData.serverUrl + '/api/weight-records/' + id,
+        method: 'DELETE',
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => { if (res.statusCode === 200) resolve(); else reject(new Error(res.data.error || '删除体重记录失败')); },
+        fail: reject
+      });
+    });
+  },
+
   // --- 运动记录相关API ---
   addExerciseRecord(recordData) {
     return new Promise((resolve, reject) => {
@@ -587,7 +697,7 @@ App({
   },
 
   saveExerciseRecordsToLocal(list) {
-    const arr = Array.isArray(list) ? list : [];
+    const arr = (Array.isArray(list) ? list : []).map(r => ({ ...r, record_date: this.toLocalYMD(r.record_date) }));
     wx.setStorageSync('exerciseRecords', arr);
     const ts = new Date().toISOString();
     wx.setStorageSync('exerciseRecordsLastUpdate', ts);
@@ -723,10 +833,9 @@ App({
             if (record.quantity_g === undefined && recordData.quantity_g !== undefined) record.quantity_g = recordData.quantity_g;
             if (record.food_id === undefined && recordData.food_id !== undefined) record.food_id = recordData.food_id;
             if (record.custom_food_id === undefined && recordData.custom_food_id !== undefined) record.custom_food_id = recordData.custom_food_id;
-            // 规范日期为 YYYY-MM-DD
-            if (typeof record.record_date === 'string' && record.record_date.includes('T')) {
-              record.record_date = record.record_date.split('T')[0];
-            }
+            // 规范日期为本地 YYYY-MM-DD
+            record.record_date = this.toLocalYMD(record.record_date || recordData.record_date);
+            console.log('[addDietRecord] normalized record_date:', record.record_date, 'raw:', res.data.record?.record_date, 'input:', recordData.record_date);
             console.log('添加记录成功，返回数据:', record);
             resolve(record);
           } else {
@@ -822,9 +931,8 @@ App({
             if (record.quantity_g === undefined && recordData.quantity_g !== undefined) record.quantity_g = recordData.quantity_g;
             if (record.food_id === undefined && recordData.food_id !== undefined) record.food_id = recordData.food_id;
             if (record.custom_food_id === undefined && recordData.custom_food_id !== undefined) record.custom_food_id = recordData.custom_food_id;
-            if (typeof record.record_date === 'string' && record.record_date.includes('T')) {
-              record.record_date = record.record_date.split('T')[0];
-            }
+            record.record_date = this.toLocalYMD(record.record_date || recordData.record_date);
+            console.log('[updateDietRecord] normalized record_date:', record.record_date, 'raw:', res.data.record?.record_date);
             console.log('更新记录成功，返回数据:', record);
             resolve(record);
           } else {
@@ -949,10 +1057,16 @@ App({
     console.log('记录数量:', records.length);
     console.log('记录内容:', records);
     
-    this.globalData.dietRecords = records;
+    // 统一规范日期为本地 YYYY-MM-DD，便于前端按天筛选
+    const normalized = (records || []).map(r => ({
+      ...r,
+      record_date: this.toLocalYMD(r.record_date)
+    }));
+    console.log('[saveDietRecordsToLocal] first record (if any):', normalized && normalized[0]);
+    this.globalData.dietRecords = normalized;
     this.globalData.dietRecordsLastUpdate = new Date().toISOString();
     
-    wx.setStorageSync('dietRecords', records);
+    wx.setStorageSync('dietRecords', normalized);
     wx.setStorageSync('dietRecordsLastUpdate', this.globalData.dietRecordsLastUpdate);
     
     console.log('已保存到 globalData.dietRecords');
@@ -962,13 +1076,7 @@ App({
 
   // 本地计算每日卡路里汇总
   calculateDailyCalorieSummary(date) {
-    let targetDate = date || new Date().toISOString().split('T')[0];
-    
-    // 确保日期格式为 YYYY-MM-DD
-    if (targetDate && targetDate.includes('T')) {
-      // 如果是ISO时间戳格式，提取日期部分
-      targetDate = targetDate.split('T')[0];
-    }
+    let targetDate = this.toLocalYMD(date) || this.toLocalYMD(new Date());
     
     // 检查数据格式，确保是数组
     let records = this.globalData.dietRecords || [];
@@ -985,22 +1093,7 @@ App({
         return false;
       }
       
-      let recordDate;
-      if (typeof record.record_date === 'string') {
-        if (record.record_date.includes('T')) {
-          // ISO格式: "2025-08-01T00:00:00.000Z"
-          recordDate = record.record_date.split('T')[0];
-        } else {
-          // 简单格式: "2025-08-01"
-          recordDate = record.record_date;
-        }
-      } else if (record.record_date instanceof Date) {
-        // Date对象
-        recordDate = record.record_date.toISOString().split('T')[0];
-      } else {
-        console.log(`计算汇总时发现记录${record.id}的record_date格式未知:`, record.record_date);
-        recordDate = '';
-      }
+      const recordDate = this.toLocalYMD(record.record_date);
       
       return recordDate === targetDate;
     });

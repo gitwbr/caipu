@@ -1,0 +1,15 @@
+<view class="container">
+  <view class="list">
+    <block wx:for="{{records}}" wx:key="id">
+      <view class="row" data-id="{{item.id}}" bindtap="onItemTap">
+        <text class="time">{{item.display_date}} {{item.display_time}}</text>
+        <text class="weight">{{item.display_weight}} 公斤</text>
+      </view>
+    </block>
+    <view class="empty" wx:if="{{records.length === 0}}">暂无记录</view>
+  </view>
+
+  <view class="add-btn" bindtap="onAddTap">记录</view>
+</view>
+
+

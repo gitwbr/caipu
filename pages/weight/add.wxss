@@ -1,0 +1,14 @@
+.container { padding: 24rpx; }
+.card { background: #fff; border-radius: 16rpx; padding: 10rpx 24rpx; }
+.row { display: flex; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #f1f3f5; }
+.row:last-child { border-bottom: none; }
+.label { flex: 0 0 140rpx; color: #495057; font-size: 28rpx; }
+.value { color: #343a40; }
+.input { flex: 1; text-align: right; font-size: 32rpx; }
+.unit { margin-left: 12rpx; color: #868e96; }
+.actions { display: flex; gap: 20rpx; margin-top: 40rpx; }
+.btn { flex: 1; border-radius: 999rpx; }
+.primary { background: #20c997; color: #fff; }
+.danger { background: #ff6b6b; color: #fff; }
+
+

@@ -1,0 +1,32 @@
+.container {
+  padding: 20rpx;
+}
+.list {
+  background: #fff;
+  border-radius: 16rpx;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 24rpx;
+  border-bottom: 1rpx solid #f1f3f5;
+}
+.row:last-child { border-bottom: none; }
+.time { color: #495057; font-size: 28rpx; }
+.weight { color: #12b886; font-weight: 600; font-size: 32rpx; }
+.empty { text-align: center; color: #adb5bd; padding: 60rpx 0; }
+.add-btn {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 40rpx;
+  background: #20c997;
+  color: #fff;
+  padding: 20rpx 60rpx;
+  border-radius: 999rpx;
+  font-size: 30rpx;
+  box-shadow: 0 6rpx 20rpx rgba(32, 201, 151, 0.35);
+}
+
+

@@ -22,11 +22,12 @@ Page({
 
   onLoad(options) {
     const { typeId, method, date, id } = options || {};
+    console.log('[exercise-detail onLoad] options:', options);
     if (id) {
       this.loadRecord(Number(id));
       return;
     }
-    const d = (date && String(date).includes('T')) ? String(date).split('T')[0] : (date || this._today());
+    const d = getApp().toLocalYMD(date || new Date());
     this.setData({ typeId: Number(typeId), method: method, recordDate: d, display_date: d, record_time: this._nowHM() });
     this.initForm();
   },
@@ -54,7 +55,7 @@ Page({
     const { fields: dynamicFields, bottomHints } = this._buildFieldsFromSchema(rec.calc_method, rec);
     const topHints = this._getTopHints(rec.calc_method);
     const bottomHintsText = (bottomHints || []).filter(h => !/^体重/.test(h)).join(' / ');
-    const rd = rec.record_date ? String(rec.record_date).split('T')[0] : this._today();
+    const rd = getApp().toLocalYMD(rec.record_date) || this._today();
     const rt = rec.record_time ? String(rec.record_time).slice(0,5) : this._nowHM();
     this.setData({
       typeId: rec.type_id || this.data.typeId,
@@ -442,7 +443,8 @@ Page({
       }
       wx.showToast({ title:'已保存', icon:'success' });
       try { wx.setStorageSync('exerciseDirty', Date.now()); } catch(_) {}
-      const date = saved && saved.record_date ? (String(saved.record_date).split('T')[0]) : record.record_date;
+      const date = getApp().toLocalYMD((saved && saved.record_date) || record.record_date);
+      console.log('[exercise-detail save] redirect date:', date, 'saved.record_date:', saved && saved.record_date, 'record.record_date:', record.record_date);
       const hid = saved && saved.id ? `&highlightId=${saved.id}` : '';
       wx.redirectTo({ url: `/pages/record/record-detail-list?date=${date}${hid}` });
     } catch (e) {

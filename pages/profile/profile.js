@@ -46,8 +46,7 @@ Page({
     let formattedBirthday = null;
     if (userInfo && userInfo.birthday) {
       // 格式化生日显示
-      const birthDate = new Date(userInfo.birthday);
-      formattedBirthday = birthDate.toISOString().split('T')[0]; // 转换为 YYYY-MM-DD 格式
+      formattedBirthday = getApp().toLocalYMD(userInfo.birthday); // 转换为 YYYY-MM-DD 格式
       calculatedAge = this.calculateAge(userInfo.birthday);
     }
     

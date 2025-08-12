@@ -8,7 +8,8 @@ Page({
   },
 
   onLoad(options) {
-    const date = options?.date || this._today();
+    console.log('[add-exercise onLoad] options:', options);
+    const date = getApp().toLocalYMD(options?.date || new Date());
     this.setData({ recordDate: date });
     this.initList();
   },

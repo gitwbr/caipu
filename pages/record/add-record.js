@@ -77,7 +77,11 @@ Page({
       const current = pages[pages.length - 1];
       const options = (current && current.options) || {};
       if (options.date) {
-        this._entryDate = options.date.includes('T') ? options.date.split('T')[0] : options.date;
+        const raw = options.date;
+        this._entryDate = getApp().toLocalYMD(raw);
+        console.log('[add-record onLoad] options.date raw:', raw, 'entryDate:', this._entryDate);
+      } else {
+        console.log('[add-record onLoad] options.date missing');
       }
     } catch (e) {}
     // 首次进入：仅从本地读取并解析一次，避免多次互相触发
@@ -283,7 +287,7 @@ Page({
     
     // 获取当前选择的日期（优先从记录详情页面获取，如果没有则从原记录页面获取）
     const pages = getCurrentPages();
-    let selectedDate = new Date().toISOString().split('T')[0]; // 默认今天
+    let selectedDate = getApp().toLocalYMD(new Date()); // 默认今天
     
     // 先尝试从记录详情页面获取日期
     const detailListPage = pages.find(page => page.route === 'pages/record/record-detail-list');
@@ -318,7 +322,7 @@ Page({
   goQuickRecord() {
     // 带上当前选中的日期（若能取到记录页/列表页的日期，或入口参数）
     const pages = getCurrentPages();
-    let selectedDate = new Date().toISOString().split('T')[0];
+    let selectedDate = getApp().toLocalYMD(new Date());
     if (this._entryDate) selectedDate = this._entryDate;
     const detailListPage = pages.find(page => page.route === 'pages/record/record-detail-list');
     if (detailListPage && detailListPage.data.selectedDate) {

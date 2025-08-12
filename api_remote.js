@@ -252,6 +252,29 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://diet_user_admin:createfuture_diet_625@localhost:5432/diet_db',
 });
 
+// 统一设置数据库会话时区，避免 created_at/updated_at 出现 8 小时偏差
+pool.on('connect', (client) => {
+  client.query("SET TIME ZONE 'Asia/Shanghai'").catch((e) => {
+    console.warn('设置会话时区失败:', e.message);
+  });
+});
+
+// 本地日期/时间格式化工具（YYYY-MM-DD / HH:MM）
+function getLocalDateStr(dateObj = new Date(), timeZone = 'Asia/Shanghai') {
+  // 使用固定时区，避免容器系统时区为 UTC 时产生 8 小时偏差
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(dateObj);
+}
+
+function getLocalTimeHHMM(dateObj = new Date(), timeZone = 'Asia/Shanghai') {
+  // 使用固定时区，避免容器系统时区为 UTC 时产生 8 小时偏差
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(dateObj);
+}
+
 // 健康检查接口
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -513,6 +536,20 @@ app.post('/api/update-user-info', async (req, res) => {
     console.log('SQL参数:', values);
     
     const result = await client.query(query, values);
+    // 若包含体重变更，则写入体重记录表（使用当前日期时间）
+    try {
+      if (Object.prototype.hasOwnProperty.call(req.body, 'weight_kg') && weight_kg) {
+      const nowLocal = new Date();
+      const dateStr = getLocalDateStr(nowLocal);
+      const timeStr = getLocalTimeHHMM(nowLocal);
+        await client.query(
+          `INSERT INTO weight_records (user_id, weight_kg, record_date, record_time, notes) VALUES ($1,$2,$3,$4,$5)`,
+          [payload.userId, weight_kg, dateStr, timeStr, '同步自用户资料']
+        );
+      }
+    } catch (syncErr) {
+      console.error('同步写入体重记录失败（不影响用户信息更新）:', syncErr.message);
+    }
     client.release();
 
     console.log('数据库更新结果:', result.rows);
@@ -615,7 +652,7 @@ app.get('/api/user-limits', async (req, res) => {
     const payload = jwt.verify(token, JWT_SECRET);
     
     const client = await pool.connect();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateStr();
     
     // 获取或创建今日限制记录（只用于生成次数）
     let query = `
@@ -803,7 +840,7 @@ app.post('/api/increment-generation', async (req, res) => {
     const payload = jwt.verify(token, JWT_SECRET);
     
     const client = await pool.connect();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateStr();
     
     // 增加今日生成次数
     const query = `
@@ -955,7 +992,7 @@ app.get('/api/food-nutrition/search', async (req, res) => {
 
 // --- 图片上传接口 ---
 
-// 工具：将绝对URL或以/uploads开头的路径统一转换为“仅路径”（/uploads/...）
+// 工具：将绝对URL或以/uploads开头的路径统一转换为"仅路径"（/uploads/...）
 function normalizeToPathOnly(urlOrPath) {
   if (!urlOrPath) return null;
   try {
@@ -1051,8 +1088,8 @@ app.post('/api/diet-records', async (req, res) => {
         payload.userId, 'quick', quick_food_name, quick_energy_kcal,
         quick_protein_g || 0, quick_fat_g || 0, quick_carbohydrate_g || 0, quick_image_url || null,
         quantity_g || 0, // 快速记录不需要重量，设为0
-        record_date || new Date().toISOString().split('T')[0], 
-        record_time ? record_time.substring(0, 5) : new Date().toTimeString().split(' ')[0].substring(0, 5), 
+        record_date || getLocalDateStr(), 
+        record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(), 
         notes || null
       ];
     } else {
@@ -1079,8 +1116,8 @@ app.post('/api/diet-records', async (req, res) => {
         `;
         values = [
           payload.userId, 'standard', food_id, quantity_g, 
-          record_date || new Date().toISOString().split('T')[0], 
-          record_time ? record_time.substring(0, 5) : new Date().toTimeString().split(' ')[0].substring(0, 5), 
+          record_date || getLocalDateStr(), 
+          record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(), 
           notes || null
         ];
       } else {
@@ -1092,8 +1129,8 @@ app.post('/api/diet-records', async (req, res) => {
         `;
         values = [
           payload.userId, 'custom', custom_food_id, quantity_g, 
-          record_date || new Date().toISOString().split('T')[0], 
-          record_time ? record_time.substring(0, 5) : new Date().toTimeString().split(' ')[0].substring(0, 5), 
+          record_date || getLocalDateStr(), 
+          record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(), 
           notes || null
         ];
       }
@@ -1301,8 +1338,8 @@ app.put('/api/diet-records/:id', async (req, res) => {
         quick_fat_g,
         quick_carbohydrate_g,
         quick_image_url,
-        record_date,
-        record_time ? record_time.substring(0, 5) : record_time,
+        record_date || getLocalDateStr(),
+        record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(),
         notes,
         id,
         payload.userId
@@ -1330,7 +1367,7 @@ app.put('/api/diet-records/:id', async (req, res) => {
           WHERE id = $6 AND user_id = $7
           RETURNING *;
         `;
-        values = [food_id, quantity_g, record_date, record_time ? record_time.substring(0, 5) : record_time, notes, id, payload.userId];
+        values = [food_id, quantity_g, record_date || getLocalDateStr(), record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(), notes, id, payload.userId];
       } else {
         // 自定义食物
         query = `
@@ -1339,7 +1376,7 @@ app.put('/api/diet-records/:id', async (req, res) => {
           WHERE id = $6 AND user_id = $7
           RETURNING *;
         `;
-        values = [custom_food_id, quantity_g, record_date, record_time ? record_time.substring(0, 5) : record_time, notes, id, payload.userId];
+        values = [custom_food_id, quantity_g, record_date || getLocalDateStr(), record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(), notes, id, payload.userId];
       }
     }
     
@@ -1467,7 +1504,7 @@ app.get('/api/daily-calorie-summary', async (req, res) => {
     const payload = jwt.verify(token, JWT_SECRET);
     
     const { date } = req.query;
-    const queryDate = date || new Date().toISOString().split('T')[0];
+    const queryDate = date || getLocalDateStr();
     
     const client = await pool.connect();
     const query = `
@@ -2004,6 +2041,216 @@ app.get('/api/exercise/meta', async (req, res) => {
   }
 });
 
+  // --- 体重记录相关接口 ---
+  // GET /api/weight-records 获取体重记录（可选 date=YYYY-MM-DD）
+  app.get('/api/weight-records', async (req, res) => {
+    try {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: '未提供有效的 token' });
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const payload = jwt.verify(token, JWT_SECRET);
+      const { date } = req.query;
+
+      const client = await pool.connect();
+      let sql = `
+        SELECT id, user_id, weight_kg, record_date, record_time, notes, created_at, updated_at
+        FROM weight_records
+        WHERE user_id = $1`;
+      const params = [payload.userId];
+      if (date) {
+        sql += ' AND record_date = $2';
+        params.push(date);
+      }
+      sql += ' ORDER BY record_date DESC, record_time DESC, id DESC';
+      const result = await client.query(sql, params);
+      client.release();
+      res.json({ success: true, data: result.rows, count: result.rows.length, date: date || 'all' });
+    } catch (error) {
+      console.error('获取体重记录出错:', error);
+      res.status(500).json({ error: '服务器内部错误', message: error.message });
+    }
+  });
+
+  // GET /api/weight-records/latest 获取最新体重
+  app.get('/api/weight-records/latest', async (req, res) => {
+    try {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: '未提供有效的 token' });
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const payload = jwt.verify(token, JWT_SECRET);
+
+      const client = await pool.connect();
+      const sql = `
+        SELECT id, user_id, weight_kg, record_date, record_time, notes, created_at, updated_at
+        FROM weight_records
+        WHERE user_id = $1
+        ORDER BY record_date DESC, record_time DESC, id DESC
+        LIMIT 1`;
+      const result = await client.query(sql, [payload.userId]);
+      client.release();
+      if (result.rows.length === 0) return res.status(404).json({ error: '暂无体重记录' });
+      res.json({ success: true, record: result.rows[0] });
+    } catch (error) {
+      console.error('获取最新体重出错:', error);
+      res.status(500).json({ error: '服务器内部错误', message: error.message });
+    }
+  });
+
+  // GET /api/weight-records/summary 获取体重汇总（初始/最新/变化）
+  app.get('/api/weight-records/summary', async (req, res) => {
+    try {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: '未提供有效的 token' });
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const payload = jwt.verify(token, JWT_SECRET);
+
+      const client = await pool.connect();
+      const earliestSql = `
+        SELECT weight_kg, record_date, record_time
+        FROM weight_records
+        WHERE user_id = $1
+        ORDER BY record_date ASC, record_time ASC, id ASC
+        LIMIT 1`;
+      const latestSql = `
+        SELECT weight_kg, record_date, record_time
+        FROM weight_records
+        WHERE user_id = $1
+        ORDER BY record_date DESC, record_time DESC, id DESC
+        LIMIT 1`;
+      const [earliestRes, latestRes] = await Promise.all([
+        client.query(earliestSql, [payload.userId]),
+        client.query(latestSql, [payload.userId])
+      ]);
+      client.release();
+
+      const earliest = earliestRes.rows[0] || null;
+      const latest = latestRes.rows[0] || null;
+      const initialWeight = earliest ? Number(earliest.weight_kg) : null;
+      const latestWeight = latest ? Number(latest.weight_kg) : null;
+      const deltaKg = (initialWeight != null && latestWeight != null) ? (initialWeight - latestWeight) : null;
+      res.json({
+        success: true,
+        initial_weight_kg: initialWeight,
+        latest_weight_kg: latestWeight,
+        delta_kg: deltaKg,
+        initial_record_date: earliest ? earliest.record_date : null,
+        initial_record_time: earliest ? earliest.record_time : null,
+        latest_record_date: latest ? latest.record_date : null,
+        latest_record_time: latest ? latest.record_time : null
+      });
+    } catch (error) {
+      console.error('获取体重汇总出错:', error);
+      res.status(500).json({ error: '服务器内部错误', message: error.message });
+    }
+  });
+
+  // POST /api/weight-records 新增体重记录
+  app.post('/api/weight-records', async (req, res) => {
+    try {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: '未提供有效的 token' });
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const payload = jwt.verify(token, JWT_SECRET);
+
+      const { weight_kg, record_date, record_time, notes } = req.body;
+      if (!weight_kg) return res.status(400).json({ error: '缺少必要参数：weight_kg' });
+
+      const nowLocal = new Date();
+      const dateStr = record_date || getLocalDateStr(nowLocal);
+      const timeStr = record_time ? String(record_time).substring(0,5) : getLocalTimeHHMM(nowLocal);
+
+    const client = await pool.connect();
+    const sql = `
+        INSERT INTO weight_records (user_id, weight_kg, record_date, record_time, notes)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *;`;
+    const result = await client.query(sql, [payload.userId, weight_kg, dateStr, timeStr, notes || null]);
+    // 同步更新 users 表的体重
+    try {
+      await client.query('UPDATE users SET weight_kg = $1, updated_at = NOW() WHERE id = $2', [weight_kg, payload.userId]);
+    } catch (syncErr) {
+      console.error('同步更新用户体重失败（不影响体重记录添加）:', syncErr.message);
+    }
+    client.release();
+    res.json({ message: '添加成功', record: result.rows[0] });
+    } catch (error) {
+      console.error('添加体重记录出错:', error);
+      res.status(500).json({ error: '服务器内部错误', message: error.message });
+    }
+  });
+
+  // PUT /api/weight-records/:id 更新体重记录
+  app.put('/api/weight-records/:id', async (req, res) => {
+    try {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: '未提供有效的 token' });
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const payload = jwt.verify(token, JWT_SECRET);
+      const { id } = req.params;
+
+      const allowed = ['weight_kg','record_date','record_time','notes'];
+      const fields = [];
+      const values = [];
+      let idx = 1;
+      for (const k of allowed) {
+        if (Object.prototype.hasOwnProperty.call(req.body, k)) {
+          if (k === 'record_time' && req.body[k]) {
+            fields.push(`${k} = $${idx++}`);
+            values.push(String(req.body[k]).substring(0,5));
+          } else {
+            fields.push(`${k} = $${idx++}`);
+            values.push(req.body[k]);
+          }
+        }
+      }
+      if (fields.length === 0) return res.status(400).json({ error: '缺少更新字段' });
+      fields.push('updated_at = NOW()');
+      const sql = `UPDATE weight_records SET ${fields.join(', ')} WHERE id = $${idx} AND user_id = $${idx+1} RETURNING *;`;
+      values.push(id, payload.userId);
+
+      const client = await pool.connect();
+      const result = await client.query(sql, values);
+      client.release();
+      if (result.rows.length === 0) return res.status(404).json({ error: '记录不存在或无权限修改' });
+      res.json({ message: '更新成功', record: result.rows[0] });
+    } catch (error) {
+      console.error('更新体重记录出错:', error);
+      res.status(500).json({ error: '服务器内部错误', message: error.message });
+    }
+  });
+
+  // DELETE /api/weight-records/:id 删除体重记录
+  app.delete('/api/weight-records/:id', async (req, res) => {
+    try {
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: '未提供有效的 token' });
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const payload = jwt.verify(token, JWT_SECRET);
+      const { id } = req.params;
+
+      const client = await pool.connect();
+      const result = await client.query('DELETE FROM weight_records WHERE id = $1 AND user_id = $2 RETURNING id', [id, payload.userId]);
+      client.release();
+      if (result.rows.length === 0) return res.status(404).json({ error: '记录不存在或无权限删除' });
+      res.json({ message: '删除成功' });
+    } catch (error) {
+      console.error('删除体重记录出错:', error);
+      res.status(500).json({ error: '服务器内部错误', message: error.message });
+    }
+  });
+
 // GET /api/exercise-records 获取当前用户运动记录（可选 date=YYYY-MM-DD）
 app.get('/api/exercise-records', async (req, res) => {
   try {
@@ -2074,7 +2321,7 @@ app.post('/api/exercise-records', async (req, res) => {
       payload.userId, type_id, calc_method, duration_min, met_used || null, weight_kg_at_time || null,
       calories_burned_kcal || null, distance_km || null, avg_speed_kmh || null, incline_percent || null, power_watts || null,
       stroke || null, pace_sec_per_100m || null, intensity_level || null, rpe || null,
-      (record_date || new Date().toISOString().split('T')[0]),
+      (record_date || getLocalDateStr()),
       (record_time ? String(record_time).substring(0,5) : new Date().toTimeString().substring(0,5)),
       notes || null
     ];
@@ -2120,6 +2367,14 @@ app.put('/api/exercise-records/:id', async (req, res) => {
 
     const client = await pool.connect();
     const result = await client.query(sql, values);
+    // 若更新包含 weight_kg，同步更新 users 表当前体重
+    try {
+      if (Object.prototype.hasOwnProperty.call(req.body, 'weight_kg') && req.body.weight_kg) {
+        await client.query('UPDATE users SET weight_kg = $1, updated_at = NOW() WHERE id = $2', [req.body.weight_kg, payload.userId]);
+      }
+    } catch (syncErr) {
+      console.error('同步用户体重失败（不影响记录更新）:', syncErr.message);
+    }
     client.release();
     if (result.rows.length === 0) return res.status(404).json({ error: '记录不存在或无权限修改' });
     res.json({ message: '更新成功', record: result.rows[0] });

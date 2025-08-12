@@ -62,7 +62,9 @@
 
 .weight-header {
   margin-bottom: 30rpx;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .weight-title {
@@ -72,6 +74,14 @@
   background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.weight-action {
+  padding: 8rpx 20rpx;
+  background: #20c997;
+  color: #fff;
+  border-radius: 999rpx;
+  font-size: 26rpx;
 }
 
 .weight-content {

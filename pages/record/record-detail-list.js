@@ -29,14 +29,11 @@ Page({
     console.log('record-detail-list onLoad, options:', options);
     
     // 获取传递过来的日期与高亮ID，如果没有则使用今天
-    let selectedDate = options.date || new Date().toISOString().split('T')[0];
+    let selectedDate = options.date || getApp().toLocalYMD(new Date());
     this.highlightId = options.highlightId ? String(options.highlightId) : '';
     
     // 确保日期格式为 YYYY-MM-DD
-    if (selectedDate && selectedDate.includes('T')) {
-      // 如果是ISO时间戳格式，提取日期部分
-      selectedDate = selectedDate.split('T')[0];
-    }
+    selectedDate = getApp().toLocalYMD(selectedDate);
     
     // 解析当前年月
     const dateParts = selectedDate.split('-');
@@ -217,22 +214,8 @@ Page({
       }
       
       // 处理不同的日期格式
-      let recordDate;
-      if (typeof record.record_date === 'string') {
-        if (record.record_date.includes('T')) {
-          // ISO格式: "2025-08-01T00:00:00.000Z"
-          recordDate = record.record_date.split('T')[0];
-        } else {
-          // 简单格式: "2025-08-01"
-          recordDate = record.record_date;
-        }
-      } else if (record.record_date instanceof Date) {
-        // Date对象
-        recordDate = record.record_date.toISOString().split('T')[0];
-      } else {
-        console.log(`记录${record.id}的record_date格式未知:`, record.record_date);
-        return false;
-      }
+      let recordDate = getApp().toLocalYMD(record.record_date);
+      if (!recordDate) return false;
       
       const isMatch = recordDate === selectedDate;
       if (isMatch) {
@@ -317,12 +300,13 @@ Page({
 
     // 运动记录：本地优先
     const allEx = (app.globalData.exerciseRecords || wx.getStorageSync('exerciseRecords') || []);
+    console.log('[exercise list] total:', (allEx||[]).length, 'selectedDate:', selectedDate);
     const types = wx.getStorageSync('exerciseTypes') || [];
     const typeById = Object.create(null);
     types.forEach(t => { typeById[t.id] = t; });
     const dailyEx = (allEx || []).filter(r => {
       if (!r.record_date) return false;
-      const d = typeof r.record_date === 'string' ? (r.record_date.includes('T') ? r.record_date.split('T')[0] : r.record_date) : (r.record_date instanceof Date ? r.record_date.toISOString().split('T')[0] : '');
+      const d = getApp().toLocalYMD(r.record_date);
       return d === selectedDate;
     }).sort((a,b) => {
       const ta = (a.record_time || '').slice(0,5);
@@ -536,18 +520,7 @@ Page({
     const records = app.globalData.dietRecords || [];
     return records.some(record => {
       if (!record.record_date) return false;
-      let recordDate;
-      if (typeof record.record_date === 'string') {
-        if (record.record_date.includes('T')) {
-          recordDate = record.record_date.split('T')[0];
-        } else {
-          recordDate = record.record_date;
-        }
-      } else if (record.record_date instanceof Date) {
-        recordDate = record.record_date.toISOString().split('T')[0];
-      } else {
-        return false;
-      }
+      const recordDate = getApp().toLocalYMD(record.record_date);
       return recordDate === dateStr;
     });
   },
@@ -562,14 +535,8 @@ Page({
     const records = app.globalData.dietRecords || [];
     for (const record of records) {
       if (!record.record_date) continue;
-      let d;
-      if (typeof record.record_date === 'string') {
-        d = record.record_date.includes('T') ? record.record_date.split('T')[0] : record.record_date;
-      } else if (record.record_date instanceof Date) {
-        d = record.record_date.toISOString().split('T')[0];
-      } else {
-        continue;
-      }
+      const d = getApp().toLocalYMD(record.record_date);
+      if (!d) continue;
       // 仅缓存该月的
       if (d.startsWith(`${year}-${String(month).padStart(2,'0')}-`)) {
         map[d] = true;
@@ -589,11 +556,11 @@ Page({
     const dateObj = new Date(date);
     console.log('Date对象:', dateObj);
     console.log('Date对象本地时间:', dateObj.toLocaleString());
-    console.log('Date对象ISO时间:', dateObj.toISOString());
+    //console.log('Date对象ISO时间:', dateObj.toISOString());
     console.log('Date对象本地日期:', dateObj.toLocaleDateString());
     
     this.setData({ 
-      selectedDate: date,
+      selectedDate: getApp().toLocalYMD(date),
       showCalendar: false
     });
     
@@ -643,13 +610,21 @@ Page({
 
   // 添加记录
   addRecord() {
-    const date = this.data.selectedDate || new Date().toISOString().split('T')[0];
+    const sd = this.data.selectedDate;
+    const t=new Date();
+    const today = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    const date = getApp().toLocalYMD(sd || today);
+    console.log('[list->add] selectedDate:', sd, 'fallback(today):', today, 'final:', date);
     wx.navigateTo({ url: `/pages/record/add-record?date=${encodeURIComponent(date)}` });
   },
 
   // 记录运动 → 跳转到添加运动记录页
   addExercise() {
-    const date = this.data.selectedDate || new Date().toISOString().split('T')[0];
+    const sd = this.data.selectedDate;
+    const t=new Date();
+    const today = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+    const date = getApp().toLocalYMD(sd || today);
+    console.log('[list->exercise] selectedDate:', sd, 'fallback(today):', today, 'final:', date);
     wx.navigateTo({ url: `/pages/exercise/add-exercise?date=${encodeURIComponent(date)}` });
   },
 

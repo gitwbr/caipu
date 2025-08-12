@@ -527,4 +527,37 @@ INSERT INTO swimming_stroke_pace_map(method_id, stroke, pace_min_sec_per_100m, p
     ((SELECT id FROM exercise_calc_methods WHERE calc_method='met_fixed' AND type_id=(SELECT id FROM exercise_types WHERE code='jump_rope')), 'moderate', 7, 8,10.0),
     ((SELECT id FROM exercise_calc_methods WHERE calc_method='met_fixed' AND type_id=(SELECT id FROM exercise_types WHERE code='jump_rope')), 'high',     9,10,12.0);
 
+ -- =============================
+ -- 体重记录表（weight_records）
+ -- 说明：用于记录用户体重随时间的变化，字段与饮食/运动记录对齐（record_date / record_time）
+ CREATE TABLE weight_records (
+     id SERIAL PRIMARY KEY,                                              -- 主键
+     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,    -- 用户ID
+     weight_kg DECIMAL(5,2) NOT NULL CHECK (weight_kg > 0),              -- 体重（kg）
+     record_date DATE NOT NULL DEFAULT CURRENT_DATE,                     -- 记录日期（YYYY-MM-DD）
+     record_time TIME NOT NULL DEFAULT CURRENT_TIME,                     -- 记录时间（HH:MM:SS）
+     notes TEXT,                                                         -- 备注
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+ );
+
+ -- 索引：按用户+日期查询；以及按日期查询
+ CREATE INDEX idx_weight_records_user_date ON weight_records(user_id, record_date);
+ CREATE INDEX idx_weight_records_date ON weight_records(record_date);
+
+ -- 触发器：更新行时自动更新 updated_at
+ CREATE TRIGGER trigger_update_weight_records_timestamp
+ BEFORE UPDATE ON weight_records
+ FOR EACH ROW
+ EXECUTE FUNCTION update_timestamp();
+
+ -- 注释
+ COMMENT ON TABLE weight_records IS '用户体重记录表';
+ COMMENT ON COLUMN weight_records.weight_kg IS '体重（kg）';
+ COMMENT ON COLUMN weight_records.record_date IS '记录日期（YYYY-MM-DD）';
+ COMMENT ON COLUMN weight_records.record_time IS '记录时间（HH:MM:SS）';
+
+ -- 可选唯一约束：若希望每位用户每天仅一条体重记录，可启用
+ -- ALTER TABLE weight_records ADD CONSTRAINT unique_user_date UNIQUE(user_id, record_date);
+
  */

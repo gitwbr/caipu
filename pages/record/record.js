@@ -5,9 +5,9 @@ Page({
   data: {
     selectedDate: '',
     // 体重相关数据
-    initialWeight: 89.6,
-    targetWeight: 70.0,
-    weightLost: 0.0,
+    initialWeight: '--',
+    latestWeight: '--',
+    weightLost: '--',
     // 卡路里相关数据
     consumedCalories: 0,
     exerciseCalories: 0,
@@ -17,8 +17,8 @@ Page({
 
   onLoad() {
     // 设置默认日期为今天
-    const today = new Date();
-    const dateStr = today.toISOString().split('T')[0];
+    const dateStr = getApp().toLocalYMD(new Date());
+    console.log('[record onLoad] default date:', dateStr);
     this.setData({
       selectedDate: dateStr
     });
@@ -39,6 +39,7 @@ Page({
             app.wxLogin().then(() => {
               console.log('登录成功，数据已从云端获取并保存到本地');
               this.loadDailyData();
+              this.loadWeightSummary();
             }).catch((error) => {
               console.error('登录失败:', error);
               wx.showToast({
@@ -60,6 +61,7 @@ Page({
     } else {
       // 已登录，直接使用本地数据
       this.loadDailyData();
+      this.loadWeightSummary();
     }
   },
 
@@ -89,7 +91,7 @@ Page({
     const allEx = (app.globalData.exerciseRecords || wx.getStorageSync('exerciseRecords') || []);
     const exerciseCalories = (allEx || []).reduce((sum, r) => {
       if (!r.record_date) return sum;
-      const d = typeof r.record_date === 'string' ? (r.record_date.includes('T') ? r.record_date.split('T')[0] : r.record_date) : (r.record_date instanceof Date ? r.record_date.toISOString().split('T')[0] : '');
+      const d = getApp().toLocalYMD(r.record_date);
       if (d !== selectedDate) return sum;
       return sum + Number(r.calories_burned_kcal || 0);
     }, 0);
@@ -106,6 +108,26 @@ Page({
     });
     
     console.log('页面数据已更新:', this.data);
+  },
+
+  // 加载体重汇总（初始/最新/变化）
+  loadWeightSummary() {
+    if (!app.globalData.isLoggedIn) return;
+    app.getWeightSummary().then(summary => {
+      const init = summary.initial_weight_kg != null ? Number(summary.initial_weight_kg).toFixed(2) : '--';
+      const latest = summary.latest_weight_kg != null ? Number(summary.latest_weight_kg).toFixed(2) : '--';
+      const delta = (summary.delta_kg != null) ? Number(summary.delta_kg).toFixed(2) : '--';
+      console.log('[weight summary]', {
+        initial: init,
+        latest: latest,
+        delta,
+        initialDate: getApp().toLocalYMD(summary.initial_record_date),
+        latestDate: getApp().toLocalYMD(summary.latest_record_date)
+      });
+      this.setData({ initialWeight: init, latestWeight: latest, weightLost: delta });
+    }).catch(() => {
+      // 忽略错误，保持占位
+    });
   },
 
   // 点击整个区域进入记录详情页面
@@ -125,8 +147,15 @@ Page({
   // 记录运动
   addExercise() {
     const { selectedDate } = this.data;
+    const date = getApp().toLocalYMD(selectedDate || new Date());
     wx.navigateTo({
-      url: `/pages/exercise/add-exercise?date=${selectedDate}`
+      url: `/pages/exercise/add-exercise?date=${date}`
     });
+  }
+  ,
+
+  // 跳转体重记录列表
+  goWeightList() {
+    wx.navigateTo({ url: '/pages/weight/list' });
   }
 });
