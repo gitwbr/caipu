@@ -23,7 +23,10 @@ App({
     exerciseRecordsLastUpdate: null,
     // 体重记录数据（可选本地缓存）
     weightRecords: [],
-    weightRecordsLastUpdate: null
+    weightRecordsLastUpdate: null,
+    // 收藏（本地优先显示）
+    favorites: [],
+    favoritesLastUpdate: null
   },
   // --- URL/图片工具 ---
   // 将完整URL转换为仅路径（去掉协议与域名），用于存库
@@ -123,11 +126,112 @@ App({
     if (!wx.getStorageSync('favorites')) {
       wx.setStorageSync('favorites', []);
     }
+    if (!wx.getStorageSync('favoritesLastUpdate')) {
+      wx.setStorageSync('favoritesLastUpdate', null);
+    }
     
     // 初始化历史记录
     if (!wx.getStorageSync('history')) {
       wx.setStorageSync('history', []);
     }
+    // 加载本地收藏到内存
+    this.loadFavorites();
+  },
+
+  // ===== 收藏（本地+云端统一接口） =====
+  loadFavorites() {
+    const list = wx.getStorageSync('favorites') || [];
+    const last = wx.getStorageSync('favoritesLastUpdate');
+    this.globalData.favorites = Array.isArray(list) ? list : [];
+    this.globalData.favoritesLastUpdate = last || null;
+    return this.globalData.favorites;
+  },
+
+  saveFavoritesToLocal(list) {
+    const arr = Array.isArray(list) ? list : [];
+    wx.setStorageSync('favorites', arr);
+    const ts = new Date().toISOString();
+    wx.setStorageSync('favoritesLastUpdate', ts);
+    this.globalData.favorites = arr;
+    this.globalData.favoritesLastUpdate = ts;
+  },
+
+  getFavorites() {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return resolve(this.globalData.favorites || []);
+      wx.request({
+        url: this.globalData.serverUrl + '/api/favorites',
+        method: 'GET',
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => {
+          if (res.statusCode === 200) {
+            const arr = (res.data || []).map(item => ({ ...item.recipe_data, favoriteId: item.id }));
+            resolve(arr);
+          } else {
+            reject(new Error(res.data.error || '获取收藏失败'));
+          }
+        },
+        fail: reject
+      });
+    });
+  },
+
+  addFavoriteWithSync(recipe) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      wx.request({
+        url: this.globalData.serverUrl + '/api/favorites',
+        method: 'POST',
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        data: { recipe_id: recipe.id, recipe_name: recipe.name, recipe_data: recipe },
+        success: (res) => {
+          if (res.statusCode === 200) {
+            const local = [...(this.globalData.favorites || [])];
+            const idx = local.findIndex(r => String(r.id) === String(recipe.id));
+            if (idx >= 0) local[idx] = recipe; else local.unshift(recipe);
+            this.saveFavoritesToLocal(local);
+            resolve();
+          } else {
+            reject(new Error(res.data.error || '收藏失败'));
+          }
+        },
+        fail: reject
+      });
+    });
+  },
+
+  removeFavoriteWithSync(recipeOrFavoriteId) {
+    return new Promise((resolve, reject) => {
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      // 先获取云端收藏列表，找到对应记录ID
+      wx.request({
+        url: this.globalData.serverUrl + '/api/favorites',
+        method: 'GET',
+        header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+        success: (res) => {
+          if (res.statusCode !== 200) return reject(new Error(res.data.error || '获取收藏失败'));
+          const list = res.data || [];
+          const fav = list.find(it => String(it.recipe_id) === String(recipeOrFavoriteId) || String(it.id) === String(recipeOrFavoriteId));
+          const favId = fav ? fav.id : null;
+          const doLocalUpdate = () => {
+            const local = (this.globalData.favorites || []).filter(r => String(r.id) !== String(recipeOrFavoriteId) && String(r.favoriteId || '') !== String(recipeOrFavoriteId));
+            this.saveFavoritesToLocal(local);
+          };
+          if (!favId) { doLocalUpdate(); return resolve(); }
+          wx.request({
+            url: this.globalData.serverUrl + '/api/favorites/' + favId,
+            method: 'DELETE',
+            header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
+            success: (res2) => {
+              if (res2.statusCode === 200) { doLocalUpdate(); resolve(); }
+              else reject(new Error(res2.data.error || '取消收藏失败'));
+            },
+            fail: reject
+          });
+        },
+        fail: reject
+      });
+    });
   },
 
   // 检查登录状态
@@ -226,8 +330,9 @@ App({
                     this.getUserInfo(),
                     this.getDietRecords(), // 获取所有历史记录
                     this.getCustomFoods(),  // 获取自定义食物
-                    this.getExerciseRecords() // 获取全部运动记录
-                  ]).then(([userInfo, dietRecords, customFoods, exerciseRecords]) => {
+                    this.getExerciseRecords(), // 获取全部运动记录
+                    this.getFavorites() // 获取收藏
+                  ]).then(([userInfo, dietRecords, customFoods, exerciseRecords, favorites]) => {
                     console.log('登录成功，获取到用户信息和饮食记录');
                     console.log('用户信息:', userInfo);
                     console.log('饮食记录原始数据:', dietRecords);
@@ -260,6 +365,9 @@ App({
                     const exerciseArray = Array.isArray(exerciseRecords) ? exerciseRecords : (exerciseRecords?.data || []);
                     console.log('准备保存的运动记录数量:', exerciseArray.length);
                     this.saveExerciseRecordsToLocal(exerciseArray);
+                    // 保存收藏到本地
+                    const favArray = Array.isArray(favorites) ? favorites : [];
+                    this.saveFavoritesToLocal(favArray);
                     
                     resolve(res.data);
                   }).catch(reject);

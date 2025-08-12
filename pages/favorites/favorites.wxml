@@ -62,12 +62,5 @@
     <button class="btn-primary" bindtap="showLoginModal">微信一键登录</button>
   </view>
 
-  <!-- 批量操作 -->
-  <view class="batch-actions" wx:if="{{favorites.length > 0 && isLoggedIn}}">
-    <button class="btn-secondary" bindtap="selectAll">全选</button>
-    <button class="btn-secondary" bindtap="clearSelection">取消全选</button>
-    <button class="btn-primary" bindtap="deleteSelected" wx:if="{{selectedItems.length > 0}}">
-      删除选中({{selectedItems.length}})
-    </button>
-  </view>
+  
 </view> 

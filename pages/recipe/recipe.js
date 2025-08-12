@@ -98,111 +98,34 @@ Page({
     }
   },
 
-  // 添加到收藏
+  // 添加到收藏（统一接口：云端成功→本地同步）
   addToFavorites(recipe) {
     wx.showLoading({ title: '收藏中...' });
-    
-    wx.request({
-      url: app.globalData.serverUrl + '/api/favorites',
-      method: 'POST',
-      header: {
-        'Authorization': 'Bearer ' + app.globalData.token,
-        'Content-Type': 'application/json'
-      },
-      data: {
-        recipe_id: recipe.id,
-        recipe_name: recipe.name,
-        recipe_data: recipe
-      },
-      success: (res) => {
+    app.addFavoriteWithSync(recipe)
+      .then(() => {
         wx.hideLoading();
-        if (res.statusCode === 200) {
-          this.setData({ isFavorite: true });
-          wx.showToast({
-            title: '收藏成功',
-            icon: 'success'
-          });
-        } else {
-          wx.showToast({
-            title: res.data.error || '收藏失败',
-            icon: 'none'
-          });
-        }
-      },
-      fail: () => {
+        this.setData({ isFavorite: true });
+        wx.showToast({ title: '收藏成功', icon: 'success' });
+      })
+      .catch((err) => {
         wx.hideLoading();
-        wx.showToast({
-          title: '网络错误',
-          icon: 'none'
-        });
-      }
-    });
+        wx.showToast({ title: err.message || '收藏失败', icon: 'none' });
+      });
   },
 
   // 取消收藏
   removeFromFavorites(recipeId) {
-    // 先找到收藏记录
-    wx.request({
-      url: app.globalData.serverUrl + '/api/favorites',
-      method: 'GET',
-      header: {
-        'Authorization': 'Bearer ' + app.globalData.token,
-        'Content-Type': 'application/json'
-      },
-      success: (res) => {
-        if (res.statusCode === 200) {
-          const favorites = res.data;
-          const favorite = favorites.find(item => item.recipe_id === recipeId);
-          
-          if (favorite) {
-            this.deleteFavorite(favorite.id);
-          }
-        }
-      },
-      fail: () => {
-        wx.showToast({
-          title: '网络错误',
-          icon: 'none'
-        });
-      }
-    });
+    app.removeFavoriteWithSync(recipeId)
+      .then(() => {
+        this.setData({ isFavorite: false });
+        wx.showToast({ title: '已取消收藏', icon: 'success' });
+      })
+      .catch(err => {
+        wx.showToast({ title: err.message || '取消收藏失败', icon: 'none' });
+      });
   },
 
-  // 删除收藏
-  deleteFavorite(favoriteId) {
-    wx.showLoading({ title: '取消收藏中...' });
-    
-    wx.request({
-      url: app.globalData.serverUrl + `/api/favorites/${favoriteId}`,
-      method: 'DELETE',
-      header: {
-        'Authorization': 'Bearer ' + app.globalData.token,
-        'Content-Type': 'application/json'
-      },
-      success: (res) => {
-        wx.hideLoading();
-        if (res.statusCode === 200) {
-          this.setData({ isFavorite: false });
-          wx.showToast({
-            title: '已取消收藏',
-            icon: 'success'
-          });
-        } else {
-          wx.showToast({
-            title: res.data.error || '取消收藏失败',
-            icon: 'none'
-          });
-        }
-      },
-      fail: () => {
-        wx.hideLoading();
-        wx.showToast({
-          title: '网络错误',
-          icon: 'none'
-        });
-      }
-    });
-  },
+  // deleteFavorite 不再暴露（由统一接口内部处理）
 
   // 重新计算营养信息
   recalculateNutrition() {
