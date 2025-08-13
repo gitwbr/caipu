@@ -184,7 +184,10 @@
       >
         <view class="recent-delete" catchtap="deleteRecent" data-index="{{index}}">🗑️</view>
         <view class="recipe-info">
-          <view class="recipe-name">{{item.name}}</view>
+          <view class="recipe-name">
+            {{item.name}}
+            <text class="fav-badge" wx:if="{{item.isFavorited}}">已收藏</text>
+          </view>
           <view class="recipe-desc">{{item.description}}</view>
           <view class="recipe-tags">
             <view class="tag" wx:for="{{item.tags}}" wx:key="tagIndex">{{item}}</view>

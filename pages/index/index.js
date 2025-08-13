@@ -260,9 +260,15 @@ Page({
   loadRecentRecipes() {
     const history = wx.getStorageSync('history') || [];
     console.log('最近生成的菜谱 history:', history);
-    this.setData({
-      recentRecipes: history.slice(0, 3) // 只显示最近3个
-    });
+    const take = history.slice(0, 3);
+    const favorites = app.globalData.favorites || [];
+    console.log('[favorites in memory]', favorites);
+    const enriched = take.map(r => ({
+      ...r,
+      isFavorited: (app.isRecipeFavorited ? app.isRecipeFavorited(r.id) : (favorites.some(f => String(f.id) === String(r.id))))
+    }));
+    console.log('[recentRecipes (enriched)]', enriched.map(i => ({ id: i.id, name: i.name, isFavorited: i.isFavorited })));
+    this.setData({ recentRecipes: enriched });
   },
 
   // 删除最近生成的一条

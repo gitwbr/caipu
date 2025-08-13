@@ -255,12 +255,16 @@
   margin-bottom: 8rpx;
 }
 
+.recipe-name .fav-badge { margin-left: 10rpx; vertical-align: middle; }
+
 .recipe-desc {
   font-size: 26rpx;
   color: #666;
   margin-bottom: 10rpx;
   line-height: 1.4;
 }
+
+.fav-badge { display: inline-block; margin-left: 10rpx; padding: 4rpx 12rpx; background: #fff0f0; color: #e03131; border: 2rpx solid #ffc9c9; border-radius: 999rpx; font-size: 22rpx; }
 
 .recipe-tags {
   display: flex;
