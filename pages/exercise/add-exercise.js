@@ -11,6 +11,7 @@ Page({
     console.log('[add-exercise onLoad] options:', options);
     const date = getApp().toLocalYMD(options?.date || new Date());
     this.setData({ recordDate: date });
+    try { wx.setNavigationBarTitle({ title: date }); } catch (_) {}
     this.initList();
   },
 

@@ -30,6 +30,7 @@ Page({
     const now = new Date();
     const timeStr = now.toTimeString().split(' ')[0].substring(0, 5);
     this.setData({ recordTime: timeStr });
+    try { wx.setNavigationBarTitle({ title: this.data.recordDate }); } catch (_) {}
     if (options.nutritionData) {
       try {
         const nutritionData = JSON.parse(decodeURIComponent(options.nutritionData));

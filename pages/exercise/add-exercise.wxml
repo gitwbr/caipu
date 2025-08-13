@@ -1,7 +1,5 @@
 <view class="container">
-  <view class="date-display" wx:if="{{recordDate}}">
-    <text class="date-text">{{recordDate}}</text>
-  </view>
+<!-- 日期标题改为BarTitle，移除本地显示 -->
 
   <view class="list">
     <block wx:for="{{items}}" wx:key="id">

@@ -31,10 +31,8 @@ Page({
     let recordDate = getApp().toLocalYMD(options.date || new Date());
     console.log('[detail onLoad] options.date:', options.date, 'normalized:', recordDate);
     
-    this.setData({
-      recordTime: timeStr,
-      recordDate: recordDate // 保存传递过来的日期
-    });
+    this.setData({ recordTime: timeStr, recordDate: recordDate });
+    try { wx.setNavigationBarTitle({ title: recordDate }); } catch (_) {}
 
     // 检查是否是编辑模式
     if (options.id) {

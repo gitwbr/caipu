@@ -1,9 +1,6 @@
 <!--pages/record/record-detail.wxml-->
 <view class="container">
-  <!-- 日期显示 -->
-  <view class="date-display" wx:if="{{recordDate}}">
-    <text class="date-text">{{recordDate}}</text>
-  </view>
+  <!-- 日期显示改为标题栏，移除本地显示 -->
 
   <!-- 食物信息卡片 -->
   <view class="card food-card" wx:if="{{food}}" bindtap="showFoodNutrition">

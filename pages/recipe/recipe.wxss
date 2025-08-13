@@ -254,8 +254,11 @@
 /* 响应式设计 */
 /* 参考记录页的行内图片样式 */
 .form-item.image-inline { display: flex; align-items: center; justify-content: space-between; }
-.form-item.image-inline .label { margin: 0; }
+.form-item.image-inline .label { margin: 0; font-size: 28rpx; color: #333; }
 .camera-slot { display: flex; align-items: center; }
+.picker-content { display: flex; align-items: center; gap: 14rpx; padding: 12rpx 16rpx; background: #fff; border: 1rpx solid #ddd; border-radius: 12rpx; }
+.picker-value { font-size: 28rpx; color: #333; }
+.picker-arrow { font-size: 28rpx; color: #999; }
 .camera-btn {
   padding: 12rpx 22rpx;
   background: #f1f5ff;

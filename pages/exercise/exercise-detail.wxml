@@ -1,7 +1,5 @@
 <view class="container">
-  <view class="date-display" wx:if="{{display_date}}">
-    <text class="date-text">{{display_date}}</text>
-  </view>
+  <!-- 日期移至导航标题显示，删除本地显示 -->
 
   <view class="card">
     <view class="row">

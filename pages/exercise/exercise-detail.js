@@ -29,6 +29,7 @@ Page({
     }
     const d = getApp().toLocalYMD(date || new Date());
     this.setData({ typeId: Number(typeId), method: method, recordDate: d, display_date: d, record_time: this._nowHM() });
+    try { wx.setNavigationBarTitle({ title: d }); } catch (_) {}
     this.initForm();
   },
 

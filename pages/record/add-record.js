@@ -85,6 +85,10 @@ Page({
         console.log('[add-record onLoad] options.date missing');
       }
     } catch (e) {}
+
+    // 设置动态标题：有传入日期则显示该日期，否则显示今天
+    const titleDate = this._entryDate || getApp().toLocalYMD(new Date());
+    try { wx.setNavigationBarTitle({ title: titleDate }); } catch (_) {}
     // 首次进入：仅从本地读取并解析一次，避免多次互相触发
     this.refreshFromLocal();
     // 后台静默同步一次云端自定义食物，完成后若有变更再刷新最近
@@ -155,7 +159,16 @@ Page({
   // 打开收藏菜谱，跳到详情页
   openFavoriteRecipe(e) {
     const recipe = e.currentTarget.dataset.recipe;
-    wx.navigateTo({ url: `/pages/recipe/recipe?from=favorites&recipe=${encodeURIComponent(JSON.stringify(recipe))}` });
+    // 带上日期参数：优先入口带入日期，其次从页面栈中获取，兜底今天
+    let selectedDate = this._entryDate || getApp().toLocalYMD(new Date());
+    try {
+      const pages = getCurrentPages();
+      const detailListPage = pages.find(p => p.route === 'pages/record/record-detail-list');
+      if (detailListPage && detailListPage.data && detailListPage.data.selectedDate) {
+        selectedDate = detailListPage.data.selectedDate;
+      }
+    } catch (_) {}
+    wx.navigateTo({ url: `/pages/recipe/recipe?from=favorites&date=${encodeURIComponent(selectedDate)}&recipe=${encodeURIComponent(JSON.stringify(recipe))}` });
   },
 
   // 云端同步（后台一次），只有拿到数据且产生变化时才会写本地并触发刷新

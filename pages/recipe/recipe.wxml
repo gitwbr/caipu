@@ -20,7 +20,7 @@
   </view>
 
   <!-- 菜谱图片（样式参考记录页：右侧相机/缩略图） -->
-  <view class="card">
+  <view class="card" wx:if="{{isFavorite}}">
     <view class="form-item image-inline">
       <text class="label">菜谱图片</text>
       <view class="camera-slot">
@@ -31,6 +31,21 @@
           <image class="thumb" src="{{imagePath || recipe.image_full_url}}" mode="aspectFill" lazy-load binderror="onRecipeImgError" />
           <view class="remove-thumb" bindtap="removeRecipeImage">−</view>
         </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 收藏后可选择记录时间（显示规则同“更新”按钮：仅收藏后显示） -->
+  <view class="card" wx:if="{{isFavorite}}">
+    <view class="form-item image-inline">
+      <text class="label">记录时间</text>
+      <view class="camera-slot">
+        <picker mode="time" value="{{recordTime}}" bindchange="onTimeChange">
+          <view class="picker-content">
+            <text class="picker-value">{{recordTime}}</text>
+            <text class="picker-arrow">></text>
+          </view>
+        </picker>
       </view>
     </view>
   </view>

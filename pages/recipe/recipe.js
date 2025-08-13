@@ -6,10 +6,22 @@ Page({
     isFavorite: false,
     originalNutrition: {},
     isLoggedIn: false,
-    imagePath: ''
+    imagePath: '',
+    recordDate: '',
+    recordTime: ''
   },
 
   onLoad(options) {
+    // 处理日期：有传入则用传入日期，否则用今天
+    try {
+      const dateStr = options && options.date ? getApp().toLocalYMD(options.date) : getApp().toLocalYMD(new Date());
+      // 默认时间 HH:MM
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mi = String(now.getMinutes()).padStart(2, '0');
+      this.setData({ recordDate: dateStr, recordTime: `${hh}:${mi}` });
+      try { wx.setNavigationBarTitle({ title: dateStr }); } catch (_) {}
+    } catch (e) {}
     if (options.recipe) {
       const recipe = JSON.parse(decodeURIComponent(options.recipe));
       const fromFavorites = options.from === 'favorites';
@@ -49,6 +61,11 @@ Page({
       this.updateLoginStatus();
       this.checkFavoriteStatus();
     }
+  },
+
+  // 选择记录时间
+  onTimeChange(e) {
+    this.setData({ recordTime: e.detail.value });
   },
 
   // 选择/替换菜谱图片（仅本地预览；不立即上传，等收藏/更新时再上传）

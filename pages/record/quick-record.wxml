@@ -1,9 +1,6 @@
 <!--pages/record/quick-record.wxml-->
 <view class="container">
-  <!-- 顶部时间显示（带进来的时间） -->
-  <view class="date-display" wx:if="{{recordDate}}">
-    <text class="date-text">{{recordDate}}</text>
-  </view>
+  <!-- 日期移到导航栏标题显示，移除此处 -->
 
   <view class="form">
     <view class="section-title">基本信息</view>
