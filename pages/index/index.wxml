@@ -160,9 +160,9 @@
     <button class="btn-primary big" bindtap="onGenerateRecipe" wx:if="{{!isLoggedIn}}">
       登录后生成菜谱
     </button>
-    <button class="btn-secondary" bindtap="onGoToFoodNutrition">
+   <!-- <button class="btn-secondary" bindtap="onGoToFoodNutrition">
       🍎 食物营养
-    </button>
+    </button>-->
   </view>
 
   <!-- 加载状态 -->

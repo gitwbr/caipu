@@ -2,7 +2,7 @@
 .header {
   text-align: center;
   padding: 40rpx 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #7d8ff2 0%, #8f7adf 100%);
   color: #fff;
   margin-bottom: 30rpx;
 }
@@ -325,7 +325,7 @@
 }
 .tab-item.active {
   color: #fff;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(90deg, #7d8ff2 0%, #8f7adf 100%);
   font-weight: bold;
   box-shadow: 0 4rpx 16rpx rgba(102,126,234,0.12);
 }
@@ -392,7 +392,7 @@
   padding: 24rpx 0;
   width: 80vw;
   border-radius: 40rpx;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(90deg, #7d8ff2 0%, #8f7adf 100%);
   color: #fff;
   font-weight: bold;
   box-shadow: 0 8rpx 24rpx rgba(102,126,234,0.12);
