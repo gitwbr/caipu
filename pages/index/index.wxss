@@ -1,11 +1,6 @@
 /* 首页样式 */
-.header {
-  text-align: center;
-  padding: 40rpx 0;
-  background: linear-gradient(135deg, #7d8ff2 0%, #8f7adf 100%);
-  color: #fff;
-  margin-bottom: 30rpx;
-}
+.page { padding: 0; }
+.header { text-align: center; padding: 40rpx 0 64rpx 0; background: linear-gradient(135deg, #7d8ff2 0%, #8f7adf 100%); color: #fff; margin-bottom: 0; }
 
 .title {
   font-size: 48rpx;
@@ -310,7 +305,7 @@
   justify-content: space-around;
   background: #fff;
   border-radius: 30rpx;
-  margin: 30rpx 30rpx 0 30rpx;
+  margin: 0 0 0 0;
   box-shadow: 0 4rpx 16rpx rgba(102,126,234,0.08);
   overflow: hidden;
 }
@@ -337,6 +332,9 @@
   box-shadow: 0 8rpx 32rpx rgba(102,126,234,0.10);
   padding: 40rpx 30rpx 30rpx 30rpx;
 }
+
+/* 主内容整体容器：上圆角，下直角 */
+.main-sheet { background: #fff; margin: -40rpx 0 0 0; border-radius: 28rpx; box-shadow: 0 8rpx 28rpx rgba(0,0,0,0.06); padding: 24rpx; }
 
 .form-label {
   font-size: 28rpx;

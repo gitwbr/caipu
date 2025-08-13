@@ -1,11 +1,6 @@
 /* 菜谱详情页样式 */
-.recipe-header {
-  background: linear-gradient(90deg, #7d8ff2 0%, #8f7adf 100%);
-  color: #fff;
-  padding: 40rpx 30rpx;
-  margin-bottom: 20rpx;
-  position: relative;
-}
+.page { padding: 0; }
+.recipe-header { background: linear-gradient(90deg, #7d8ff2 0%, #8f7adf 100%); color: #fff; padding: 40rpx 30rpx 64rpx 30rpx; margin-bottom: 0; position: relative; }
 
 .recipe-title {
   font-size: 40rpx;
@@ -26,11 +21,10 @@
   gap: 10rpx;
 }
 
-.recipe-tags .tag {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border: 1rpx solid rgba(255, 255, 255, 0.3);
-}
+.recipe-tags .tag { background: rgba(255,255,255,0.2); color: #fff; border: 1rpx solid rgba(255,255,255,0.35); }
+
+/* 主内容整体容器：承接头部，形成上下一体卡片 */
+.recipe-main-sheet { background: #fff; margin: -48rpx 0 0 0; border-radius: 28rpx 28rpx 0 0; overflow: hidden; box-shadow: 0 8rpx 28rpx rgba(0,0,0,0.06); padding: 24rpx; width: 100%; box-sizing: border-box; position: relative; z-index: 1; }
 
 /* 收藏按钮样式 */
 .favorite-btn {

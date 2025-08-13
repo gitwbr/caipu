@@ -8,6 +8,9 @@
     </view>
   </view>
 
+  <!-- 主内容整体卡片（结构与首页一致：紧贴头部、上圆角） -->
+  <view class="recipe-main-sheet">
+
   <!-- 收藏按钮 -->
   <view class="favorite-btn {{isFavorite ? 'favorited' : ''}}" bindtap="toggleFavorite">
     <view class="favorite-icon">
@@ -124,5 +127,6 @@
   <view class="floating-actions">
     <button class="float-btn left btn-secondary" bindtap="shareRecipe">分享</button>
     <button class="float-btn right btn-primary" wx:if="{{isFavorite}}" bindtap="updateFavoriteRecipe">更新</button>
+  </view>
   </view>
 </view> 

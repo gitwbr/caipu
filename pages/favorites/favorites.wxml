@@ -9,6 +9,8 @@
     </view>
   </view>
 
+  <!-- 主内容整体卡片 -->
+  <view class="fav-main-sheet">
   <!-- 加载状态 -->
   <view class="loading" wx:if="{{isLoading}}">
     <view class="loading-icon"></view>
@@ -58,6 +60,7 @@
         </view>
       </view>
     </view>
+  </view>
   </view>
 
   <!-- 空状态 -->

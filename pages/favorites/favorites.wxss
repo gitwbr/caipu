@@ -1,11 +1,6 @@
 /* 收藏页面样式 */
-.page-header {
-  text-align: center;
-  padding: 40rpx 0;
-  background: linear-gradient(90deg, #7d8ff2 0%, #8f7adf 100%);
-  color: #fff;
-  margin-bottom: 30rpx;
-}
+.page { padding: 0; }
+.page-header { text-align: center; padding: 40rpx 0 64rpx 0; background: linear-gradient(135deg, #7d8ff2 0%, #8f7adf 100%); color: #ffffff; margin-bottom: 0; }
 
 .page-title {
   font-size: 40rpx;
@@ -62,9 +57,8 @@
 }
 
 /* 收藏列表样式 */
-.favorites-list {
-  padding: 0 20rpx;
-}
+.favorites-list { padding: 0 0; }
+.fav-main-sheet { background: #fff; margin: -40rpx 0 0 0; border-radius: 28rpx 28rpx 0 0; box-shadow: 0 8rpx 28rpx rgba(0,0,0,0.06); padding: 24rpx; width: 100%; box-sizing: border-box; }
 
 .favorite-item {
   background: #fff;

@@ -12,6 +12,8 @@
     </view>
   </view>
 
+  <!-- 主内容整体卡片（圆角上沿） -->
+  <view class="main-sheet">
   <!-- 顶部标签页 -->
   <view class="tabs">
     <view class="tab-item {{activeTab === 0 ? 'active' : ''}}" bindtap="onTabChange" data-index="0">食材</view>
@@ -196,5 +198,6 @@
         <view class="recipe-arrow">></view>
       </view>
     </view>
+  </view>
   </view>
 </view> 
