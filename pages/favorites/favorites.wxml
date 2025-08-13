@@ -29,7 +29,7 @@
       <!-- 上：左图右文 -->
       <view class="card-top">
         <view class="record-thumb">
-          <image wx:if="{{item.image_full_url}}" class="thumb" src="{{item.image_full_url}}" mode="aspectFill" lazy-load />
+          <image wx:if="{{item.image_full_url}}" class="thumb" src="{{item.image_full_url}}" mode="aspectFill" lazy-load binderror="onThumbError" data-index="{{index}}" data-url="{{item.image_full_url}}" />
           <text wx:else class="thumb-placeholder">🍽️</text>
         </view>
         <view class="top-info">

@@ -274,6 +274,13 @@
   border-radius: 12rpx;
   font-size: 26rpx;
 }
+
+/* 底部左右悬浮按钮 */
+.floating-actions { position: fixed; left: 0; right: 0; bottom: 30rpx; padding: 0 24rpx; z-index: 200; pointer-events: none; }
+.float-btn { position: absolute; bottom: 0; width: 44%; border-radius: 999rpx; box-shadow: 0 8rpx 20rpx rgba(0,0,0,0.12); pointer-events: auto; }
+.float-btn.left { left: 24rpx; }
+.float-btn.right { right: 24rpx; }
+.float-btn:active { transform: scale(0.98); }
 .camera-icon { font-size: 32rpx; line-height: 1; }
 .thumb-wrap { position: relative; width: 140rpx; height: 140rpx; border-radius: 12rpx; overflow: hidden; box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.08); }
 .thumb { width: 100%; height: 100%; background: #f6f6f6; }

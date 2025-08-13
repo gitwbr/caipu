@@ -120,9 +120,9 @@
     <view class="tips-content">{{recipe.tips}}</view>
   </view>
 
-  <!-- 操作按钮 -->
-  <view class="action-buttons">
-    <button class="btn-primary" bindtap="shareRecipe">分享菜谱</button>
-    <button class="btn-secondary" wx:if="{{isFavorite}}" bindtap="updateFavoriteRecipe">更新</button>
+  <!-- 悬浮操作按钮（底部左右固定） -->
+  <view class="floating-actions">
+    <button class="float-btn left btn-secondary" bindtap="shareRecipe">分享</button>
+    <button class="float-btn right btn-primary" wx:if="{{isFavorite}}" bindtap="updateFavoriteRecipe">更新</button>
   </view>
 </view> 

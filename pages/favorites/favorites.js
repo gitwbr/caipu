@@ -68,6 +68,16 @@ Page({
     });
   },
 
+  // 缩略图加载失败回退
+  onThumbError(e) {
+    const { index } = e.currentTarget.dataset;
+    const list = [...this.data.favorites];
+    if (list[index]) {
+      list[index].image_full_url = '';
+      this.setData({ favorites: list });
+    }
+  },
+
   // 删除收藏
   removeFavorite(e) {
     const favoriteId = e.currentTarget.dataset.id;

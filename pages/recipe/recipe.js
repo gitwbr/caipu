@@ -105,6 +105,12 @@ Page({
       .then(() => {
         wx.hideLoading();
         wx.showToast({ title: '已更新', icon: 'success' });
+        // 从收藏进入则返回收藏页，便于查看最新列表
+        if (this.data.fromFavorites) {
+          setTimeout(() => {
+            wx.switchTab({ url: '/pages/favorites/favorites' });
+          }, 600);
+        }
       })
       .catch(err => {
         wx.hideLoading();
