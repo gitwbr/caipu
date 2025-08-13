@@ -5,7 +5,8 @@ Page({
     recipe: {},
     isFavorite: false,
     originalNutrition: {},
-    isLoggedIn: false
+    isLoggedIn: false,
+    imagePath: ''
   },
 
   onLoad(options) {
@@ -34,6 +35,10 @@ Page({
           }
         });
       }
+      // 组装图片完整URL（用于 <image src>）
+      if (recipeToUse.image_url) {
+        recipeToUse.image_full_url = app.buildImageUrl(recipeToUse.image_url);
+      }
       this.setData({
         recipe: recipeToUse,
         originalNutrition: { ...recipe.nutrition },
@@ -44,6 +49,37 @@ Page({
       this.updateLoginStatus();
       this.checkFavoriteStatus();
     }
+  },
+
+  // 选择/替换菜谱图片（仅本地预览；不立即上传，等收藏/更新时再上传）
+  chooseRecipeImage() {
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sizeType: ['compressed'],
+      sourceType: ['album','camera'],
+      success: (res) => {
+        const filePath = res.tempFiles && res.tempFiles[0] && res.tempFiles[0].tempFilePath;
+        if (!filePath) return;
+        // 仅本地预览，记录为待上传路径
+        this.setData({ imagePath: filePath });
+      }
+    });
+  },
+
+  onRecipeImgError() {
+    // 图片加载失败占位
+    const recipe = { ...this.data.recipe };
+    delete recipe.image_full_url;
+    this.setData({ recipe });
+  },
+
+  // 删除缩略图
+  removeRecipeImage() {
+    const recipe = { ...this.data.recipe };
+    delete recipe.image_url;
+    delete recipe.image_full_url;
+    this.setData({ recipe, imagePath: '' });
   },
 
   // 点击“更新”（仅从收藏进入时可见）：更新本地与云端收藏的 recipe_data
@@ -59,8 +95,13 @@ Page({
       const weight = Number(it.weight) || 0;
       return { ...it, unitNormalized: unit, unit, weight, amount: `${weight}${unit}` };
     });
-    wx.showLoading({ title: '更新中...' });
-    app.updateFavoriteWithSync(updatedRecipe)
+    const doUpdate = (imagePathOnly) => {
+      if (imagePathOnly) {
+        updatedRecipe.image_url = imagePathOnly;
+        updatedRecipe.image_full_url = app.buildImageUrl(imagePathOnly);
+      }
+      wx.showLoading({ title: '更新中...' });
+      app.updateFavoriteWithSync(updatedRecipe)
       .then(() => {
         wx.hideLoading();
         wx.showToast({ title: '已更新', icon: 'success' });
@@ -69,6 +110,17 @@ Page({
         wx.hideLoading();
         wx.showToast({ title: err.message || '更新失败', icon: 'none' });
       });
+    };
+
+    // 若本地选择了新图片，则先上传获取 /uploads/...，否则沿用已有 image_url
+    if (this.data.imagePath) {
+      wx.showLoading({ title: '上传图片...' });
+      app.uploadImageToServer(this.data.imagePath)
+        .then(pathOnly => { wx.hideLoading(); doUpdate(pathOnly); })
+        .catch(err => { wx.hideLoading(); wx.showToast({ title: err.message || '上传失败', icon: 'none' }); });
+    } else {
+      doUpdate(null);
+    }
   },
 
   // 更新登录状态
@@ -110,17 +162,38 @@ Page({
 
   // 添加到收藏（统一接口：云端成功→本地同步）
   addToFavorites(recipe) {
-    wx.showLoading({ title: '收藏中...' });
-    app.addFavoriteWithSync(recipe)
-      .then(() => {
-        wx.hideLoading();
-        this.setData({ isFavorite: true });
-        wx.showToast({ title: '收藏成功', icon: 'success' });
-      })
-      .catch((err) => {
-        wx.hideLoading();
-        wx.showToast({ title: err.message || '收藏失败', icon: 'none' });
-      });
+    const recipeToSave = { ...recipe };
+    const proceedFavorite = (pathOnly) => {
+      if (pathOnly) {
+        recipeToSave.image_url = pathOnly;
+      }
+      wx.showLoading({ title: '收藏中...' });
+      app.addFavoriteWithSync(recipeToSave)
+        .then(() => {
+          wx.hideLoading();
+          // 将持久化后的路径回写到本地状态，并清空本地预览
+          if (pathOnly) {
+            const r = { ...this.data.recipe, image_url: pathOnly, image_full_url: app.buildImageUrl(pathOnly) };
+            this.setData({ recipe: r, imagePath: '' });
+          }
+          this.setData({ isFavorite: true });
+          wx.showToast({ title: '收藏成功', icon: 'success' });
+        })
+        .catch((err) => {
+          wx.hideLoading();
+          wx.showToast({ title: err.message || '收藏失败', icon: 'none' });
+        });
+    };
+
+    // 参考记录页：若有本地图片，先上传→拿 /uploads/... 再入库
+    if (this.data.imagePath) {
+      wx.showLoading({ title: '上传图片...' });
+      app.uploadImageToServer(this.data.imagePath)
+        .then((pathOnly) => { wx.hideLoading(); proceedFavorite(pathOnly); })
+        .catch((err) => { wx.hideLoading(); wx.showToast({ title: err.message || '上传失败', icon: 'none' }); });
+    } else {
+      proceedFavorite(null);
+    }
   },
 
   // 取消收藏

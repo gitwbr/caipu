@@ -24,24 +24,38 @@
       bindtap="viewRecipe"
       data-recipe="{{item}}"
     >
-      <view class="recipe-info">
-        <view class="recipe-name">{{item.name}}</view>
-        <view class="recipe-desc">{{item.description}}</view>
-        <view class="recipe-meta">
-          <view class="nutrition-info">
-            <text class="nutrition-item">热量: {{item.nutrition.calories}}千卡</text>
-            <text class="nutrition-item">蛋白质: {{item.nutrition.protein}}g</text>
-          </view>
-          <view class="recipe-tags">
-            <view class="tag" wx:for="{{item.tags}}" wx:key="tagIndex">{{item}}</view>
-          </view>
+      <!-- 右上角删除按钮（阻止冒泡） -->
+      <view class="card-delete" catchtap="removeFavorite" data-id="{{item.favoriteId}}">🗑️</view>
+      <!-- 上：左图右文 -->
+      <view class="card-top">
+        <view class="record-thumb">
+          <image wx:if="{{item.image_full_url}}" class="thumb" src="{{item.image_full_url}}" mode="aspectFill" lazy-load />
+          <text wx:else class="thumb-placeholder">🍽️</text>
+        </view>
+        <view class="top-info">
+          <view class="recipe-name">{{item.name}}</view>
+          <view class="recipe-desc">{{item.description}}</view>
         </view>
       </view>
-      <view class="recipe-actions">
-        <view class="action-btn" bindtap="removeFavorite" data-id="{{item.favoriteId}}" catchtap="true">
-          <text class="action-icon">🗑️</text>
+
+      <!-- 中：左热量，右侧箭头（保持不变）+ 删除按钮 -->
+      <view class="card-middle">
+        <view class="calorie-row">
+          <view class="calorie-badge">
+            <text class="calorie-icon">🔥</text>
+            <text class="calorie-value">{{item.calorie_display}}</text>
+          </view>
         </view>
-        <view class="recipe-arrow">></view>
+        <view class="recipe-actions">
+          <view class="recipe-arrow">></view>
+        </view>
+      </view>
+
+      <!-- 下：标签（样式不动） -->
+      <view class="card-bottom">
+        <view class="recipe-tags">
+          <view class="tag" wx:for="{{item.tags}}" wx:for-item="tag" wx:key="idx">{{tag}}</view>
+        </view>
       </view>
     </view>
   </view>

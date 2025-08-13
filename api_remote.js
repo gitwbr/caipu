@@ -699,7 +699,7 @@ app.post('/api/favorites', async (req, res) => {
     const token = authHeader.replace('Bearer ', '');
     const payload = jwt.verify(token, JWT_SECRET);
     
-    const { recipe_id, recipe_name, recipe_data } = req.body;
+    const { recipe_id, recipe_name, recipe_data, image_url } = req.body;
     if (!recipe_id || !recipe_name || !recipe_data) {
       return res.status(400).json({ error: '缺少必要参数' });
     }
@@ -726,17 +726,18 @@ app.post('/api/favorites', async (req, res) => {
     
     // 添加收藏
     const query = `
-      INSERT INTO recipe_favorites (user_id, recipe_id, recipe_name, recipe_data)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO recipe_favorites (user_id, recipe_id, recipe_name, recipe_data, image_url)
+      VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (user_id, recipe_id) DO UPDATE SET
         recipe_name = EXCLUDED.recipe_name,
         recipe_data = EXCLUDED.recipe_data,
+        image_url = EXCLUDED.image_url,
         updated_at = NOW()
       RETURNING *;
     `;
     
     const result = await client.query(query, [
-      payload.userId, recipe_id, recipe_name, recipe_data
+      payload.userId, recipe_id, recipe_name, recipe_data, normalizeToPathOnly(image_url) || null
     ]);
     
     client.release();
@@ -765,7 +766,7 @@ app.get('/api/favorites', async (req, res) => {
     
     const client = await pool.connect();
     const query = `
-      SELECT id, recipe_id, recipe_name, recipe_data, created_at
+      SELECT id, recipe_id, recipe_name, recipe_data, image_url, created_at
       FROM recipe_favorites
       WHERE user_id = $1
       ORDER BY created_at DESC
@@ -793,9 +794,17 @@ app.delete('/api/favorites/:id', async (req, res) => {
     const payload = jwt.verify(token, JWT_SECRET);
     
     const { id } = req.params;
-    
     const client = await pool.connect();
-    
+
+    // 先取旧图片路径
+    const selectQuery = `SELECT image_url FROM recipe_favorites WHERE id = $1 AND user_id = $2`;
+    const selectResult = await client.query(selectQuery, [id, payload.userId]);
+    if (selectResult.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error: '收藏不存在或无权限删除' });
+    }
+    const oldImagePathname = normalizeToPathOnly(selectResult.rows[0].image_url);
+
     // 删除收藏
     const deleteQuery = `
       DELETE FROM recipe_favorites
@@ -816,6 +825,19 @@ app.delete('/api/favorites/:id', async (req, res) => {
     const currentCount = parseInt(countResult.rows[0].count);
     
     client.release();
+
+    // 删除对应图片（如有）
+    try {
+      if (oldImagePathname && oldImagePathname.startsWith('/uploads/')) {
+        const relative = oldImagePathname.replace('/uploads/', '');
+        const imagePath = path.join(UPLOAD_DIR, relative);
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+        }
+      }
+    } catch (delErr) {
+      console.error('删除收藏图片失败（忽略）:', delErr.message);
+    }
     
     res.json({ 
       message: '删除成功',
@@ -839,25 +861,43 @@ app.put('/api/favorites/:id', async (req, res) => {
     const payload = jwt.verify(token, JWT_SECRET);
 
     const { id } = req.params;
-    const { recipe_name, recipe_data } = req.body;
+    const { recipe_name, recipe_data, image_url } = req.body;
     if (!recipe_name || !recipe_data) {
       return res.status(400).json({ error: '缺少必要参数：recipe_name 或 recipe_data' });
     }
 
     const client = await pool.connect();
+    // 取旧图片
+    const sel = await client.query('SELECT image_url FROM recipe_favorites WHERE id = $1 AND user_id = $2', [id, payload.userId]);
+    if (sel.rows.length === 0) {
+      client.release();
+      return res.status(404).json({ error: '收藏不存在或无权限更新' });
+    }
+    const oldImagePathname = normalizeToPathOnly(sel.rows[0].image_url);
+    const imageProvided = Object.prototype.hasOwnProperty.call(req.body, 'image_url');
+    const newImagePathname = imageProvided ? (normalizeToPathOnly(image_url) || null) : oldImagePathname;
+
     const updateQuery = `
       UPDATE recipe_favorites
       SET recipe_name = $1,
           recipe_data = $2,
+          image_url = $3,
           updated_at = NOW()
-      WHERE id = $3 AND user_id = $4
-      RETURNING id, recipe_id, recipe_name, recipe_data, updated_at;
+      WHERE id = $4 AND user_id = $5
+      RETURNING id, recipe_id, recipe_name, recipe_data, image_url, updated_at;
     `;
-    const result = await client.query(updateQuery, [recipe_name, recipe_data, id, payload.userId]);
+    const result = await client.query(updateQuery, [recipe_name, recipe_data, newImagePathname, id, payload.userId]);
     client.release();
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '收藏不存在或无权限更新' });
+    // 删除旧图（若提供了新图且发生变化）
+    try {
+      if (imageProvided && oldImagePathname && oldImagePathname !== newImagePathname && oldImagePathname.startsWith('/uploads/')) {
+        const relative = oldImagePathname.replace('/uploads/', '');
+        const filePath = path.join(UPLOAD_DIR, relative);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+    } catch (delErr) {
+      console.error('更新收藏删除旧图片失败（忽略）:', delErr.message);
     }
 
     res.json({ message: '更新成功', favorite: result.rows[0] });
@@ -878,30 +918,45 @@ app.put('/api/favorites/recipe/:recipeId', async (req, res) => {
     const payload = jwt.verify(token, JWT_SECRET);
 
     const { recipeId } = req.params;
-    const { recipe_name, recipe_data } = req.body;
+    const { recipe_name, recipe_data, image_url } = req.body;
     if (!recipeId || !recipe_name || !recipe_data) {
       return res.status(400).json({ error: '缺少必要参数：recipeId、recipe_name 或 recipe_data' });
     }
 
     const client = await pool.connect();
-    const selectQuery = `SELECT id FROM recipe_favorites WHERE user_id = $1 AND recipe_id = $2 LIMIT 1`;
+    const selectQuery = `SELECT id, image_url FROM recipe_favorites WHERE user_id = $1 AND recipe_id = $2 LIMIT 1`;
     const sel = await client.query(selectQuery, [payload.userId, String(recipeId)]);
     if (sel.rows.length === 0) {
       client.release();
       return res.status(404).json({ error: '未找到该菜谱的收藏记录' });
     }
     const favId = sel.rows[0].id;
+    const oldImagePathname = normalizeToPathOnly(sel.rows[0].image_url);
+    const imageProvided = Object.prototype.hasOwnProperty.call(req.body, 'image_url');
+    const newImagePathname = imageProvided ? (normalizeToPathOnly(image_url) || null) : oldImagePathname;
 
     const updateQuery = `
       UPDATE recipe_favorites
       SET recipe_name = $1,
           recipe_data = $2,
+          image_url = $3,
           updated_at = NOW()
-      WHERE id = $3 AND user_id = $4
-      RETURNING id, recipe_id, recipe_name, recipe_data, updated_at;
+      WHERE id = $4 AND user_id = $5
+      RETURNING id, recipe_id, recipe_name, recipe_data, image_url, updated_at;
     `;
-    const result = await client.query(updateQuery, [recipe_name, recipe_data, favId, payload.userId]);
+    const result = await client.query(updateQuery, [recipe_name, recipe_data, newImagePathname, favId, payload.userId]);
     client.release();
+
+    // 删除旧图
+    try {
+      if (imageProvided && oldImagePathname && oldImagePathname !== newImagePathname && oldImagePathname.startsWith('/uploads/')) {
+        const relative = oldImagePathname.replace('/uploads/', '');
+        const filePath = path.join(UPLOAD_DIR, relative);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+    } catch (delErr) {
+      console.error('通过recipe_id更新收藏删除旧图片失败（忽略）:', delErr.message);
+    }
 
     res.json({ message: '更新成功', favorite: result.rows[0] });
   } catch (error) {

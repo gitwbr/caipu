@@ -16,6 +16,22 @@
     <text class="favorite-text">{{isFavorite ? '已收藏' : '收藏'}}</text>
   </view>
 
+  <!-- 菜谱图片（样式参考记录页：右侧相机/缩略图） -->
+  <view class="card">
+    <view class="form-item image-inline">
+      <text class="label">菜谱图片</text>
+      <view class="camera-slot">
+        <view wx:if="{{!(imagePath || recipe.image_url)}}" class="camera-btn" bindtap="chooseRecipeImage">
+          <text class="camera-icon">📷</text>
+        </view>
+        <view wx:else class="thumb-wrap">
+          <image class="thumb" src="{{imagePath || recipe.image_full_url}}" mode="aspectFill" lazy-load binderror="onRecipeImgError" />
+          <view class="remove-thumb" bindtap="removeRecipeImage">−</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
   <!-- 营养信息 -->
   <view class="card">
     <view class="card-title">营养信息</view>
@@ -107,7 +123,6 @@
   <!-- 操作按钮 -->
   <view class="action-buttons">
     <button class="btn-primary" bindtap="shareRecipe">分享菜谱</button>
-    <button class="btn-secondary" wx:if="{{fromFavorites}}" bindtap="updateFavoriteRecipe">更新</button>
-    <button class="btn-secondary" wx:else bindtap="toggleFavorite">{{isFavorite ? '取消收藏' : '收藏'}}</button>
+    <button class="btn-secondary" wx:if="{{isFavorite}}" bindtap="updateFavoriteRecipe">更新</button>
   </view>
 </view> 

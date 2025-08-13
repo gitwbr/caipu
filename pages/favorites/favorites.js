@@ -36,10 +36,28 @@ Page({
   // 加载收藏列表
   loadFavorites() {
     // 仅读本地（与记录页一致：页面渲染一律从本地读取；登录后由全量刷新覆盖本地）
+    console.log('=== loadFavorites() 调用 ===');
+    console.log('[globalData.favorites]', app.globalData.favorites);
+    const storageList = wx.getStorageSync('favorites') || [];
+    console.log('[wxStorage favorites]', storageList);
     const local = app.globalData.favorites && app.globalData.favorites.length > 0
       ? app.globalData.favorites
       : (app.loadFavorites() || []);
-    this.setData({ favorites: local, isLoading: false });
+    console.log('[local (before enrich)]', local);
+    const enriched = (local || []).map(it => {
+      const calories = (it && it.nutrition && it.nutrition.calories != null)
+        ? it.nutrition.calories
+        : (it && it.nutrition_total && it.nutrition_total.calories != null
+          ? it.nutrition_total.calories
+          : null);
+      return {
+        ...it,
+        image_full_url: it && it.image_url ? app.buildImageUrl(it.image_url) : '',
+        calorie_display: calories != null ? `${Number(calories).toFixed(0)}千卡` : '-- 千卡'
+      };
+    });
+    console.log('[enriched for render]', enriched);
+    this.setData({ favorites: enriched, isLoading: false });
   },
 
   // 查看菜谱详情
@@ -95,7 +113,19 @@ Page({
     app.getFavorites()
       .then(list => {
         app.saveFavoritesToLocal(list);
-        this.setData({ favorites: list });
+        const enriched = (list || []).map(it => {
+          const calories = (it && it.nutrition && it.nutrition.calories != null)
+            ? it.nutrition.calories
+            : (it && it.nutrition_total && it.nutrition_total.calories != null
+              ? it.nutrition_total.calories
+              : null);
+          return {
+            ...it,
+            image_full_url: it && it.image_url ? app.buildImageUrl(it.image_url) : '',
+            calorie_display: calories != null ? `${Number(calories).toFixed(0)}千卡` : '-- 千卡'
+          };
+        });
+        this.setData({ favorites: enriched });
       })
       .finally(() => wx.stopPullDownRefresh());
   },

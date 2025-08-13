@@ -262,6 +262,22 @@
 }
 
 /* 响应式设计 */
+/* 参考记录页的行内图片样式 */
+.form-item.image-inline { display: flex; align-items: center; justify-content: space-between; }
+.form-item.image-inline .label { margin: 0; }
+.camera-slot { display: flex; align-items: center; }
+.camera-btn {
+  padding: 12rpx 22rpx;
+  background: #f1f5ff;
+  color: #4a67ff;
+  border: 1rpx solid #d9e2ff;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+}
+.camera-icon { font-size: 32rpx; line-height: 1; }
+.thumb-wrap { position: relative; width: 140rpx; height: 140rpx; border-radius: 12rpx; overflow: hidden; box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.08); }
+.thumb { width: 100%; height: 100%; background: #f6f6f6; }
+.remove-thumb { position: absolute; top: 6rpx; right: 6rpx; width: 32rpx; height: 32rpx; border-radius: 50%; background: #ff5757; color: #fff; font-size: 24rpx; line-height: 32rpx; text-align: center; box-shadow: 0 2rpx 6rpx rgba(255,87,87,0.3); }
 @media (max-width: 750rpx) {
   .action-buttons {
     flex-direction: column;

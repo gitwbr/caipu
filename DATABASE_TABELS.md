@@ -61,6 +61,7 @@ CREATE TABLE recipe_favorites (
     recipe_id VARCHAR(255) NOT NULL, -- 菜谱唯一标识
     recipe_name VARCHAR(255) NOT NULL,
     recipe_data JSONB NOT NULL, -- 完整的菜谱数据
+    image_url TEXT, -- 收藏图片URL（仅路径 /uploads/...）
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, recipe_id)

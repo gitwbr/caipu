@@ -53,6 +53,35 @@ App({
     return base + path;
   },
 
+  // 上传图片到服务器，返回 /uploads/... 路径
+  uploadImageToServer(filePath) {
+    return new Promise((resolve, reject) => {
+      if (!filePath) return resolve(null);
+      if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
+      const userId = this.globalData.userInfo && this.globalData.userInfo.id;
+      if (!userId) return reject(new Error('缺少用户ID'));
+      wx.uploadFile({
+        url: this.globalData.serverUrl.replace(/\/$/, '') + '/api/upload-image',
+        filePath,
+        name: 'image',
+        header: { 'Authorization': 'Bearer ' + this.globalData.token },
+        formData: { userId },
+        success: (res) => {
+          try {
+            const data = JSON.parse(res.data || '{}');
+            if (data && data.success && data.imageUrl) return resolve(data.imageUrl);
+            // 兼容非 success 包装
+            if (data.imageUrl) return resolve(data.imageUrl);
+            reject(new Error('上传失败'));
+          } catch (e) {
+            reject(e);
+          }
+        },
+        fail: reject
+      });
+    });
+  },
+
   // 将任意日期输入（字符串或Date）规范为本地 YYYY-MM-DD 字符串
   toLocalYMD(input) {
     if (!input) return '';
@@ -178,7 +207,7 @@ App({
         header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
         success: (res) => {
           if (res.statusCode === 200) {
-            const arr = (res.data || []).map(item => ({ ...item.recipe_data, favoriteId: item.id }));
+            const arr = (res.data || []).map(item => ({ ...item.recipe_data, favoriteId: item.id, image_url: item.image_url }));
             resolve(arr);
           } else {
             reject(new Error(res.data.error || '获取收藏失败'));
@@ -193,22 +222,24 @@ App({
     return new Promise((resolve, reject) => {
       if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
 
-      const doLocalUpdate = () => {
+      const doLocalUpdate = (newImagePath) => {
         const local = [...(this.globalData.favorites || [])];
         const idxById = local.findIndex(r => String(r.id) === String(recipe.id));
         const newItem = { ...recipe, favoriteId: recipe.favoriteId || (local[idxById] && local[idxById].favoriteId) };
+        if (newImagePath) newItem.image_url = newImagePath;
         if (idxById >= 0) local[idxById] = newItem; else local.unshift(newItem);
         this.saveFavoritesToLocal(local);
       };
 
+      const imagePath = this.normalizeImageUrlToPath(recipe.image_url || '');
       wx.request({
         url: this.globalData.serverUrl + '/api/favorites/recipe/' + encodeURIComponent(recipe.id),
         method: 'PUT',
         header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
-        data: { recipe_name: recipe.name, recipe_data: recipe },
+        data: { recipe_name: recipe.name, recipe_data: recipe, image_url: imagePath || null },
         success: (res) => {
           if (res.statusCode === 200) {
-            doLocalUpdate();
+            doLocalUpdate(imagePath || null);
             resolve();
           } else if (res.statusCode === 404) {
             // 未收藏则尝试新增
@@ -225,16 +256,19 @@ App({
   addFavoriteWithSync(recipe) {
     return new Promise((resolve, reject) => {
       if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
-      wx.request({
+      const proceed = (imagePathOnly) => wx.request({
         url: this.globalData.serverUrl + '/api/favorites',
         method: 'POST',
         header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
-        data: { recipe_id: recipe.id, recipe_name: recipe.name, recipe_data: recipe },
+        data: { recipe_id: recipe.id, recipe_name: recipe.name, recipe_data: recipe, image_url: imagePathOnly || null },
         success: (res) => {
           if (res.statusCode === 200) {
             const local = [...(this.globalData.favorites || [])];
             const idx = local.findIndex(r => String(r.id) === String(recipe.id));
-            if (idx >= 0) local[idx] = recipe; else local.unshift(recipe);
+            const item = { ...recipe };
+            if (res.data?.favorite?.id) item.favoriteId = res.data.favorite.id;
+            if (imagePathOnly) item.image_url = imagePathOnly;
+            if (idx >= 0) local[idx] = item; else local.unshift(item);
             this.saveFavoritesToLocal(local);
             resolve();
           } else {
@@ -243,6 +277,16 @@ App({
         },
         fail: reject
       });
+
+      // 若传入的是本地临时路径（chooseMedia 产生），先上传
+      if (recipe.image_url && !/^\//.test(recipe.image_url) && !/^https?:/i.test(recipe.image_url)) {
+        this.uploadImageToServer(recipe.image_url)
+          .then(pathOnly => proceed(pathOnly))
+          .catch(reject);
+      } else {
+        const normalized = this.normalizeImageUrlToPath(recipe.image_url || '');
+        proceed(normalized || null);
+      }
     });
   },
 
