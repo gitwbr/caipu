@@ -182,6 +182,7 @@
         bindtap="viewRecipe"
         data-recipe="{{item}}"
       >
+        <view class="recent-delete" catchtap="deleteRecent" data-index="{{index}}">🗑️</view>
         <view class="recipe-info">
           <view class="recipe-name">{{item.name}}</view>
           <view class="recipe-desc">{{item.description}}</view>

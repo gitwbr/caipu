@@ -265,6 +265,24 @@ Page({
     });
   },
 
+  // 删除最近生成的一条
+  deleteRecent(e) {
+    const idx = Number(e.currentTarget.dataset.index);
+    const history = wx.getStorageSync('history') || [];
+    // 从原始 history 中删除对应项（匹配 id 优先，退化用索引）
+    const toDelete = this.data.recentRecipes[idx];
+    let newHistory = history;
+    if (toDelete && toDelete.id) {
+      newHistory = history.filter(r => String(r.id) !== String(toDelete.id));
+    } else {
+      newHistory.splice(idx, 1);
+    }
+    wx.setStorageSync('history', newHistory);
+    // 重新加载最近列表
+    this.loadRecentRecipes();
+    wx.showToast({ title: '已删除', icon: 'success' });
+  },
+
   // 随机生成菜谱
   generateRandomRecipe() {
     this.generateRecipe('random');
