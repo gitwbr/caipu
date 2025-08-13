@@ -245,10 +245,10 @@ Page({
       let calculatedCalories = '0.0';
       let imageUrl = '';
       
-      if (record.record_type === 'quick') {
+      if (record.record_type === 'quick' || record.record_type === 'recipe') {
         // 快速记录
         foodInfo = {
-          food_name: record.quick_food_name || '快速记录',
+          food_name: record.quick_food_name || (record.record_type === 'recipe' ? '菜谱' : '快速记录'),
           energy_kcal: parseFloat(record.quick_energy_kcal) || 0,
           protein_g: parseFloat(record.quick_protein_g) || 0,
           fat_g: parseFloat(record.quick_fat_g) || 0,
@@ -288,6 +288,7 @@ Page({
         calculated_calories: calculatedCalories,
         image_full_url: imageUrl,
         record_type_display: record.record_type === 'quick' ? '快速记录' : 
+                            record.record_type === 'recipe' ? '菜谱' :
                             record.record_type === 'custom' ? '自定义' : '标准'
       };
     });
@@ -341,7 +342,7 @@ Page({
     // 统计宏量营养素总摄入
     let totalProtein = 0, totalFat = 0, totalCarbs = 0;
     for (const r of dailyRecords) {
-      if (r.record_type === 'quick') {
+      if (r.record_type === 'quick' || r.record_type === 'recipe') {
         totalProtein += parseFloat(r.quick_protein_g || 0);
         totalFat += parseFloat(r.quick_fat_g || 0);
         totalCarbs += parseFloat(r.quick_carbohydrate_g || 0);
@@ -635,7 +636,7 @@ Page({
   onRecordTap(e) {
     const { id } = e.currentTarget.dataset;
     const rec = (this.data.records || []).find(r => String(r.id) === String(id));
-    if (rec && rec.record_type === 'quick') {
+    if (rec && (rec.record_type === 'quick' || rec.record_type === 'recipe')) {
       //wx.showToast({ title: '快速记录不可编辑', icon: 'none' });
       return;
     }

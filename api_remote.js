@@ -1206,8 +1206,8 @@ app.post('/api/diet-records', async (req, res) => {
     const client = await pool.connect();
     let query, values;
     
-    if (record_type === 'quick') {
-      // 快速记录
+    if (record_type === 'quick' || record_type === 'recipe') {
+      // 快速/菜谱记录：共用 quick_* 五个字段
       if (!quick_food_name || !quick_energy_kcal) {
         return res.status(400).json({ error: '快速记录缺少必要参数：食物名称和热量' });
       }
@@ -1222,7 +1222,7 @@ app.post('/api/diet-records', async (req, res) => {
         RETURNING *;
       `;
       values = [
-        payload.userId, 'quick', quick_food_name, quick_energy_kcal,
+        payload.userId, (record_type === 'recipe' ? 'recipe' : 'quick'), quick_food_name, quick_energy_kcal,
         quick_protein_g || 0, quick_fat_g || 0, quick_carbohydrate_g || 0, quick_image_url || null,
         quantity_g || 0, // 快速记录不需要重量，设为0
         record_date || getLocalDateStr(), 
@@ -1322,27 +1322,27 @@ app.get('/api/diet-records', async (req, res) => {
           dr.quick_carbohydrate_g,
           dr.quick_image_url,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_food_name
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_food_name
             ELSE COALESCE(fn.food_name, ucf.food_name)
           END as display_name,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_energy_kcal
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_energy_kcal
             ELSE COALESCE(fn.energy_kcal, ucf.energy_kcal)
           END as display_energy_kcal,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_protein_g
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_protein_g
             ELSE COALESCE(fn.protein_g, ucf.protein_g)
           END as display_protein_g,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_fat_g
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_fat_g
             ELSE COALESCE(fn.fat_g, ucf.fat_g)
           END as display_fat_g,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_carbohydrate_g
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_carbohydrate_g
             ELSE COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g)
           END as display_carbohydrate_g,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_image_url
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_image_url
             ELSE COALESCE(fn.image_url, ucf.image_url)
           END as display_image_url
         FROM diet_records dr
@@ -1372,27 +1372,27 @@ app.get('/api/diet-records', async (req, res) => {
           dr.quick_carbohydrate_g,
           dr.quick_image_url,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_food_name
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_food_name
             ELSE COALESCE(fn.food_name, ucf.food_name)
           END as display_name,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_energy_kcal
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_energy_kcal
             ELSE COALESCE(fn.energy_kcal, ucf.energy_kcal)
           END as display_energy_kcal,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_protein_g
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_protein_g
             ELSE COALESCE(fn.protein_g, ucf.protein_g)
           END as display_protein_g,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_fat_g
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_fat_g
             ELSE COALESCE(fn.fat_g, ucf.fat_g)
           END as display_fat_g,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_carbohydrate_g
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_carbohydrate_g
             ELSE COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g)
           END as display_carbohydrate_g,
           CASE 
-            WHEN dr.record_type = 'quick' THEN dr.quick_image_url
+            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_image_url
             ELSE COALESCE(fn.image_url, ucf.image_url)
           END as display_image_url
         FROM diet_records dr

@@ -1304,7 +1304,7 @@ App({
     filteredRecords.forEach(record => {
       let energyKcal, proteinG, fatG, carbG;
       
-      if (record.record_type === 'quick') {
+      if (record.record_type === 'quick' || record.record_type === 'recipe') {
         // 快速记录，直接使用记录中的营养数据
         energyKcal = parseFloat(record.quick_energy_kcal) || 0;
         proteinG = parseFloat(record.quick_protein_g) || 0;

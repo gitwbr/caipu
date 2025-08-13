@@ -154,20 +154,22 @@ CREATE TABLE diet_records (
     record_time TIME NOT NULL DEFAULT CURRENT_TIME, -- 记录时间
     notes TEXT, -- 备注
     -- 快速记录相关字段
-    record_type VARCHAR(20) DEFAULT 'standard' CHECK (record_type IN ('standard', 'custom', 'quick')), -- 记录类型
-    quick_food_name VARCHAR(255), -- 快速记录食物名称
-    quick_energy_kcal DECIMAL(8,2), -- 快速记录热量（千卡）
-    quick_protein_g DECIMAL(8,2) DEFAULT 0, -- 快速记录蛋白质（克）
-    quick_fat_g DECIMAL(8,2) DEFAULT 0, -- 快速记录脂肪（克）
-    quick_carbohydrate_g DECIMAL(8,2) DEFAULT 0, -- 快速记录碳水化合物（克）
-    quick_image_url TEXT, -- 快速记录图片URL
+    record_type VARCHAR(20) DEFAULT 'standard' CHECK (record_type IN ('standard', 'custom', 'quick', 'recipe')), -- 记录类型（新增 recipe：菜谱总营养快照）
+    -- 下列 5 个字段为“快速/菜谱”公用快照字段（菜谱沿用 quick_* 字段，不新加列）
+    quick_food_name VARCHAR(255), -- 快速/菜谱 记录食物/菜名
+    quick_energy_kcal DECIMAL(8,2), -- 快速/菜谱 总热量（千卡）
+    quick_protein_g DECIMAL(8,2) DEFAULT 0, -- 快速/菜谱 蛋白质（克）
+    quick_fat_g DECIMAL(8,2) DEFAULT 0, -- 快速/菜谱 脂肪（克）
+    quick_carbohydrate_g DECIMAL(8,2) DEFAULT 0, -- 快速/菜谱 碳水化合物（克）
+    quick_image_url TEXT, --（可选）快速/菜谱 图片URL
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     -- 确保要么是标准食物，要么是自定义食物，要么是快速记录
     CONSTRAINT check_food_type CHECK (
-        (record_type = 'standard' AND food_id IS NOT NULL AND custom_food_id IS NULL AND quick_food_name IS NULL) OR
-        (record_type = 'custom' AND food_id IS NULL AND custom_food_id IS NOT NULL AND quick_food_name IS NULL) OR
-        (record_type = 'quick' AND food_id IS NULL AND custom_food_id IS NULL AND quick_food_name IS NOT NULL)
+        (record_type = 'standard' AND food_id IS NOT NULL AND custom_food_id IS NULL) OR
+        (record_type = 'custom'   AND food_id IS NULL AND custom_food_id IS NOT NULL) OR
+        (record_type = 'quick'    AND food_id IS NULL AND custom_food_id IS NULL AND quick_energy_kcal IS NOT NULL) OR
+        (record_type = 'recipe'   AND food_id IS NULL AND custom_food_id IS NULL AND quick_energy_kcal IS NOT NULL)
     )
 );
 

@@ -68,6 +68,72 @@ Page({
     this.setData({ recordTime: e.detail.value });
   },
 
+  // 将当前菜谱作为“菜谱记录”写入饮食记录（record_type='recipe'，复用 quick_* 字段）
+  recordRecipeToDiet() {
+    if (!app.globalData.isLoggedIn) {
+      app.checkLoginAndShowModal().then(() => this.recordRecipeToDiet());
+      return;
+    }
+    try {
+      const r = this.data.recipe || {};
+      const dateStr = this.data.recordDate || getApp().toLocalYMD(new Date());
+      const timeStr = (this.data.recordTime && String(this.data.recordTime).substring(0,5)) || (new Date().toTimeString().substring(0,5));
+      // 取总营养（已在 recalculateNutrition 中汇总到 recipe.nutrition）
+      const total = r.nutrition || { calories: 0, protein: 0, fat: 0, carbs: 0 };
+      const payload = {
+        record_type: 'recipe',
+        quick_food_name: r.name || '菜谱',
+        quick_energy_kcal: Number(total.calories || 0),
+        quick_protein_g: Number(total.protein || 0),
+        quick_fat_g: Number(total.fat || 0),
+        quick_carbohydrate_g: Number(total.carbs || 0),
+        quick_image_url: r.image_url || r.image_full_url || '',
+        quantity_g: 0,
+        record_date: dateStr,
+        record_time: timeStr,
+        notes: ''
+      };
+      wx.showLoading({ title: '记录中...' });
+      wx.request({
+        url: app.globalData.serverUrl + '/api/diet-records',
+        method: 'POST',
+        header: { 'Authorization': 'Bearer ' + app.globalData.token, 'Content-Type': 'application/json' },
+        data: payload,
+        success: (res) => {
+          wx.hideLoading();
+          if (res.statusCode === 200) {
+            wx.showToast({ title: '已记录', icon: 'success' });
+            // 本地追加并刷新当日汇总
+            try {
+              const created = res.data && res.data.record ? res.data.record : null;
+              if (created) {
+                const local = app.globalData.dietRecords || [];
+                local.push(created);
+                app.globalData.dietRecords = local;
+                app.saveDietRecordsToLocal && app.saveDietRecordsToLocal(local);
+                app.calculateDailyCalorieSummary && app.calculateDailyCalorieSummary(dateStr);
+                // 跳转到当天记录列表并高亮新纪录
+                const hid = created.id ? `&highlightId=${encodeURIComponent(created.id)}` : '';
+                const url = `/pages/record/record-detail-list?date=${encodeURIComponent(dateStr)}${hid}`;
+                setTimeout(() => {
+                  wx.redirectTo({ url }).catch(() => wx.navigateTo({ url }));
+                }, 600);
+              }
+            } catch(_) {}
+          } else {
+            wx.showToast({ title: res.data && res.data.error ? res.data.error : '记录失败', icon: 'none' });
+          }
+        },
+        fail: (err) => {
+          wx.hideLoading();
+          wx.showToast({ title: '网络错误', icon: 'none' });
+        }
+      });
+    } catch (e) {
+      wx.showToast({ title: '记录失败', icon: 'none' });
+    }
+  },
+
   // 选择/替换菜谱图片（仅本地预览；不立即上传，等收藏/更新时再上传）
   chooseRecipeImage() {
     wx.chooseMedia({

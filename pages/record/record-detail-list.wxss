@@ -385,6 +385,12 @@
   color: #f57c00;
 }
 
+/* 新增：菜谱标签样式 */
+.record-type-tag.recipe {
+  background-color: #e8f5e9; /* 绿色浅底 */
+  color: #2e7d32;            /* 深绿文字 */
+}
+
 .food-details {
   display: flex;
   align-items: center;
