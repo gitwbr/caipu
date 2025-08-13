@@ -45,13 +45,13 @@
       >
         <text class="menu-text">自定义</text>
       </view>
-      <!-- 新增：空内容测试菜单项 -->
+      <!-- 新增：收藏菜谱菜单项 -->
       <view 
-        class="menu-item {{activeTab === 'blank' ? 'active' : ''}}" 
+        class="menu-item {{activeTab === 'favorites' ? 'active' : ''}}" 
         bindtap="switchTab" 
-        data-tab="blank"
+        data-tab="favorites"
       >
-        <text class="menu-text">空</text>
+        <text class="menu-text">收藏菜谱</text>
       </view>
     </view>
 
@@ -162,11 +162,25 @@
         </view>
       </view>
 
-      <!-- 新增：空内容测试块 -->
-      <view class="blank-content" wx:if="{{activeTab === 'blank' && searchResults.length === 0}}">
-        <view class="empty-state">
-          <text class="empty-text">空白测试</text>
-          <text class="empty-hint">这里没有任何内容，用于排查是否内容过宽导致菜单消失</text>
+      <!-- 新增：收藏菜谱列表 -->
+      <view class="favorites-list" wx:if="{{activeTab === 'favorites' && searchResults.length === 0}}">
+        <view class="section-title">我的收藏菜谱</view>
+        <view class="food-list" wx:if="{{favoriteRecipes.length > 0}}">
+          <view class="food-item" wx:for="{{favoriteRecipes}}" wx:key="id" bindtap="openFavoriteRecipe" data-recipe="{{item}}">
+            <view class="food-image">
+              <image wx:if="{{item.image_url}}" class="food-thumbnail" src="{{item.image_full_url}}" mode="aspectFill" lazy-load />
+              <text wx:else class="food-placeholder">🍽️</text>
+            </view>
+            <view class="food-info">
+              <text class="food-name">{{item.name}}</text>
+              <text class="food-calories text-muted">{{item.calorie_display || ''}}</text>
+            </view>
+            <view class="food-add">></view>
+          </view>
+        </view>
+        <view class="empty-state" wx:else>
+          <text class="empty-text">暂无收藏菜谱</text>
+          <text class="empty-hint">去首页生成并收藏后，这里会显示</text>
         </view>
       </view>
 

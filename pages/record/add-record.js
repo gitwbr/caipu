@@ -3,11 +3,12 @@ const app = getApp();
 
 Page({
   data: {
-    activeTab: 'recent', // 'recent' 或 'custom'
+    activeTab: 'recent', // 'recent' | 'custom' | 'favorites'
     searchKeyword: '',
     searchResults: [],
     recentFoods: [],
     customFoods: [],
+    favoriteRecipes: [],
     loading: false,
     searching: false,
     processingImage: false
@@ -135,6 +136,26 @@ Page({
   refreshFromLocal() {
     this.loadCustomFoods(true);
     this.loadRecentFoods(true);
+    this.loadFavoriteRecipes(true);
+  },
+
+  // 读取本地收藏菜谱（与收藏页一致，使用全局缓存）
+  loadFavoriteRecipes(silent = true) {
+    const app = getApp();
+    const favs = app.globalData.favorites || [];
+    const list = (favs || []).map(r => ({
+      ...r,
+      image_full_url: r.image_url ? app.buildImageUrl(r.image_url) : '',
+      calorie_display: (r && r.nutrition && r.nutrition.calories != null) ? `${Number(r.nutrition.calories).toFixed(0)}千卡` : ''
+    }));
+    if (!silent) console.log('[favorites] 本地收藏菜谱数量:', list.length);
+    this.setData({ favoriteRecipes: list });
+  },
+
+  // 打开收藏菜谱，跳到详情页
+  openFavoriteRecipe(e) {
+    const recipe = e.currentTarget.dataset.recipe;
+    wx.navigateTo({ url: `/pages/recipe/recipe?from=favorites&recipe=${encodeURIComponent(JSON.stringify(recipe))}` });
   },
 
   // 云端同步（后台一次），只有拿到数据且产生变化时才会写本地并触发刷新
