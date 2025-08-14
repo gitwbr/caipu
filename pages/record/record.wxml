@@ -55,7 +55,7 @@
             <text class="progress-label">已减去(公斤)</text>
             <text class="progress-value">{{weightLost}} kg</text>
           </view>
-          <text class="view-plan">查看方案></text>
+           <!-- <text class="view-plan">查看方案></text>-->
         </view>
         <view class="weight-item">
           <text class="weight-label">最新</text>

@@ -629,8 +629,13 @@ Page({
           // 直接跳转到自定义食物页面并填入数据
           this.navigateToCustomFoodWithData(nutritionData);
         } else {
+          console.log(`识别到以下文字内容：\n\n${fullText.substring(0, 500)}${fullText.length > 500 ? '...' : ''}`);
+          wx.showToast({
+            title: '识别失败',
+            icon: 'none'
+          });
           // 无法解析营养成分，显示原始文字
-          wx.showModal({
+          /* wx.showModal({
             title: 'OCR识别结果',
             content: `识别到以下文字内容：\n\n${fullText.substring(0, 500)}${fullText.length > 500 ? '...' : ''}`,
             showCancel: true,
@@ -650,7 +655,7 @@ Page({
                 });
               }
             }
-          });
+          }); */
         }
       } else {
         console.log('识别失败或无文字内容');

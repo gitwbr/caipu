@@ -43,13 +43,13 @@
   <!-- 功能卡片宫格（图片风格） -->
   <view class="grid-cards">
     <view class="grid-card" hover-class="grid-card--hover" bindtap="goEdit">
-      <image class="grid-bg" src="/images/card-basic.jpg" mode="aspectFill"></image>
+      <image class="grid-bg" src="/images/profile/card-basic.png" mode="aspectFill"></image>
       <view class="grid-mask"></view>
       <view class="grid-title">基本信息</view>
     </view>
 
     <view class="grid-card" hover-class="grid-card--hover" bindtap="goFavorites">
-      <image class="grid-bg" src="/images/card-fav.jpg" mode="aspectFill"></image>
+      <image class="grid-bg" src="/images/profile/card-fav.png" mode="aspectFill"></image>
       <view class="grid-mask"></view>
       <view class="grid-title">收藏的菜谱</view>
     </view>
@@ -58,19 +58,19 @@
   <!-- 设置列表 -->
   <view class="menu-list">
     <view class="menu-item" bindtap="goHelp">
-      <image class="menu-icon" src="/images/home.png" mode="widthFix"></image>
+      <image class="menu-icon" src="/images/profile/help-color.png" mode="widthFix"></image>
       <text class="menu-text">帮助与反馈</text>
       <text class="arrow">›</text>
     </view>
 
     <view class="menu-item" bindtap="goAbout">
-      <image class="menu-icon" src="/images/profile-active.png" mode="widthFix"></image>
+      <image class="menu-icon" src="/images/profile/about-color.png" mode="widthFix"></image>
       <text class="menu-text">关于我们</text>
       <text class="arrow">›</text>
     </view>
 
      <view class="menu-item" bindtap="handleLogout" wx:if="{{isLoggedIn}}">
-       <image class="menu-icon" src="/images/profile.png" mode="widthFix"></image>
+       <image class="menu-icon" src="/images/profile/logout-color.png" mode="widthFix"></image>
        <text class="menu-text">退出登录</text>
        <text class="arrow">›</text>
      </view>

@@ -121,7 +121,8 @@
 }
 .grid-title{
   position:absolute;left:20rpx;bottom:16rpx;
-  color:#fff;font-size:30rpx;font-weight:700;letter-spacing:1rpx;
+  color:#cbd5e1;font-size:30rpx;font-weight:700;letter-spacing:1rpx;
+  text-shadow:0 2rpx 6rpx rgba(0,0,0,0.45), 0 1rpx 2rpx rgba(0,0,0,0.35);
 }
 
 /* ===== 微信风格紧凑列表 ===== */
