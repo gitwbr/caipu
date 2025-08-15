@@ -416,33 +416,56 @@ Page({
   // 拍照功能
   takePhoto() {
     console.log('=== 拍照功能调试 ===');
-    
-    wx.showModal({
-      title: '营养成分表识别',
-      content: '请清晰拍摄营养成分表，确保文字清晰可见，以提高识别准确率。\n\n建议：\n• 保持手机稳定\n• 确保光线充足\n• 避免反光和阴影',
-      confirmText: '开始识别',
-      cancelText: '取消',
-      success: (res) => {
-        if (res.confirm) {
-          // 用户点击开始识别，显示选择菜单
-          wx.showActionSheet({
-            itemList: ['拍照', '从相册选择'],
-            success: (actionRes) => {
-              if (actionRes.tapIndex === 0) {
-                // 选择拍照
-                this.checkCameraPermission();
-              } else if (actionRes.tapIndex === 1) {
-                // 选择从相册选择
-                this.chooseFromAlbum();
-              }
-            },
-            fail: (err) => {
-              console.log('用户取消选择');
-            }
+    const app = getApp();
+    // 先检查登录与OCR剩余次数
+    app.checkLoginAndShowModal()
+      .then(() => app.checkUserLimits())
+      .then((limits) => {
+        const used = Number(limits?.daily_ocr_count || 0);
+        const cap = Number(limits?.daily_ocr_limit || 3);
+        if (used >= cap) {
+          wx.showModal({
+            title: 'OCR 次数已达上限',
+            content: `今日已识别 ${used} 次。明天再来吧！`,
+            showCancel: false
           });
+          return Promise.reject(new Error('OCR limit reached'));
         }
-      }
-    });
+        const remaining = cap - used;
+        wx.showToast({ title: `今日OCR剩余 ${remaining} 次`, icon: 'none', duration: 1500 });
+        return true;
+      })
+      .then(() => {
+        wx.showModal({
+          title: '营养成分表识别',
+          content: '请清晰拍摄营养成分表，确保文字清晰可见，以提高识别准确率。\n\n建议：\n• 保持手机稳定\n• 确保光线充足\n• 避免反光和阴影',
+          confirmText: '开始识别',
+          cancelText: '取消',
+          success: (res) => {
+            if (res.confirm) {
+              // 用户点击开始识别，显示选择菜单
+              wx.showActionSheet({
+                itemList: ['拍照', '从相册选择'],
+                success: (actionRes) => {
+                  if (actionRes.tapIndex === 0) {
+                    // 选择拍照
+                    this.checkCameraPermission();
+                  } else if (actionRes.tapIndex === 1) {
+                    // 选择从相册选择
+                    this.chooseFromAlbum();
+                  }
+                },
+                fail: () => {
+                  console.log('用户取消选择');
+                }
+              });
+            }
+          }
+        });
+      })
+      .catch((e) => {
+        if (e && e.message) console.log('[OCR limit check]', e.message);
+      });
   },
 
   // 检查相机权限
@@ -578,7 +601,20 @@ Page({
         'Authorization': `Bearer ${app.globalData.token}` // 添加认证头
       },
       success: (res) => {
-        console.log('OCR识别成功:', res);
+        console.log('OCR识别返回:', res);
+        // 限制触发：状态码 429
+        if (res.statusCode && res.statusCode !== 200) {
+          wx.hideLoading();
+          this.setData({ processingImage: false });
+          try {
+            const data = JSON.parse(res.data || '{}');
+            const msg = data.error || 'OCR识别失败';
+            wx.showModal({ title: '识别受限', content: String(msg), showCancel: false });
+          } catch (_) {
+            wx.showModal({ title: '识别失败', content: '服务暂不可用或已达次数上限', showCancel: false });
+          }
+          return;
+        }
         this.handleUploadResult(res);
       },
       fail: (err) => {

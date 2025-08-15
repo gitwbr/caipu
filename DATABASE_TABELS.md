@@ -8,6 +8,7 @@ CREATE TABLE users (
     nickname VARCHAR(255),                          -- 用户昵称
     avatar_url TEXT,                                -- 用户头像链接
     last_login_at TIMESTAMP WITH TIME ZONE,         -- 最后登录时间
+    max_favorites INTEGER NOT NULL DEFAULT 100 CHECK (max_favorites >= 0), -- 收藏上限（每用户，默认100）
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- 创建时间
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP  -- 更新时间
 );
@@ -38,17 +39,20 @@ COMMENT ON COLUMN users.session_key IS '微信 session_key';
 COMMENT ON COLUMN users.nickname IS '用户昵称';
 COMMENT ON COLUMN users.avatar_url IS '用户头像链接';
 COMMENT ON COLUMN users.last_login_at IS '最后登录时间';
+COMMENT ON COLUMN users.max_favorites IS '用户收藏上限（默认100，可按用户配置）';
 COMMENT ON COLUMN users.created_at IS '记录创建时间';
 COMMENT ON COLUMN users.updated_at IS '记录更新时间';
 
 
--- 用户使用限制表 (user_limits) - 只记录每日生成次数
+-- 用户使用限制表 (user_limits) - 记录每日生成与OCR次数
 CREATE TABLE user_limits (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     date DATE NOT NULL DEFAULT CURRENT_DATE,
     daily_generation_count INTEGER DEFAULT 0,
     daily_generation_limit INTEGER DEFAULT 10, -- 每日生成限制
+    daily_ocr_count INTEGER DEFAULT 0,         -- 当日OCR已用次数
+    daily_ocr_limit INTEGER DEFAULT 3,         -- 当日OCR次数限制（默认3）
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, date)
@@ -68,7 +72,7 @@ CREATE TABLE recipe_favorites (
 );
 
 
--- 收藏总数限制：100个（通过代码控制，不存储在数据库中）
+-- 收藏总数限制：默认每人 100 个（持久化在 users.max_favorites，可按用户配置）
 -- 创建 users 表
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,                          -- 用户ID，自增主键
@@ -77,6 +81,7 @@ CREATE TABLE users (
     nickname VARCHAR(255),                          -- 用户昵称
     avatar_url TEXT,                                -- 用户头像链接
     last_login_at TIMESTAMP WITH TIME ZONE,         -- 最后登录时间
+    max_favorites INTEGER NOT NULL DEFAULT 100 CHECK (max_favorites >= 0), -- 收藏上限（每用户，默认100）
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- 创建时间
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP  -- 更新时间
 );
@@ -107,6 +112,7 @@ CREATE TABLE users (
     COMMENT ON COLUMN users.nickname IS '用户昵称';
     COMMENT ON COLUMN users.avatar_url IS '用户头像链接';
     COMMENT ON COLUMN users.last_login_at IS '最后登录时间';
+    COMMENT ON COLUMN users.max_favorites IS '用户收藏上限（默认100，可按用户配置）';
     COMMENT ON COLUMN users.created_at IS '记录创建时间';
     COMMENT ON COLUMN users.updated_at IS '记录更新时间';
 
@@ -563,4 +569,20 @@ INSERT INTO swimming_stroke_pace_map(method_id, stroke, pace_min_sec_per_100m, p
  -- 可选唯一约束：若希望每位用户每天仅一条体重记录，可启用
  -- ALTER TABLE weight_records ADD CONSTRAINT unique_user_date UNIQUE(user_id, record_date);
 
- */
+-- =============================================
+-- 结构变更 SQL（用于现有数据库迁移）
+-- 1) users 表增加收藏上限（默认100）
+-- 安全：若已存在则跳过；若存在但默认值非100，可设置默认
+ALTER TABLE users ADD COLUMN IF NOT EXISTS max_favorites INTEGER;
+ALTER TABLE users ALTER COLUMN max_favorites SET DEFAULT 100;
+UPDATE users SET max_favorites = 100 WHERE max_favorites IS NULL;
+ALTER TABLE users ADD CONSTRAINT IF NOT EXISTS chk_users_max_favorites CHECK (max_favorites >= 0);
+COMMENT ON COLUMN users.max_favorites IS '用户收藏上限（默认100，可按用户配置）';
+
+-- 2) user_limits 表新增 OCR 次数字段（默认3次/日）
+ALTER TABLE user_limits ADD COLUMN IF NOT EXISTS daily_ocr_count INTEGER DEFAULT 0;
+ALTER TABLE user_limits ADD COLUMN IF NOT EXISTS daily_ocr_limit INTEGER DEFAULT 3;
+UPDATE user_limits SET daily_ocr_count = COALESCE(daily_ocr_count, 0);
+UPDATE user_limits SET daily_ocr_limit = 3 WHERE daily_ocr_limit IS NULL;
+
+*/

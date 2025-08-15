@@ -440,7 +440,7 @@ app.get('/api/user-info', async (req, res) => {
 
     // 3. 查询数据库
     const client = await pool.connect();
-    const query = 'SELECT id, openid, nickname, avatar_url, birthday, height_cm, weight_kg, gender, last_login_at, created_at FROM users WHERE id = $1';
+    const query = 'SELECT id, openid, nickname, avatar_url, birthday, height_cm, weight_kg, gender, last_login_at, created_at, COALESCE(max_favorites, 100) AS max_favorites FROM users WHERE id = $1';
     console.log('SQL查询:', query);
     console.log('查询参数:', [payload.userId]);
     
@@ -654,22 +654,24 @@ app.get('/api/user-limits', async (req, res) => {
     const client = await pool.connect();
     const today = getLocalDateStr();
     
-    // 获取或创建今日限制记录（只用于生成次数）
+    // 获取或创建今日限制记录（生成与OCR次数）
     let query = `
-      INSERT INTO user_limits (user_id, date, daily_generation_count)
-      VALUES ($1, $2, 0)
+      INSERT INTO user_limits (user_id, date, daily_generation_count, daily_ocr_count)
+      VALUES ($1, $2, 0, 0)
       ON CONFLICT (user_id, date) DO NOTHING
       RETURNING *;
     `;
     await client.query(query, [payload.userId, today]);
     
-    // 获取生成限制信息和收藏总数
+    // 获取生成/OCR限制信息和收藏总数与收藏上限
     query = `
       SELECT 
         ul.daily_generation_count,
         ul.daily_generation_limit,
+        ul.daily_ocr_count,
+        ul.daily_ocr_limit,
         (SELECT COUNT(*) FROM recipe_favorites WHERE user_id = $1) as total_favorites_count,
-        100 as total_favorites_limit
+        COALESCE((SELECT max_favorites FROM users WHERE id = $1), 100) as total_favorites_limit
       FROM user_limits ul
       WHERE ul.user_id = $1 AND ul.date = $2
     `;
@@ -707,13 +709,11 @@ app.post('/api/favorites', async (req, res) => {
     const client = await pool.connect();
     
     // 检查收藏总数限制
-    const favoritesCount = await client.query(
-      'SELECT COUNT(*) FROM recipe_favorites WHERE user_id = $1',
-      [payload.userId]
-    );
-    
+    // 读取用户收藏上限
+    const favLimitRes = await client.query('SELECT COALESCE(max_favorites, 100) AS max_favorites FROM users WHERE id = $1', [payload.userId]);
+    const totalLimit = parseInt(favLimitRes.rows[0]?.max_favorites || 100);
+    const favoritesCount = await client.query('SELECT COUNT(*) FROM recipe_favorites WHERE user_id = $1', [payload.userId]);
     const currentCount = parseInt(favoritesCount.rows[0].count);
-    const totalLimit = 100; // 总收藏限制
     
     if (currentCount >= totalLimit) {
       client.release();
@@ -741,12 +741,7 @@ app.post('/api/favorites', async (req, res) => {
     ]);
     
     client.release();
-    res.json({ 
-      message: '收藏成功', 
-      favorite: result.rows[0],
-      currentCount: currentCount + 1,
-      totalLimit: totalLimit
-    });
+    res.json({ message: '收藏成功', favorite: result.rows[0], currentCount: currentCount + 1, totalLimit });
   } catch (error) {
     console.error('收藏菜谱出错:', error);
     res.status(500).json({ error: '服务器内部错误', message: error.message });
@@ -839,11 +834,10 @@ app.delete('/api/favorites/:id', async (req, res) => {
       console.error('删除收藏图片失败（忽略）:', delErr.message);
     }
     
-    res.json({ 
-      message: '删除成功',
-      currentCount: currentCount,
-      totalLimit: 100
-    });
+    // 查询用户收藏上限
+    const favLimitRes = await pool.query('SELECT COALESCE(max_favorites, 100) AS max_favorites FROM users WHERE id = $1', [payload.userId]);
+    const totalLimit = parseInt(favLimitRes.rows[0]?.max_favorites || 100);
+    res.json({ message: '删除成功', currentCount, totalLimit });
   } catch (error) {
     console.error('删除收藏出错:', error);
     res.status(500).json({ error: '服务器内部错误', message: error.message });
@@ -2049,6 +2043,27 @@ app.post('/api/baidu-ocr/upload', ocrUpload.single('image'), async (req, res) =>
     if (!req.file) {
       return res.status(400).json({ error: '请上传图片文件' });
     }
+    // --- 读取/创建今日限制记录，并检查OCR次数是否超过上限 ---
+    const client = await pool.connect();
+    const today = getLocalDateStr();
+    // 确保存在今日记录
+    await client.query(
+      `INSERT INTO user_limits (user_id, date, daily_generation_count, daily_ocr_count)
+       VALUES ($1,$2,0,0) ON CONFLICT (user_id,date) DO NOTHING`,
+      [payload.userId, today]
+    );
+    // 读取当日OCR计数与上限
+    const limRes = await client.query(
+      `SELECT daily_ocr_count, COALESCE(daily_ocr_limit,3) AS daily_ocr_limit
+       FROM user_limits WHERE user_id=$1 AND date=$2`,
+      [payload.userId, today]
+    );
+    const ocrCount = parseInt(limRes.rows[0]?.daily_ocr_count || 0);
+    const ocrLimit = parseInt(limRes.rows[0]?.daily_ocr_limit || 3);
+    if (ocrCount >= ocrLimit) {
+      client.release();
+      return res.status(429).json({ error: `当日OCR次数已用完(${ocrLimit}次)` });
+    }
     
     console.log('接收到图片文件:', req.file.originalname, '大小:', req.file.size);
     
@@ -2131,7 +2146,18 @@ app.post('/api/baidu-ocr/upload', ocrUpload.single('image'), async (req, res) =>
       avg_confidence: result.statistics.avg_confidence.toFixed(3)
     });
     
-    // 注意：这里不保存图片文件，直接返回识别结果
+    // 注意：这里不保存图片文件，返回前累加当日OCR计数
+    try {
+      await client.query(
+        `UPDATE user_limits SET daily_ocr_count = daily_ocr_count + 1, updated_at = NOW()
+         WHERE user_id=$1 AND date=$2`,
+        [payload.userId, today]
+      );
+    } catch (incErr) {
+      console.error('递增OCR计数失败（不影响OCR结果返回）:', incErr.message);
+    } finally {
+      client.release();
+    }
     res.json(result);
     
   } catch (error) {
