@@ -3,7 +3,8 @@ App({
     // ChatGPT API配置
     //openaiApiKey: '', // 可选，后端已统一管理
     //openaiApiUrl: 'https://api.openai.com/v1/chat/completions', // 可选，后端已统一管理
-    serverUrl: 'http://43.154.185.163:3001',
+    //serverUrl: 'http://43.154.185.163:3001',
+    serverUrl: 'https://tuoshuo.top',
     // 登录状态管理
     isLoggedIn: false,
     userInfo: null,

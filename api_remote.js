@@ -277,7 +277,7 @@ function getLocalTimeHHMM(dateObj = new Date(), timeZone = 'Asia/Shanghai') {
 
 // 健康检查接口
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'api-diet-ok', timestamp: new Date().toISOString() });
 });
 
 // 获取赛程数据接口
