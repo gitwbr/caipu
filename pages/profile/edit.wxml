@@ -45,7 +45,7 @@
   </view>
   
   <view class="btn-row">
-    <button type="primary" class="edit-auth-btn" bindtap="getUserProfile">获取微信头像昵称</button>
+    <!-- <button type="primary" class="edit-auth-btn" bindtap="getUserProfile">获取微信头像昵称</button> -->
     <button type="primary" class="edit-save-btn" bindtap="saveProfile">保存</button>
   </view>
 </view> 

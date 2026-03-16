@@ -69,6 +69,19 @@
       <text class="arrow">›</text>
     </view>
 
+    <!-- 调试工具 -->
+    <view class="menu-item" bindtap="testNetworkConnection">
+      <image class="menu-icon" src="/images/profile/help-color.png" mode="widthFix"></image>
+      <text class="menu-text">网络连接测试</text>
+      <text class="arrow">›</text>
+    </view>
+
+    <view class="menu-item" bindtap="testWxLogin">
+      <image class="menu-icon" src="/images/profile/help-color.png" mode="widthFix"></image>
+      <text class="menu-text">登录流程测试</text>
+      <text class="arrow">›</text>
+    </view>
+
      <view class="menu-item" bindtap="handleLogout" wx:if="{{isLoggedIn}}">
        <image class="menu-icon" src="/images/profile/logout-color.png" mode="widthFix"></image>
        <text class="menu-text">退出登录</text>

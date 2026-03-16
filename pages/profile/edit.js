@@ -30,22 +30,22 @@ Page({
     this.getUserInfoFromServer();
   },
 
-  getUserProfile() {
-    wx.getUserProfile({
-      desc: '用于完善会员资料',
-      success: (res) => {
-        const { nickName, avatarUrl } = res.userInfo;
-        this.setData({
-          nickname: nickName,
-          avatarPreview: avatarUrl
-        });
-        wx.setStorageSync('localAvatar', avatarUrl);
-      },
-      fail: (err) => {
-        wx.showToast({ title: '授权失败', icon: 'none' });
-      }
-    });
-  },
+  // getUserProfile() {
+  //   wx.getUserProfile({
+  //     desc: '用于完善会员资料',
+  //     success: (res) => {
+  //       const { nickName, avatarUrl } = res.userInfo;
+  //       this.setData({
+  //         nickname: nickName,
+  //         avatarPreview: avatarUrl
+  //       });
+  //       wx.setStorageSync('localAvatar', avatarUrl);
+  //     },
+  //     fail: (err) => {
+  //       wx.showToast({ title: '授权失败', icon: 'none' });
+  //     }
+  //   });
+  // },
 
   onNicknameInput(e) {
     this.setData({ nickname: e.detail.value });

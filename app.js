@@ -400,21 +400,37 @@ App({
   // 微信登录
   wxLogin() {
     return new Promise((resolve, reject) => {
+      console.log('=== 开始微信登录流程 ===');
+      console.log('服务器URL:', this.globalData.serverUrl);
+      
       wx.login({
         success: (loginRes) => {
+          console.log('微信登录成功，获取到code:', loginRes.code ? loginRes.code.substring(0, 10) + '...' : 'null');
+          
           if (loginRes.code) {
+            const requestUrl = this.globalData.serverUrl + '/api/wx-login';
+            const requestData = { code: loginRes.code };
+            
+            console.log('准备发送请求到:', requestUrl);
+            console.log('请求数据:', requestData);
+            
             // 发送code到服务器换取token
             wx.request({
-              url: this.globalData.serverUrl + '/api/wx-login',
+              url: requestUrl,
               method: 'POST',
               header: { 'Content-Type': 'application/json' },
-              data: { code: loginRes.code },
+              data: requestData,
               success: (res) => {
+                console.log('请求成功，状态码:', res.statusCode);
+                console.log('响应数据:', res.data);
+                
                 if (res.statusCode === 200 && res.data.token) {
                   // 登录成功，保存token
                   this.globalData.token = res.data.token;
                   this.globalData.isLoggedIn = true;
                   wx.setStorageSync('token', res.data.token);
+                  
+                  console.log('登录成功，开始获取用户数据...');
                   
                   // 获取用户信息、所有饮食记录与自定义食物，并一次性写入本地
                   Promise.all([
@@ -463,16 +479,25 @@ App({
                     resolve(res.data);
                   }).catch(reject);
                 } else {
+                  console.error('登录失败，状态码:', res.statusCode, '响应:', res.data);
                   reject(new Error(res.data.error || '登录失败'));
                 }
               },
-              fail: reject
+              fail: (error) => {
+                console.error('请求失败:', error);
+                console.error('错误详情:', JSON.stringify(error));
+                reject(error);
+              }
             });
           } else {
+            console.error('获取微信登录code失败');
             reject(new Error('获取微信登录code失败'));
           }
         },
-        fail: reject
+        fail: (error) => {
+          console.error('微信登录失败:', error);
+          reject(error);
+        }
       });
     });
   },

@@ -137,6 +137,106 @@ Page({
   goEdit() { this.editUserInfo(); },
   // 收藏
   goFavorites() { wx.navigateTo({ url: '/pages/favorites/favorites' }); },
+
+  // 网络连接测试
+  testNetworkConnection() {
+    wx.showLoading({ title: '测试连接中...' });
+    
+    console.log('=== 开始网络连接测试 ===');
+    console.log('测试URL:', app.globalData.serverUrl);
+    
+    // 测试1: 基础连接测试
+    wx.request({
+      url: app.globalData.serverUrl + '/api/login-config',
+      method: 'GET',
+      timeout: 10000,
+      success: (res) => {
+        console.log('连接测试成功:', res);
+        wx.hideLoading();
+        wx.showModal({
+          title: '连接测试成功',
+          content: `服务器响应正常\n状态码: ${res.statusCode}\n配置状态: ${JSON.stringify(res.data.config, null, 2)}`,
+          showCancel: false
+        });
+      },
+      fail: (error) => {
+        console.error('连接测试失败:', error);
+        wx.hideLoading();
+        wx.showModal({
+          title: '连接测试失败',
+          content: `错误信息: ${error.errMsg || '未知错误'}\n\n可能原因:\n1. 服务器域名未配置\n2. SSL证书问题\n3. 服务器未启动\n4. 网络连接问题`,
+          showCancel: false
+        });
+      }
+    });
+  },
+
+  // 测试微信登录流程
+  testWxLogin() {
+    wx.showLoading({ title: '测试登录流程...' });
+    
+    console.log('=== 开始测试微信登录流程 ===');
+    
+    wx.login({
+      success: (loginRes) => {
+        console.log('微信登录成功:', loginRes);
+        wx.hideLoading();
+        wx.showModal({
+          title: '微信登录测试成功',
+          content: `获取到code: ${loginRes.code ? loginRes.code.substring(0, 10) + '...' : 'null'}\n\n下一步需要测试服务器端登录接口`,
+          confirmText: '测试服务器登录',
+          success: (modalRes) => {
+            if (modalRes.confirm) {
+              this.testServerLogin(loginRes.code);
+            }
+          }
+        });
+      },
+      fail: (error) => {
+        console.error('微信登录失败:', error);
+        wx.hideLoading();
+        wx.showModal({
+          title: '微信登录测试失败',
+          content: `错误信息: ${error.errMsg || '未知错误'}`,
+          showCancel: false
+        });
+      }
+    });
+  },
+
+  // 测试服务器登录接口
+  testServerLogin(code) {
+    wx.showLoading({ title: '测试服务器登录...' });
+    
+    console.log('=== 测试服务器登录接口 ===');
+    console.log('使用code:', code ? code.substring(0, 10) + '...' : 'null');
+    
+    wx.request({
+      url: app.globalData.serverUrl + '/api/wx-login',
+      method: 'POST',
+      header: { 'Content-Type': 'application/json' },
+      data: { code: code },
+      timeout: 10000,
+      success: (res) => {
+        console.log('服务器登录响应:', res);
+        wx.hideLoading();
+        wx.showModal({
+          title: '服务器登录测试完成',
+          content: `状态码: ${res.statusCode}\n响应: ${JSON.stringify(res.data, null, 2)}`,
+          showCancel: false
+        });
+      },
+      fail: (error) => {
+        console.error('服务器登录失败:', error);
+        wx.hideLoading();
+        wx.showModal({
+          title: '服务器登录测试失败',
+          content: `错误信息: ${error.errMsg || '未知错误'}\n\n这可能是导致正式版登录失败的原因`,
+          showCancel: false
+        });
+      }
+    });
+  },
   // 帮助与反馈
   goHelp() { wx.showToast({ title: '敬请期待', icon: 'none' }); },
   // 关于我们

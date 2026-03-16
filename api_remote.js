@@ -355,25 +355,54 @@ app.get('/api/schedule/:round', async (req, res) => {
 
 // --- 微信登录接口 ---
 app.post('/api/wx-login', async (req, res) => {
+    console.log('=== 微信登录API调试 ===');
+    console.log('请求时间:', new Date().toISOString());
+    console.log('请求IP:', req.ip);
+    console.log('User-Agent:', req.headers['user-agent']);
+    console.log('请求体:', req.body);
+    
     const { code } = req.body;
     if (!code) {
+        console.log('❌ 缺少code参数');
         return res.status(400).json({ error: '缺少code参数' });
     }
 
+    console.log('✅ 收到code参数:', code.substring(0, 10) + '...');
+
     try {
         // 1. 用 code 换取 openid 和 session_key
+        console.log('🔧 开始调用微信API...');
+        console.log('AppID:', WX_APPID);
+        console.log('AppSecret:', WX_SECRET ? WX_SECRET.substring(0, 8) + '...' : '未配置');
+        
         const wechatApiUrl = `https://api.weixin.qq.com/sns/jscode2session?appid=${WX_APPID}&secret=${WX_SECRET}&js_code=${code}&grant_type=authorization_code`;
+        console.log('微信API URL:', wechatApiUrl.replace(WX_SECRET, '***'));
+        
         const response = await axios.get(wechatApiUrl);
+        console.log('✅ 微信API调用成功');
+        console.log('微信API响应状态:', response.status);
+        console.log('微信API响应数据:', response.data);
 
         const { openid, session_key, errcode, errmsg } = response.data;
 
         if (!openid || !session_key || errcode) {
-            console.error('微信登录失败:', errmsg);
+            console.error('❌ 微信登录失败:');
+            console.error('  - errcode:', errcode);
+            console.error('  - errmsg:', errmsg);
+            console.error('  - openid:', openid);
+            console.error('  - session_key:', session_key ? '存在' : '不存在');
             return res.status(500).json({ error: '微信登录凭证交换失败', message: errmsg });
         }
 
+        console.log('✅ 微信API返回成功:');
+        console.log('  - openid:', openid.substring(0, 10) + '...');
+        console.log('  - session_key:', session_key ? '存在' : '不存在');
+
         // 2. 在数据库中查找或创建用户 (UPSERT)
+        console.log('🔧 开始数据库操作...');
         const client = await pool.connect();
+        console.log('✅ 数据库连接成功');
+        
         const query = `
             INSERT INTO users (openid, session_key, last_login_at)
             VALUES ($1, $2, NOW())
@@ -383,30 +412,57 @@ app.post('/api/wx-login', async (req, res) => {
                 last_login_at = NOW()
             RETURNING *;
         `;
+        console.log('SQL查询:', query);
+        console.log('查询参数:', [openid.substring(0, 10) + '...', 'session_key']);
+        
         const result = await client.query(query, [openid, session_key]);
         const user = result.rows[0];
         client.release();
-        console.log(`用户 ${user.openid} 登录/更新成功`);
+        console.log('✅ 数据库操作成功');
+        console.log('用户信息:', {
+            id: user.id,
+            openid: user.openid.substring(0, 10) + '...',
+            last_login_at: user.last_login_at
+        });
 
         // 3. 生成 JWT token
+        console.log('🔧 开始生成JWT token...');
         const token = jwt.sign(
             { userId: user.id, openid: user.openid },
             JWT_SECRET,
             { expiresIn: '7d' } // token有效期7天
         );
+        console.log('✅ JWT token生成成功');
+        console.log('Token长度:', token.length);
+        console.log('Token前20字符:', token.substring(0, 20) + '...');
 
         // 4. 返回 token 给小程序
+        console.log('✅ 登录流程完成，返回token');
         res.json({
             message: '登录成功',
             token: token,
         });
 
     } catch (error) {
-        console.error('登录流程出错:', error);
+        console.error('❌ 登录流程出错:');
+        console.error('错误类型:', error.constructor.name);
+        console.error('错误消息:', error.message);
+        console.error('错误堆栈:', error.stack);
+        
         // 检查是否是网络或其他axios错误
         if (error.response) {
-          console.error('微信API返回错误:', error.response.data);
+            console.error('微信API返回错误:');
+            console.error('  - 状态码:', error.response.status);
+            console.error('  - 状态文本:', error.response.statusText);
+            console.error('  - 响应数据:', error.response.data);
+            console.error('  - 响应头:', error.response.headers);
+        } else if (error.request) {
+            console.error('网络请求错误:');
+            console.error('  - 请求对象:', error.request);
+        } else {
+            console.error('其他错误:', error.message);
         }
+        
         res.status(500).json({ 
             error: '服务器内部错误', 
             message: error.message 
