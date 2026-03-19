@@ -461,7 +461,6 @@ Page({
 5) 仅返回纯 JSON（name/description/ingredients/steps/tips/tags）。`;
       
       const requestData = {
-        model: 'deepseek',
         prompt: prompt,
         system: '你是一个专业的中国菜谱生成助手，请严格按照JSON格式返回菜谱信息。请以JSON格式返回，包含以下字段:name(菜名), description(描述), ingredients(食材数组，包含name和amount), steps(步骤数组), tips(烹饪技巧), tags(标签数组)。'
       };
