@@ -1,0 +1,12 @@
+<view class="tabbar-shell">
+  <view class="tabbar-card">
+    <block wx:for="{{list}}" wx:key="pagePath">
+      <view class="tabbar-item {{selected === index ? 'tabbar-item-active' : ''}}" bindtap="switchTab" data-path="{{item.pagePath}}" data-index="{{index}}">
+        <view class="tabbar-icon-wrap">
+          <image class="tabbar-icon" src="{{selected === index ? item.selectedIconPath : item.iconPath}}" mode="aspectFit"></image>
+        </view>
+        <text class="tabbar-label">{{item.text}}</text>
+      </view>
+    </block>
+  </view>
+</view>

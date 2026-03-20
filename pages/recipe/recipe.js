@@ -11,6 +11,14 @@ Page({
     recordTime: ''
   },
 
+  getRecipeId(recipe = this.data.recipe) {
+    if (app.getRecipeId) {
+      return app.getRecipeId(recipe);
+    }
+    if (!recipe) return '';
+    return recipe.id || recipe.recipe_id || recipe.recipeId || '';
+  },
+
   onLoad(options) {
     // 处理日期：有传入则用传入日期，否则用今天
     try {
@@ -25,9 +33,17 @@ Page({
     if (options.recipe) {
       const recipe = JSON.parse(decodeURIComponent(options.recipe));
       const fromFavorites = options.from === 'favorites';
+      const incomingRecipeId = this.getRecipeId(recipe);
       // 若本地已收藏，优先用收藏里的 recipe_data 覆盖（保持最新编辑状态）
-      const fav = app.isRecipeFavorited && app.isRecipeFavorited(recipe.id) ? app.findFavoriteByRecipeId(recipe.id) : null;
-      const recipeToUse = fav ? { ...fav } : recipe;
+      const fav = incomingRecipeId && app.isRecipeFavorited && app.isRecipeFavorited(incomingRecipeId)
+        ? app.findFavoriteByRecipeId(incomingRecipeId)
+        : null;
+      const recipeToUse = fav ? { ...fav } : { ...recipe };
+      const normalizedRecipeId = this.getRecipeId(recipeToUse);
+      if (normalizedRecipeId) {
+        recipeToUse.id = normalizedRecipeId;
+        recipeToUse.recipe_id = recipeToUse.recipe_id || normalizedRecipeId;
+      }
       // 初始化每个食材的weight和unit
       if (recipeToUse.ingredients) {
         recipeToUse.ingredients.forEach(item => {
@@ -51,10 +67,16 @@ Page({
       if (recipeToUse.image_url) {
         recipeToUse.image_full_url = app.buildImageUrl(recipeToUse.image_url);
       }
+      const isFavorite = !!(
+        fromFavorites ||
+        recipeToUse.favoriteId ||
+        (normalizedRecipeId && app.isRecipeFavorited && app.isRecipeFavorited(normalizedRecipeId))
+      );
       this.setData({
         recipe: recipeToUse,
-        originalNutrition: { ...recipe.nutrition },
-        fromFavorites
+        originalNutrition: { ...(recipeToUse.nutrition || recipe.nutrition || {}) },
+        fromFavorites,
+        isFavorite
       }, () => {
         this.recalculateNutrition();
       });
@@ -172,6 +194,13 @@ Page({
       return;
     }
     const updatedRecipe = { ...this.data.recipe };
+    const recipeId = this.getRecipeId(updatedRecipe);
+    if (!recipeId) {
+      wx.showToast({ title: '缺少菜谱ID', icon: 'none' });
+      return;
+    }
+    updatedRecipe.id = recipeId;
+    updatedRecipe.recipe_id = updatedRecipe.recipe_id || recipeId;
     // 确保 ingredients 的 amount 与 weight 同步为数值+单位（默认g）
     updatedRecipe.ingredients = (updatedRecipe.ingredients || []).map(it => {
       const unit = it.unitNormalized || it.unit || 'g';
@@ -220,8 +249,13 @@ Page({
   // 检查收藏状态
   checkFavoriteStatus() {
     // 改为本地判断，避免每次进入详情都请求云端
-    const recipeId = this.data.recipe && this.data.recipe.id;
-    const isFavorite = recipeId ? (app.isRecipeFavorited ? app.isRecipeFavorited(recipeId) : false) : false;
+    const recipe = this.data.recipe || {};
+    const recipeId = this.getRecipeId(recipe);
+    const isFavorite = !!(
+      this.data.fromFavorites ||
+      recipe.favoriteId ||
+      (recipeId && app.isRecipeFavorited ? app.isRecipeFavorited(recipeId) : false)
+    );
     this.setData({ isFavorite });
   },
 
@@ -239,10 +273,11 @@ Page({
     }
 
     const recipe = this.data.recipe;
+    const recipeId = this.getRecipeId(recipe);
     
     if (this.data.isFavorite) {
       // 取消收藏
-      this.removeFromFavorites(recipe.id);
+      this.removeFromFavorites(recipeId || recipe.favoriteId);
     } else {
       // 添加收藏
       this.addToFavorites(recipe);
@@ -252,6 +287,13 @@ Page({
   // 添加到收藏（统一接口：云端成功→本地同步）
   addToFavorites(recipe) {
     const recipeToSave = { ...recipe };
+    const recipeId = this.getRecipeId(recipeToSave);
+    if (!recipeId) {
+      wx.showToast({ title: '缺少菜谱ID', icon: 'none' });
+      return;
+    }
+    recipeToSave.id = recipeId;
+    recipeToSave.recipe_id = recipeToSave.recipe_id || recipeId;
     const proceedFavorite = (pathOnly) => {
       if (pathOnly) {
         recipeToSave.image_url = pathOnly;

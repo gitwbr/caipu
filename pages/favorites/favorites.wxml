@@ -1,83 +1,78 @@
-<view class="page">
-  <!-- 页面标题 -->
-  <view class="page-header">
-    <view class="page-title">我的收藏</view>
-    <view class="page-subtitle">收藏的菜谱都在这里</view>
-    <!-- 登录状态显示 -->
-    <view class="login-status" wx:if="{{!isLoggedIn}}">
-      <text>请先登录查看收藏</text>
-    </view>
-  </view>
+<view class="theme-page favorites-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
 
-  <!-- 主内容整体卡片 -->
-  <view class="fav-main-sheet">
-  <!-- 加载状态 -->
-  <view class="loading" wx:if="{{isLoading}}">
-    <view class="loading-icon"></view>
-    <view class="loading-text">加载中...</view>
-  </view>
-
-  <!-- 收藏列表 -->
-  <view class="favorites-list" wx:if="{{favorites.length > 0 && !isLoading}}">
-    <view 
-      wx:for="{{favorites}}" 
-      wx:key="favoriteId"
-      class="favorite-item"
-      bindtap="viewRecipe"
-      data-recipe="{{item}}"
-    >
-      <!-- 右上角删除按钮（阻止冒泡） -->
-      <view class="card-delete" catchtap="removeFavorite" data-id="{{item.favoriteId}}">🗑️</view>
-      <!-- 上：左图右文 -->
-      <view class="card-top">
-        <view class="record-thumb">
-          <image wx:if="{{item.image_full_url}}" class="thumb" src="{{item.image_full_url}}" mode="aspectFill" lazy-load binderror="onThumbError" data-index="{{index}}" data-url="{{item.image_full_url}}" />
-          <text wx:else class="thumb-placeholder">🍽️</text>
+  <view class="theme-shell theme-shell--tab">
+    <view class="theme-hero-card">
+      <text class="theme-kicker">RECIPE CABINET</text>
+      <view class="hero-row">
+        <view class="hero-copy">
+          <text class="theme-hero-title">我的收藏</text>
+          <text class="theme-hero-desc">把想反复做的菜谱留在这里，回头做饭时就不用再翻历史。</text>
         </view>
-        <view class="top-info">
-          <view class="recipe-name">{{item.name}}</view>
-          <view class="recipe-desc">{{item.description}}</view>
-        </view>
+        <view class="theme-count-badge">{{isLoggedIn ? favorites.length : 'GUEST'}}</view>
       </view>
+      <view class="hero-foot">
+        <view class="theme-status-pill" wx:if="{{isLoggedIn}}">已登录，可同步管理收藏</view>
+        <view class="theme-status-pill" wx:else>登录后可查看并同步收藏</view>
+      </view>
+    </view>
 
-      <!-- 中：左热量，右侧箭头（保持不变）+ 删除按钮 -->
-      <view class="card-middle">
-        <view class="calorie-row">
-          <view class="calorie-badge">
-            <text class="calorie-icon">🔥</text>
-            <text class="calorie-value">{{item.calorie_display}}</text>
+    <view class="theme-loading" wx:if="{{isLoading}}">
+      <view class="theme-loading-icon"></view>
+      <text class="theme-loading-text">正在整理你的收藏菜谱...</text>
+    </view>
+
+    <view class="favorites-list" wx:if="{{favorites.length > 0 && !isLoading}}">
+      <block wx:for="{{favorites}}" wx:key="favoriteId">
+        <view class="favorite-card" bindtap="viewRecipe" data-recipe="{{item}}">
+          <view class="favorite-index">0{{index + 1}}</view>
+
+          <view class="favorite-main">
+            <view class="favorite-top">
+              <view class="record-thumb">
+                <image wx:if="{{item.image_full_url}}" class="thumb" src="{{item.image_full_url}}" mode="aspectFill" lazy-load binderror="onThumbError" data-index="{{index}}" data-url="{{item.image_full_url}}" />
+                <text wx:else class="thumb-placeholder">锅</text>
+              </view>
+
+              <view class="favorite-copy">
+                <text class="favorite-name">{{item.name}}</text>
+                <text class="favorite-desc">{{item.description}}</text>
+              </view>
+            </view>
+
+            <view class="favorite-bottom">
+              <view class="calorie-badge">
+                <text class="calorie-kicker">热量</text>
+                <text class="calorie-value">{{item.calorie_display}}</text>
+              </view>
+
+              <view class="favorite-tags">
+                <view class="tag" wx:for="{{item.tags}}" wx:for-item="tag" wx:key="idx">{{tag}}</view>
+              </view>
+            </view>
+          </view>
+
+          <view class="favorite-actions">
+            <view class="favorite-delete" catchtap="removeFavorite" data-id="{{item.favoriteId}}">删</view>
+            <text class="favorite-arrow">></text>
           </view>
         </view>
-        <view class="recipe-actions">
-          <view class="recipe-arrow">></view>
-        </view>
-      </view>
+      </block>
+    </view>
 
-      <!-- 下：标签（样式不动） -->
-      <view class="card-bottom">
-        <view class="recipe-tags">
-          <view class="tag" wx:for="{{item.tags}}" wx:for-item="tag" wx:key="idx">{{tag}}</view>
-        </view>
-      </view>
+    <view class="empty-state" wx:if="{{favorites.length === 0 && !isLoading && isLoggedIn}}">
+      <view class="empty-icon">藏</view>
+      <text class="empty-title">还没有收藏的菜谱</text>
+      <text class="empty-desc">去首页生成几道顺手又想复做的菜，把它们慢慢收进你的厨房柜子里。</text>
+      <button class="btn-primary empty-button" bindtap="goToHome">去生成菜谱</button>
+    </view>
+
+    <view class="empty-state" wx:if="{{!isLoggedIn && !isLoading}}">
+      <view class="empty-icon">登录</view>
+      <text class="empty-title">登录后才能查看收藏</text>
+      <text class="empty-desc">同步你的收藏菜谱、历史记录和个人偏好，换设备也不会丢。</text>
+      <button class="btn-primary empty-button" bindtap="showLoginModal">微信一键登录</button>
     </view>
   </view>
-  </view>
-
-  <!-- 空状态 -->
-  <view class="empty-state" wx:if="{{favorites.length === 0 && !isLoading && isLoggedIn}}">
-    <view class="empty-icon">❤️</view>
-    <view class="empty-title">还没有收藏的菜谱</view>
-    <view class="empty-desc">去首页生成一些美味的菜谱吧</view>
-    <button class="btn-primary" bindtap="goToHome">去生成菜谱</button>
-  </view>
-
-  <!-- 未登录状态 -->
-  <view class="empty-state" wx:if="{{!isLoggedIn && !isLoading}}">
-    <view class="empty-icon">🔐</view>
-    <view class="empty-title">需要登录</view>
-    <view class="empty-desc">登录后才能查看和管理收藏</view>
-    <button class="btn-primary" bindtap="showLoginModal">微信一键登录</button>
-  </view>
-
-  
-</view> 
+</view>

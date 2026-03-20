@@ -1,203 +1,239 @@
 <view class="page">
-  <!-- 头部标题 -->
-  <view class="header">
-    <view class="title">健康饮食助手（AI版）</view>
-    <view class="subtitle">让AI为您生成美味菜谱</view>
-    <!-- 用户限制信息 -->
-    <view class="user-limits" wx:if="{{isLoggedIn && userLimits}}">
-      <text class="limits-text">今日剩余: {{userLimits.daily_generation_limit - userLimits.daily_generation_count}}/{{userLimits.daily_generation_limit}} 次 | 收藏: {{userLimits.total_favorites_count}}/{{userLimits.total_favorites_limit}}</text>
-    </view>
-    <view class="user-limits" wx:if="{{!isLoggedIn}}">
-      <text class="limits-text">请登录后使用</text>
+  <view class="ambient ambient-top"></view>
+  <view class="ambient ambient-side"></view>
+
+  <view class="hero-shell">
+    <view class="hero-card">
+      <view class="hero-topline">
+        <text class="hero-label">KITCHEN NOTE</text>
+        <view class="hero-status {{isLoggedIn ? 'hero-status-online' : 'hero-status-offline'}}">
+          {{isLoggedIn ? '已登录' : '游客模式'}}
+        </view>
+      </view>
+
+      <view class="hero-copy">
+        <text class="hero-title">今天吃点什么？</text>
+        <text class="hero-subtitle">从食材、菜系到做法，组合一份更懂你口味的 AI 菜谱。</text>
+      </view>
+
+      <view class="hero-limit-card">
+        <view class="hero-limit-main">
+          <text class="hero-limit-label">{{isLoggedIn ? '今日可生成' : '登录后解锁额度与收藏'}}</text>
+          <text class="hero-limit-value" wx:if="{{isLoggedIn && userLimits}}">{{remainingGenerationCount}}</text>
+          <text class="hero-limit-value hero-limit-value-muted" wx:else>READY</text>
+        </view>
+        <text class="hero-limit-tip" wx:if="{{isLoggedIn && userLimits}}">
+          收藏 {{userLimits.total_favorites_count}} / {{userLimits.total_favorites_limit}}
+        </text>
+        <text class="hero-limit-tip" wx:else>保存偏好、同步历史、随时继续做饭</text>
+      </view>
+
+      <view class="hero-stats">
+        <view class="hero-stat">
+          <text class="hero-stat-label">已选食材</text>
+          <text class="hero-stat-value">{{selectedIngredientNames.length}}</text>
+        </view>
+        <view class="hero-stat">
+          <text class="hero-stat-label">已设风格</text>
+          <text class="hero-stat-value">{{selectedMetaCount}}</text>
+        </view>
+        <view class="hero-stat">
+          <text class="hero-stat-label">最近记录</text>
+          <text class="hero-stat-value">{{recentRecipes.length}}</text>
+        </view>
+      </view>
+
+      <view class="scene-header">
+        <text class="scene-title">灵感捷径</text>
+        <text class="scene-desc">先套一个氛围，再微调细节</text>
+      </view>
+
+      <view class="scene-grid">
+        <block wx:for="{{quickScenes}}" wx:key="key">
+          <view class="scene-card {{activePresetKey === item.key ? 'scene-card-active' : ''}}" bindtap="onApplyPreset" data-key="{{item.key}}">
+            <text class="scene-kicker">{{item.kicker}}</text>
+            <text class="scene-name">{{item.label}}</text>
+            <text class="scene-note">{{item.desc}}</text>
+          </view>
+        </block>
+      </view>
     </view>
   </view>
 
-  <!-- 主内容整体卡片（圆角上沿） -->
-  <view class="main-sheet">
-  <!-- 顶部标签页 -->
-  <view class="tabs">
-    <view class="tab-item {{activeTab === 0 ? 'active' : ''}}" bindtap="onTabChange" data-index="0">食材</view>
-    <view class="tab-item {{activeTab === 1 ? 'active' : ''}}" bindtap="onTabChange" data-index="1">菜品类型</view>
-    <view class="tab-item {{activeTab === 2 ? 'active' : ''}}" bindtap="onTabChange" data-index="2">菜系风格</view>
-    <view class="tab-item {{activeTab === 3 ? 'active' : ''}}" bindtap="onTabChange" data-index="3">烹饪方式</view>
-  </view>
+  <view class="workspace">
+    <view class="section-intro">
+      <text class="section-kicker">COOKBOOK BUILDER</text>
+      <view class="section-title-row">
+        <text class="section-title">定制今日菜谱</text>
+        <view class="selection-count">{{selectionCount}} 项偏好</view>
+      </view>
+      <text class="section-desc">不需要一次想全。先挑一个方向，AI 会把剩下的搭配完整。</text>
+    </view>
 
-  <!-- 选择区域卡片 -->
-  <view class="card">
-    <view class="card-content">
-      <!-- 食材多选，横向tab切换大类 -->
-      <view wx:if="{{activeTab === 0}}">
-        <view class="form-label">选择食材（可不选，随机生成菜谱）</view>
-        <view class="ingredient-tabs">
+    <view class="tab-grid">
+      <block wx:for="{{tabOptions}}" wx:key="key">
+        <view class="tab-card {{activeTab === index ? 'tab-card-active' : ''}}" bindtap="onTabChange" data-index="{{index}}">
+          <text class="tab-order">0{{index + 1}}</text>
+          <text class="tab-name">{{item.label}}</text>
+          <text class="tab-desc">{{item.desc}}</text>
+        </view>
+      </block>
+    </view>
+
+    <view class="selector-card">
+      <view class="selector-card-header">
+        <text class="selector-kicker">{{tabOptions[activeTab].eyebrow}}</text>
+        <text class="selector-title">{{tabOptions[activeTab].panelTitle}}</text>
+        <text class="selector-note">{{tabOptions[activeTab].note}}</text>
+      </view>
+
+      <view class="selector-panel" wx:if="{{activeTab === 0}}">
+        <scroll-view class="ingredient-tabs" scroll-x="true" enable-flex="true" show-scrollbar="false">
           <block wx:for="{{ingredientCategoryTabs}}" wx:key="index">
-            <view class="ingredient-tab {{activeIngredientCategoryTab == index ? 'active' : ''}}"
-                  data-index="{{index}}"
-                  bindtap="onIngredientCategoryTabChange">
+            <view class="ingredient-tab {{activeIngredientCategoryTab === index ? 'ingredient-tab-active' : ''}}" data-index="{{index}}" bindtap="onIngredientCategoryTabChange">
               {{item}}
             </view>
           </block>
-        </view>
-        <view class="category-group">
-          <view class="category-title">{{categorizedIngredients[activeIngredientCategoryTab].categoryName}}</view>
-          <view class="multi-select-list">
+        </scroll-view>
+
+        <view class="category-block" wx:if="{{categorizedIngredients.length}}">
+          <view class="category-head">
+            <text class="category-title">{{categorizedIngredients[activeIngredientCategoryTab].categoryName}}</text>
+            <text class="category-count">{{selectedIngredientNames.length}} 已选</text>
+          </view>
+          <view class="chip-grid">
             <block wx:for="{{categorizedIngredients[activeIngredientCategoryTab].ingredients}}" wx:key="name">
-              <view class="multi-select-item {{item.selected ? 'selected' : ''}}"
-                    bindtap="onIngredientTagTap"
-                    data-category-index="{{activeIngredientCategoryTab}}"
-                    data-ingredient-index="{{index}}">
+              <view class="select-chip {{item.selected ? 'select-chip-active' : ''}}" bindtap="onIngredientTagTap" data-category-index="{{activeIngredientCategoryTab}}" data-ingredient-index="{{index}}">
                 {{item.name}}
               </view>
             </block>
-            <view class="add-custom-btn" bindtap="onShowAddCustomInput" data-type="ingredient">+ 新增</view>
-          </view>
-        </view>
-        <!-- 自定义食材输入框弹窗 -->
-        <view wx:if="{{showAddCustomInput && addCustomType === 'ingredient'}}" class="add-custom-modal">
-          <view class="add-custom-modal-content">
-            <input class="add-custom-input" placeholder="请输入自定义食材" value="{{addCustomValue}}" bindinput="onAddCustomInput" />
-            <button class="add-custom-confirm" bindtap="onAddCustomConfirm">添加</button>
-            <button class="add-custom-cancel" bindtap="onAddCustomCancel">取消</button>
+            <view class="add-custom-chip" bindtap="onShowAddCustomInput" data-type="ingredient">+ 添加食材</view>
           </view>
         </view>
       </view>
-      <!-- 新增：大类单选 -->
-      <view wx:if="{{activeTab === 1}}">
-        <view class="form-label">选择大类（可不选）</view>
-        <view class="single-select-list">
+
+      <view class="selector-panel" wx:if="{{activeTab === 1}}">
+        <view class="chip-grid">
           <block wx:for="{{dishTypeNames}}" wx:key="index">
-            <view class="single-select-item {{selectedDishTypeIndex === index ? 'selected' : ''}}"
-                  bindtap="onDishTypeTagTap"
-                  data-index="{{index}}">
+            <view class="select-chip select-chip-meta {{selectedDishTypeIndex === index ? 'select-chip-active' : ''}}" bindtap="onDishTypeTagTap" data-index="{{index}}">
               {{item}}
             </view>
           </block>
-          <view class="add-custom-btn" bindtap="onShowAddCustomInput" data-type="dishType">+ 新增</view>
-        </view>
-        <!-- 自定义类型输入框弹窗 -->
-        <view wx:if="{{showAddCustomInput && addCustomType === 'dishType'}}" class="add-custom-modal">
-          <view class="add-custom-modal-content">
-            <input class="add-custom-input" placeholder="请输入自定义类型" value="{{addCustomValue}}" bindinput="onAddCustomInput" />
-            <button class="add-custom-confirm" bindtap="onAddCustomConfirm">添加</button>
-            <button class="add-custom-cancel" bindtap="onAddCustomCancel">取消</button>
-          </view>
+          <view class="add-custom-chip" bindtap="onShowAddCustomInput" data-type="dishType">+ 添加类型</view>
         </view>
       </view>
-      <!-- 菜系/种类单选 -->
-      <view wx:if="{{activeTab === 2}}">
-        <view class="form-label">选择菜系（可不选，默认为家常菜）</view>
-        <view class="single-select-list">
+
+      <view class="selector-panel" wx:if="{{activeTab === 2}}">
+        <view class="chip-grid">
           <block wx:for="{{typeNames}}" wx:key="index">
-            <view class="single-select-item {{selectedTypeIndex === index ? 'selected' : ''}}"
-                  bindtap="onTypeTagTap"
-                  data-index="{{index}}">
+            <view class="select-chip select-chip-meta {{selectedTypeIndex === index ? 'select-chip-active' : ''}}" bindtap="onTypeTagTap" data-index="{{index}}">
               {{item}}
             </view>
           </block>
-          <view class="add-custom-btn" bindtap="onShowAddCustomInput" data-type="type">+ 新增</view>
-        </view>
-        <!-- 自定义菜系输入框弹窗 -->
-        <view wx:if="{{showAddCustomInput && addCustomType === 'type'}}" class="add-custom-modal">
-          <view class="add-custom-modal-content">
-            <input class="add-custom-input" placeholder="请输入自定义菜系" value="{{addCustomValue}}" bindinput="onAddCustomInput" />
-            <button class="add-custom-confirm" bindtap="onAddCustomConfirm">添加</button>
-            <button class="add-custom-cancel" bindtap="onAddCustomCancel">取消</button>
-          </view>
+          <view class="add-custom-chip" bindtap="onShowAddCustomInput" data-type="type">+ 添加菜系</view>
         </view>
       </view>
-      <!-- 烹饪方式单选 -->
-      <view wx:if="{{activeTab === 3}}">
-        <view class="form-label">选择烹饪方式（可不选）</view>
-        <view class="single-select-list">
+
+      <view class="selector-panel" wx:if="{{activeTab === 3}}">
+        <view class="chip-grid">
           <block wx:for="{{methodNames}}" wx:key="index">
-            <view class="single-select-item {{selectedMethodIndex === index ? 'selected' : ''}}"
-                  bindtap="onMethodTagTap"
-                  data-index="{{index}}">
+            <view class="select-chip select-chip-meta {{selectedMethodIndex === index ? 'select-chip-active' : ''}}" bindtap="onMethodTagTap" data-index="{{index}}">
               {{item}}
             </view>
           </block>
-          <view class="add-custom-btn" bindtap="onShowAddCustomInput" data-type="method">+ 新增</view>
-        </view>
-        <!-- 自定义方式输入框弹窗 -->
-        <view wx:if="{{showAddCustomInput && addCustomType === 'method'}}" class="add-custom-modal">
-          <view class="add-custom-modal-content">
-            <input class="add-custom-input" placeholder="请输入自定义方式" value="{{addCustomValue}}" bindinput="onAddCustomInput" />
-            <button class="add-custom-confirm" bindtap="onAddCustomConfirm">添加</button>
-            <button class="add-custom-cancel" bindtap="onAddCustomCancel">取消</button>
-          </view>
+          <view class="add-custom-chip" bindtap="onShowAddCustomInput" data-type="method">+ 添加做法</view>
         </view>
       </view>
     </view>
-  </view>
 
-  <!-- 已选内容展示 -->
-  <view wx:if="{{selectedIngredientNames.length > 0 || selectedDishTypeName || selectedTypeName || selectedMethodName}}" class="selected-ingredients-bar">
-    <scroll-view scroll-x="true" class="selected-ingredients-list">
-      <block wx:if="{{selectedIngredientNames.length > 0}}">
-        <view class="selected-ingredients-label">已选食材：</view>
-        <block wx:for="{{selectedIngredientNames}}" wx:key="name">
-          <view class="selected-ingredient-tag">{{item}}</view>
+    <view class="selection-board" wx:if="{{selectedSummaryItems.length > 0}}">
+      <view class="selection-board-header">
+        <view class="selection-board-copy">
+          <text class="selection-board-kicker">FLAVOR BASKET</text>
+          <text class="selection-board-title">你已经锁定了这些偏好</text>
+        </view>
+        <view class="selection-reset" bindtap="onClearAllSelections">清空</view>
+      </view>
+      <view class="summary-chip-grid">
+        <block wx:for="{{selectedSummaryItems}}" wx:key="id">
+          <view class="summary-chip {{item.kind === 'ingredient' ? 'summary-chip-ingredient' : 'summary-chip-meta'}}">
+            <text class="summary-chip-prefix" wx:if="{{item.prefix}}">{{item.prefix}}</text>
+            <text class="summary-chip-text">{{item.label}}</text>
+          </view>
         </block>
-      </block>
-      <block wx:if="{{selectedDishTypeName}}">
-        <view class="selected-ingredients-label">类型：</view>
-        <view class="selected-ingredient-tag">{{selectedDishTypeName}}</view>
-      </block>
-      <block wx:if="{{selectedTypeName}}">
-        <view class="selected-ingredients-label">菜系：</view>
-        <view class="selected-ingredient-tag">{{selectedTypeName}}</view>
-      </block>
-      <block wx:if="{{selectedMethodName}}">
-        <view class="selected-ingredients-label">方式：</view>
-        <view class="selected-ingredient-tag">{{selectedMethodName}}</view>
-      </block>
-    </scroll-view>
-    <view class="clear-selected-btn" bindtap="onClearAllSelections">🗑️</view>
-  </view>
+      </view>
+    </view>
 
-  <!-- 功能按钮区域 -->
-  <view class="function-buttons">
-    <button class="btn-primary big" bindtap="onGenerateRecipe" wx:if="{{isLoggedIn}}">
-      {{isLoading ? '生成中...' : '生成菜谱'}}
-    </button>
-    <button class="btn-primary big" bindtap="onGenerateRecipe" wx:if="{{!isLoggedIn}}">
-      登录后生成菜谱
-    </button>
-   <!-- <button class="btn-secondary" bindtap="onGoToFoodNutrition">
-      🍎 食物营养
-    </button>-->
-  </view>
+    <view class="cta-card">
+      <view class="cta-copy">
+        <text class="cta-kicker">AI COOK MODE</text>
+        <text class="cta-title" wx:if="{{selectedIngredientNames.length > 0}}">你的食材组合已经准备好了</text>
+        <text class="cta-title" wx:else>没选食材也能开始，AI 会帮你随机搭配</text>
+        <text class="cta-desc" wx:if="{{isLoggedIn}}">生成后会进入菜谱详情，并自动记录到最近历史。</text>
+        <text class="cta-desc" wx:else>登录后可以查看额度、收藏菜谱，并保留你的历史记录。</text>
+      </view>
 
-  <!-- 加载状态 -->
-  <view class="loading" wx:if="{{isLoading}}">
-    <view class="loading-icon"></view>
-    <view class="loading-text">AI正在为您生成菜谱...</view>
-  </view>
+      <button class="generate-button" bindtap="onGenerateRecipe" disabled="{{isLoading}}">
+        <text wx:if="{{isLoading}}">正在生成菜谱...</text>
+        <text wx:elif="{{isLoggedIn}}">立即生成今日菜谱</text>
+        <text wx:else>登录后生成菜谱</text>
+      </button>
+    </view>
 
-  <!-- 最近生成的菜谱 -->
-  <view class="card" wx:if="{{recentRecipes.length > 0}}">
-    <view class="card-title">最近生成</view>
-    <view class="card-content">
-      <view 
-        wx:for="{{recentRecipes}}" 
-        wx:key="index"
-        class="recipe-item"
-        bindtap="viewRecipe"
-        data-recipe="{{item}}"
-      >
-        <view class="recent-delete" catchtap="deleteRecent" data-index="{{index}}">🗑️</view>
-        <view class="recipe-info">
-          <view class="recipe-name">
-            {{item.name}}
-            <text class="fav-badge" wx:if="{{item.isFavorited}}">已收藏</text>
-          </view>
-          <view class="recipe-desc">{{item.description}}</view>
-          <view class="recipe-tags">
-            <view class="tag" wx:for="{{item.tags}}" wx:key="tagIndex">{{item}}</view>
-          </view>
+    <view class="loading-panel" wx:if="{{isLoading}}">
+      <view class="loading-icon"></view>
+      <text class="loading-text">AI 正在整理口味搭配和步骤，请稍候...</text>
+    </view>
+
+    <view class="history-card">
+      <view class="history-header">
+        <view class="history-copy">
+          <text class="history-kicker">RECENT NOTES</text>
+          <text class="history-title">最近厨房笔记</text>
         </view>
-        <view class="recipe-arrow">></view>
+        <view class="history-count">{{recentRecipes.length}} 条</view>
+      </view>
+
+      <view wx:if="{{recentRecipes.length > 0}}">
+        <block wx:for="{{recentRecipes}}" wx:key="id">
+          <view class="history-item" bindtap="viewRecipe" data-recipe="{{item}}">
+            <view class="history-index">0{{index + 1}}</view>
+            <view class="history-main">
+              <view class="history-name-row">
+                <text class="history-name">{{item.name}}</text>
+                <text class="history-fav" wx:if="{{item.isFavorited}}">已收藏</text>
+              </view>
+              <text class="history-desc">{{item.description}}</text>
+              <view class="history-tags" wx:if="{{item.tags && item.tags.length > 0}}">
+                <block wx:for="{{item.tags}}" wx:key="index">
+                  <text class="history-tag">{{item}}</text>
+                </block>
+              </view>
+            </view>
+            <view class="history-actions">
+              <view class="history-delete" catchtap="deleteRecent" data-index="{{index}}">删</view>
+              <text class="history-arrow">></text>
+            </view>
+          </view>
+        </block>
+      </view>
+
+      <view class="history-empty" wx:else>
+        <text class="history-empty-title">还没有生成记录</text>
+        <text class="history-empty-desc">试试先应用一个灵感捷径，再生成你的第一道今日菜谱。</text>
       </view>
     </view>
   </view>
+
+  <view wx:if="{{showAddCustomInput}}" class="add-custom-modal" bindtap="onAddCustomCancel">
+    <view class="add-custom-modal-content" catchtap="onModalContentTap">
+      <text class="add-custom-modal-title">{{customInputTitle}}</text>
+      <text class="add-custom-modal-desc">把你今天特别想吃的内容加进候选列表。</text>
+      <input class="add-custom-input" placeholder="{{customInputPlaceholder}}" value="{{addCustomValue}}" bindinput="onAddCustomInput" bindconfirm="onAddCustomConfirm" confirm-type="done" />
+      <view class="add-custom-actions">
+        <button class="add-custom-cancel" bindtap="onAddCustomCancel">取消</button>
+        <button class="add-custom-confirm" bindtap="onAddCustomConfirm">添加</button>
+      </view>
+    </view>
   </view>
-</view> 
+</view>

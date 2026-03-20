@@ -1,92 +1,118 @@
-<!-- pages/profile/profile.wxml -->
-<view class="container">
+<view class="theme-page profile-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
 
-  <!-- 顶部信息卡（可点击） -->
-  <view class="top-card" bindtap="goEdit">
-    <view class="top-card__upper">
-      <image class="avatar" src="{{localAvatar || '/images/profile.png'}}" mode="aspectFill"></image>
-      <view class="namebox {{ (isLoggedIn && userInfo && userInfo.phone) ? '' : 'namebox--single' }}">
-        <text class="nickname">
-          {{ !isLoggedIn ? '未登录' : (userInfo.nickname || '微信用户') }}
-        </text>
-        <text class="uid" wx:if="{{isLoggedIn && userInfo && userInfo.phone}}">
-          {{ userInfo.phone }}
-        </text>
+  <view class="theme-shell theme-shell--tab">
+    <view class="profile-hero" bindtap="goEdit">
+      <text class="theme-kicker">MY KITCHEN PROFILE</text>
+
+      <view class="profile-top">
+        <image class="profile-avatar" src="{{localAvatar || '/images/profile.png'}}" mode="aspectFill"></image>
+        <view class="profile-copy">
+          <text class="profile-name">{{ !isLoggedIn ? '未登录' : (userInfo.nickname || '微信用户') }}</text>
+          <text class="profile-sub">{{ isLoggedIn && userInfo && userInfo.phone ? userInfo.phone : '完善资料后可获得更准确的饮食建议' }}</text>
+        </view>
+        <view class="profile-edit-pill">{{isLoggedIn ? '编辑' : '登录'}}</view>
+      </view>
+
+      <view class="profile-metrics">
+        <view class="profile-metric">
+          <text class="profile-metric-label">体重</text>
+          <text class="profile-metric-value">{{ userInfo.weight_kg || '--' }}<text class="profile-unit">kg</text></text>
+        </view>
+        <view class="profile-metric">
+          <text class="profile-metric-label">BMI</text>
+          <text class="profile-metric-value">{{ bmi || '--' }}</text>
+        </view>
+        <view class="profile-metric">
+          <text class="profile-metric-label">BMR</text>
+          <text class="profile-metric-value">{{ bmr || '--' }}<text class="profile-unit">kcal</text></text>
+        </view>
       </view>
     </view>
 
-    <!-- 分割线 -->
-    <view class="split-line">
-      <view class="split-dot"></view>
-      <view class="split-hr"></view>
-      <view class="split-dot"></view>
+    <view class="grid-cards">
+      <view class="grid-card grid-card-mint" hover-class="grid-card-hover" bindtap="goEdit">
+        <image class="grid-bg" src="/images/profile/card-basic.png" mode="aspectFit"></image>
+        <view class="grid-mask"></view>
+        <view class="grid-content">
+          <view class="grid-topline">
+            <text class="grid-kicker">PROFILE</text>
+            <text class="grid-chip">{{isLoggedIn ? '可编辑' : '去登录'}}</text>
+          </view>
+
+          <view class="grid-footer">
+            <view class="grid-copy">
+              <text class="grid-title">基础信息</text>
+              <text class="grid-desc">头像、昵称和身体数据</text>
+            </view>
+            <text class="grid-arrow">></text>
+          </view>
+        </view>
+      </view>
+
+      <view class="grid-card grid-card-gold" hover-class="grid-card-hover" bindtap="goFavorites">
+        <image class="grid-bg" src="/images/profile/card-fav.png" mode="aspectFit"></image>
+        <view class="grid-mask"></view>
+        <view class="grid-content">
+          <view class="grid-topline">
+            <text class="grid-kicker">FAVORITES</text>
+            <text class="grid-chip">快捷入口</text>
+          </view>
+
+          <view class="grid-footer">
+            <view class="grid-copy">
+              <text class="grid-title">收藏菜谱</text>
+              <text class="grid-desc">回看常做菜，继续完善你的菜单</text>
+            </view>
+            <text class="grid-arrow">></text>
+          </view>
+        </view>
+      </view>
     </view>
 
-    <view class="top-card__lower">
-      <view class="metric">
-        <text class="metric-label">体重</text>
-        <text class="metric-value">{{ userInfo.weight_kg || '--' }}<text class="unit">kg</text></text>
+    <view class="menu-card">
+      <text class="theme-inline-title">SETTINGS</text>
+      <text class="theme-section-title menu-title">设置服务</text>
+
+      <view class="menu-list">
+        <view class="menu-item" bindtap="goHelp">
+          <image class="menu-icon" src="/images/profile/help-color.png" mode="widthFix"></image>
+          <text class="menu-text">帮助反馈</text>
+          <text class="menu-arrow">></text>
+        </view>
+
+        <view class="menu-item" bindtap="goAbout">
+          <image class="menu-icon" src="/images/profile/about-color.png" mode="widthFix"></image>
+          <text class="menu-text">关于我们</text>
+          <text class="menu-arrow">></text>
+        </view>
+
+        <view class="menu-item" bindtap="handleLogout" wx:if="{{isLoggedIn}}">
+          <image class="menu-icon" src="/images/profile/logout-color.png" mode="widthFix"></image>
+          <text class="menu-text">Logout</text>
+          <text class="menu-arrow">></text>
+        </view>
       </view>
-      <view class="metric">
-        <text class="metric-label">BMI</text>
-        <text class="metric-value">{{ bmi || '--' }}</text>
-      </view>
-      <view class="metric">
-        <text class="metric-label">BMR</text>
-        <text class="metric-value">{{ bmr || '--' }}<text class="unit">kcal/天</text></text>
+    </view>
+
+    <view class="menu-card tool-card">
+      <text class="theme-inline-title">DEBUG TOOLS</text>
+      <text class="theme-section-title menu-title">调试工具</text>
+
+      <view class="menu-list">
+        <view class="menu-item" bindtap="testNetworkConnection">
+          <image class="menu-icon" src="/images/profile/help-color.png" mode="widthFix"></image>
+          <text class="menu-text">网络连接测试</text>
+          <text class="menu-arrow">></text>
+        </view>
+
+        <view class="menu-item" bindtap="testWxLogin">
+          <image class="menu-icon" src="/images/profile/help-color.png" mode="widthFix"></image>
+          <text class="menu-text">登录流程测试</text>
+          <text class="menu-arrow">></text>
+        </view>
       </view>
     </view>
   </view>
-
-
-
-  <!-- 功能卡片宫格（图片风格） -->
-  <view class="grid-cards">
-    <view class="grid-card" hover-class="grid-card--hover" bindtap="goEdit">
-      <image class="grid-bg" src="/images/profile/card-basic.png" mode="aspectFill"></image>
-      <view class="grid-mask"></view>
-      <view class="grid-title">基本信息</view>
-    </view>
-
-    <view class="grid-card" hover-class="grid-card--hover" bindtap="goFavorites">
-      <image class="grid-bg" src="/images/profile/card-fav.png" mode="aspectFill"></image>
-      <view class="grid-mask"></view>
-      <view class="grid-title">收藏的菜谱</view>
-    </view>
-  </view>
-
-  <!-- 设置列表 -->
-  <view class="menu-list">
-    <view class="menu-item" bindtap="goHelp">
-      <image class="menu-icon" src="/images/profile/help-color.png" mode="widthFix"></image>
-      <text class="menu-text">帮助与反馈</text>
-      <text class="arrow">›</text>
-    </view>
-
-    <view class="menu-item" bindtap="goAbout">
-      <image class="menu-icon" src="/images/profile/about-color.png" mode="widthFix"></image>
-      <text class="menu-text">关于我们</text>
-      <text class="arrow">›</text>
-    </view>
-
-    <!-- 调试工具 -->
-    <view class="menu-item" bindtap="testNetworkConnection">
-      <image class="menu-icon" src="/images/profile/help-color.png" mode="widthFix"></image>
-      <text class="menu-text">网络连接测试</text>
-      <text class="arrow">›</text>
-    </view>
-
-    <view class="menu-item" bindtap="testWxLogin">
-      <image class="menu-icon" src="/images/profile/help-color.png" mode="widthFix"></image>
-      <text class="menu-text">登录流程测试</text>
-      <text class="arrow">›</text>
-    </view>
-
-     <view class="menu-item" bindtap="handleLogout" wx:if="{{isLoggedIn}}">
-       <image class="menu-icon" src="/images/profile/logout-color.png" mode="widthFix"></image>
-       <text class="menu-text">退出登录</text>
-       <text class="arrow">›</text>
-     </view>
-  </view>
-
 </view>

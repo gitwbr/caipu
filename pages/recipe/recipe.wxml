@@ -1,147 +1,137 @@
-<view class="page">
-  <!-- 菜谱头部 -->
-  <view class="recipe-header">
-    <view class="recipe-title">{{recipe.name}}</view>
-    <view class="recipe-desc">{{recipe.description}}</view>
-    <view class="recipe-tags">
-      <view class="tag" wx:for="{{recipe.tags}}" wx:key="index">{{item}}</view>
-    </view>
-  </view>
+<view class="theme-page recipe-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
 
-  <!-- 主内容整体卡片（结构与首页一致：紧贴头部、上圆角） -->
-  <view class="recipe-main-sheet">
+  <view class="theme-shell theme-shell--detail recipe-shell {{isFavorite ? 'recipe-shell--with-actions' : ''}}">
+    <view class="recipe-hero">
+      <text class="theme-kicker">AI RECIPE NOTE</text>
+      <text class="theme-hero-title">{{recipe.name}}</text>
+      <text class="theme-hero-desc">{{recipe.description}}</text>
 
-  <!-- 收藏按钮 -->
-  <view class="favorite-btn {{isFavorite ? 'favorited' : ''}}" bindtap="toggleFavorite">
-    <view class="favorite-icon">
-      {{isFavorite ? '❤️' : '🤍'}}
-    </view>
-    <text class="favorite-text">{{isFavorite ? '已收藏' : '收藏'}}</text>
-  </view>
+      <view class="recipe-tags">
+        <view class="recipe-hero-tag" wx:for="{{recipe.tags}}" wx:key="index">{{item}}</view>
+      </view>
 
-  <!-- 菜谱图片（样式参考记录页：右侧相机/缩略图） -->
-  <view class="card" wx:if="{{isFavorite}}">
-    <view class="form-item image-inline">
-      <text class="label">菜谱图片</text>
-      <view class="camera-slot">
-        <view wx:if="{{!(imagePath || recipe.image_url)}}" class="camera-btn" bindtap="chooseRecipeImage">
-          <text class="camera-icon">📷</text>
-        </view>
-        <view wx:else class="thumb-wrap">
-          <image class="thumb" src="{{imagePath || recipe.image_full_url}}" mode="aspectFill" lazy-load binderror="onRecipeImgError" />
-          <view class="remove-thumb" bindtap="removeRecipeImage">−</view>
+      <view class="recipe-toolbar">
+        <view class="favorite-pill {{isFavorite ? 'favorite-pill-active' : ''}}" bindtap="toggleFavorite">
+          <text class="favorite-pill-icon">{{isFavorite ? '藏' : '收'}}</text>
+          <text class="favorite-pill-text">{{isFavorite ? '已收藏' : '收藏菜谱'}}</text>
         </view>
       </view>
     </view>
-  </view>
 
-  <!-- 收藏后可选择记录时间（显示规则同“更新”按钮：仅收藏后显示） -->
-  <view class="card" wx:if="{{isFavorite}}">
-    <view class="form-item image-inline">
-      <text class="label">记录时间</text>
-      <view class="camera-slot">
-        <picker mode="time" value="{{recordTime}}" bindchange="onTimeChange">
-          <view class="picker-content">
-            <text class="picker-value">{{recordTime}}</text>
-            <text class="picker-arrow">></text>
+    <view class="card utility-card" wx:if="{{isFavorite}}">
+      <text class="theme-inline-title">SAVE SETTINGS</text>
+      <text class="theme-section-title utility-title">收藏后补充资料</text>
+
+      <view class="utility-row">
+        <text class="utility-label">菜谱图片</text>
+        <view class="utility-control">
+          <view wx:if="{{!(imagePath || recipe.image_full_url)}}" class="camera-btn" bindtap="chooseRecipeImage">
+            <text class="camera-btn-icon">上传</text>
           </view>
-        </picker>
-      </view>
-    </view>
-  </view>
-
-  <!-- 营养信息 -->
-  <view class="card">
-    <view class="card-title">营养信息</view>
-    <view class="nutrition-grid">
-      <view class="nutrition-item">
-        <view class="nutrition-value">{{recipe.nutrition.calories}}</view>
-        <view class="nutrition-label">热量(千卡)</view>
-      </view>
-      <view class="nutrition-item">
-        <view class="nutrition-value">{{recipe.nutrition.protein}}</view>
-        <view class="nutrition-label">蛋白质(g)</view>
-      </view>
-      <view class="nutrition-item">
-        <view class="nutrition-value">{{recipe.nutrition.fat}}</view>
-        <view class="nutrition-label">脂肪(g)</view>
-      </view>
-      <view class="nutrition-item">
-        <view class="nutrition-value">{{recipe.nutrition.carbs}}</view>
-        <view class="nutrition-label">碳水化合物(g)</view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 食材清单 -->
-  <view class="card">
-    <view class="card-title">食材清单（可修改用量）</view>
-    <view class="ingredients-list">
-      <view 
-        wx:for="{{recipe.ingredients}}" 
-        wx:key="index"
-        class="ingredient-item-card"
-      >
-        <view class="ingredient-main">
-          <view class="ingredient-name">{{item.name}}</view>
-          <view class="ingredient-input-group">
-            <input 
-              type="number" 
-              value="{{item.weight}}"
-              data-index="{{index}}"
-              bindinput="updateIngredientWeight"
-              class="weight-input"
-            />
-            <text class="unit-text">{{item.unitNormalized || 'g'}}</text>
+          <view wx:else class="thumb-wrap">
+            <image class="thumb" src="{{imagePath || recipe.image_full_url}}" mode="aspectFill" lazy-load binderror="onRecipeImgError" />
+            <view class="remove-thumb" bindtap="removeRecipeImage">删</view>
           </view>
         </view>
-        <view class="ingredient-nutrition-grid">
-          <view class="nutrition-cell">
-            <view class="nutrition-value-small">{{item.nutritionInfo.calories}}</view>
-            <view class="nutrition-label-small">热量(千卡)</view>
+      </view>
+
+      <view class="utility-divider"></view>
+
+      <view class="utility-row">
+        <text class="utility-label">记录时间</text>
+        <view class="utility-control">
+          <picker mode="time" value="{{recordTime}}" bindchange="onTimeChange">
+            <view class="picker-chip">
+              <text class="picker-value">{{recordTime}}</text>
+              <text class="picker-arrow">></text>
+            </view>
+          </picker>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <text class="theme-inline-title">NUTRITION</text>
+      <text class="theme-section-title utility-title">营养信息</text>
+      <view class="nutrition-grid">
+        <view class="nutrition-item">
+          <view class="nutrition-value">{{recipe.nutrition.calories}}</view>
+          <view class="nutrition-label">热量(千卡)</view>
+        </view>
+        <view class="nutrition-item">
+          <view class="nutrition-value">{{recipe.nutrition.protein}}</view>
+          <view class="nutrition-label">蛋白质(g)</view>
+        </view>
+        <view class="nutrition-item">
+          <view class="nutrition-value">{{recipe.nutrition.fat}}</view>
+          <view class="nutrition-label">脂肪(g)</view>
+        </view>
+        <view class="nutrition-item">
+          <view class="nutrition-value">{{recipe.nutrition.carbs}}</view>
+          <view class="nutrition-label">碳水化合物(g)</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <text class="theme-inline-title">INGREDIENTS</text>
+      <text class="theme-section-title utility-title">食材清单</text>
+      <text class="theme-section-desc">这里可以直接微调用量，营养信息会跟着重新计算。</text>
+
+      <view class="ingredients-list">
+        <view wx:for="{{recipe.ingredients}}" wx:key="index" class="ingredient-item-card">
+          <view class="ingredient-top">
+            <text class="ingredient-title">{{item.name}}</text>
+            <view class="ingredient-input-group">
+              <input type="number" value="{{item.weight}}" data-index="{{index}}" bindinput="updateIngredientWeight" class="weight-input" />
+              <text class="unit-text">{{item.unitNormalized || 'g'}}</text>
+            </view>
           </view>
-          <view class="nutrition-cell">
-            <view class="nutrition-value-small">{{item.nutritionInfo.protein}}</view>
-            <view class="nutrition-label-small">蛋白质(g)</view>
-          </view>
-          <view class="nutrition-cell">
-            <view class="nutrition-value-small">{{item.nutritionInfo.fat}}</view>
-            <view class="nutrition-label-small">脂肪(g)</view>
-          </view>
-          <view class="nutrition-cell">
-            <view class="nutrition-value-small">{{item.nutritionInfo.carbohydrates || item.nutritionInfo.carbs}}</view>
-            <view class="nutrition-label-small">碳水(g)</view>
+
+          <view class="ingredient-nutrition-grid">
+            <view class="nutrition-cell">
+              <view class="nutrition-value-small">{{item.nutritionInfo.calories}}</view>
+              <view class="nutrition-label-small">热量</view>
+            </view>
+            <view class="nutrition-cell">
+              <view class="nutrition-value-small">{{item.nutritionInfo.protein}}</view>
+              <view class="nutrition-label-small">蛋白质</view>
+            </view>
+            <view class="nutrition-cell">
+              <view class="nutrition-value-small">{{item.nutritionInfo.fat}}</view>
+              <view class="nutrition-label-small">脂肪</view>
+            </view>
+            <view class="nutrition-cell">
+              <view class="nutrition-value-small">{{item.nutritionInfo.carbohydrates || item.nutritionInfo.carbs}}</view>
+              <view class="nutrition-label-small">碳水</view>
+            </view>
           </view>
         </view>
       </view>
     </view>
-  </view>
 
-  <!-- 制作步骤 -->
-  <view class="card">
-    <view class="card-title">制作步骤</view>
-    <view class="steps-list">
-      <view 
-        wx:for="{{recipe.steps}}" 
-        wx:key="index"
-        class="step-item"
-      >
-        <view class="step-number">{{index + 1}}</view>
-        <view class="step-content">{{item}}</view>
+    <view class="card">
+      <text class="theme-inline-title">METHOD</text>
+      <text class="theme-section-title utility-title">制作步骤</text>
+      <view class="steps-list">
+        <view wx:for="{{recipe.steps}}" wx:key="index" class="step-item">
+          <view class="step-number">{{index + 1}}</view>
+          <view class="step-content">{{item}}</view>
+        </view>
       </view>
     </view>
-  </view>
 
-  <!-- 烹饪技巧 -->
-  <view class="card" wx:if="{{recipe.tips}}">
-    <view class="card-title">烹饪技巧</view>
-    <view class="tips-content">{{recipe.tips}}</view>
-  </view>
+    <view class="card" wx:if="{{recipe.tips}}">
+      <text class="theme-inline-title">TIPS</text>
+      <text class="theme-section-title utility-title">烹饪技巧</text>
+      <view class="tips-content">{{recipe.tips}}</view>
+    </view>
 
-  <!-- 悬浮操作按钮（底部左右固定） -->
-  <view class="floating-actions">
-    <button class="float-btn right btn-primary" wx:if="{{isFavorite}}" bindtap="updateFavoriteRecipe">更新</button>
-    <button class="float-btn left btn-secondary" wx:if="{{isFavorite}}" bindtap="recordRecipeToDiet">记录</button>
+    <view class="sticky-actions" wx:if="{{isFavorite}}">
+      <button class="btn-secondary sticky-btn sticky-btn-left" bindtap="recordRecipeToDiet">记录到饮食</button>
+      <button class="btn-primary sticky-btn sticky-btn-right" bindtap="updateFavoriteRecipe">更新改动</button>
+    </view>
   </view>
-  </view>
-</view> 
+</view>

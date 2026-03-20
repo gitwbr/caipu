@@ -1,15 +1,42 @@
-<view class="container">
-  <view class="list">
-    <block wx:for="{{records}}" wx:key="id">
-      <view class="row" data-id="{{item.id}}" bindtap="onItemTap">
-        <text class="time">{{item.display_date}} {{item.display_time}}</text>
-        <text class="weight">{{item.display_weight}} 公斤</text>
+<view class="theme-page weight-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
+
+  <view class="theme-shell theme-shell--detail">
+    <view class="theme-hero-card">
+      <text class="theme-kicker">WEIGHT JOURNAL</text>
+      <text class="theme-hero-title">体重记录</text>
+      <text class="theme-hero-desc">持续记录更容易看到变化趋势，也能让饮食建议更贴合你的当前状态。</text>
+    </view>
+
+    <view class="theme-surface list-card">
+      <view class="list-head">
+        <text class="theme-section-title">历史记录</text>
+        <view class="theme-count-badge theme-count-badge--warm">{{records.length}}</view>
       </view>
-    </block>
-    <view class="empty" wx:if="{{records.length === 0}}">暂无记录</view>
+
+      <view wx:if="{{records.length > 0}}">
+        <block wx:for="{{records}}" wx:key="id">
+          <view class="weight-row" data-id="{{item.id}}" bindtap="onItemTap">
+            <view class="weight-row-copy">
+              <text class="weight-row-date">{{item.display_date}}</text>
+              <text class="weight-row-time">{{item.display_time}}</text>
+            </view>
+            <view class="weight-row-value">
+              <text class="weight-row-number">{{item.display_weight}}</text>
+              <text class="weight-row-unit">kg</text>
+            </view>
+          </view>
+        </block>
+      </view>
+
+      <view class="empty-state list-empty" wx:else>
+        <view class="empty-icon">秤</view>
+        <text class="empty-title">还没有体重记录</text>
+        <text class="empty-desc">先记下一次当前体重，后面就能持续看到变化趋势。</text>
+      </view>
+    </view>
+
+    <button class="btn-primary add-btn" bindtap="onAddTap">新增体重记录</button>
   </view>
-
-  <view class="add-btn" bindtap="onAddTap">记录</view>
 </view>
-
-

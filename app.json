@@ -19,15 +19,16 @@
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#fff",
+    "navigationBarBackgroundColor": "#f4eadb",
     "navigationBarTitleText": "健康饮食助手（AI版）",
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
-    "color": "#7A7E83",
-    "selectedColor": "#3cc51f",
-    "borderStyle": "black",
-    "backgroundColor": "#ffffff",
+    "custom": true,
+    "color": "#7a6c60",
+    "selectedColor": "#1f3b34",
+    "borderStyle": "white",
+    "backgroundColor": "#f8f4ee",
     "list": [
       {
         "pagePath": "pages/index/index",

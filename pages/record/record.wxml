@@ -1,72 +1,102 @@
-<!--pages/record/record.wxml-->
-<view class="container">
-  <view class="cards-container">
-    <!-- 饮食运动记录卡片 -->
-    <view class="card diet-exercise-card" bindtap="onTapRecordArea">
-      <view class="card-header">
-        <text class="card-title">饮食运动记录</text>
-        <!--<text class="card-status">今日未记录</text>-->
-      </view>
-      
-      <view class="calorie-summary">
-        <view class="remaining-calories">
-          <text class="remaining-value">{{remainingCalories}}</text>
-          <text class="remaining-label">还可摄入(千卡)</text>
+<view class="theme-page record-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
+
+  <view class="theme-shell theme-shell--tab">
+    <view class="theme-hero-card">
+      <text class="theme-kicker">DAILY DASHBOARD</text>
+      <text class="theme-hero-title">今日记录</text>
+      <text class="theme-hero-desc">把饮食、运动和体重放在一个面板里，日常跟踪会轻松很多。</text>
+
+      <view class="hero-metrics">
+        <view class="hero-metric">
+          <text class="hero-metric-label">今日剩余</text>
+          <text class="hero-metric-value">{{remainingCalories}}</text>
         </view>
-        <view class="intake-boxes">
-          <view class="intake-box diet">
-            <text class="intake-value">{{consumedCalories}}</text>
-            <text class="intake-label">饮食</text>
-          </view>
-          <view class="intake-box exercise">
-            <text class="intake-value">{{exerciseCalories}}</text>
-            <text class="intake-label">运动</text>
-          </view>
+        <view class="hero-metric">
+          <text class="hero-metric-label">饮食摄入</text>
+          <text class="hero-metric-value">{{consumedCalories}}</text>
+        </view>
+        <view class="hero-metric">
+          <text class="hero-metric-label">运动消耗</text>
+          <text class="hero-metric-value">{{exerciseCalories}}</text>
         </view>
       </view>
-      
-      <view class="record-buttons">
-        <view class="record-btn diet-btn" bindtap="addRecord" catchtap="addRecord">
-          <view class="btn-icon">🍽️</view>
-          <text class="btn-text">记录饮食</text>
-        </view>
-        <view class="record-btn exercise-btn" bindtap="addExercise" catchtap="addExercise">
-          <view class="btn-icon">🏃</view>
-          <text class="btn-text">记录运动</text>
-        </view>
-      </view>
-      
-      <view class="card-arrow">></view>
     </view>
 
-    <!-- 体重记录卡片 -->
-    <view class="card weight-card">
-      <view class="weight-header">
-        <text class="weight-title">体重记录</text>
-        <view class="weight-action" bindtap="goWeightList">记录</view>
+    <view class="dashboard-card" bindtap="onTapRecordArea">
+      <text class="theme-inline-title">RECORD CENTER</text>
+      <view class="section-head">
+        <text class="theme-section-title">饮食与运动记录</text>
+        <text class="section-link">查看详情 ></text>
       </view>
-      <view class="weight-content">
+      <text class="theme-section-desc">从这里快速补今天吃了什么、运动了多久，卡路里会自动汇总。</text>
+
+      <view class="summary-strip">
+        <view class="summary-main">
+          <text class="summary-main-label">还可摄入</text>
+          <text class="summary-main-value">{{remainingCalories}}</text>
+          <text class="summary-main-unit">千卡</text>
+        </view>
+        <view class="summary-side">
+          <view class="summary-chip summary-chip-diet">
+            <text class="summary-chip-label">饮食</text>
+            <text class="summary-chip-value">{{consumedCalories}}</text>
+          </view>
+          <view class="summary-chip summary-chip-exercise">
+            <text class="summary-chip-label">运动</text>
+            <text class="summary-chip-value">{{exerciseCalories}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="action-row">
+        <view class="action-card" catchtap="addRecord">
+          <text class="action-icon">食</text>
+          <text class="action-title">记录饮食</text>
+          <text class="action-desc">添加今天吃过的食物和菜谱</text>
+        </view>
+        <view class="action-card action-card-accent" catchtap="addExercise">
+          <text class="action-icon">动</text>
+          <text class="action-title">记录运动</text>
+          <text class="action-desc">补充跑步、步行或训练消耗</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="weight-card">
+      <view class="section-head">
+        <view>
+          <text class="theme-inline-title">WEIGHT TRACKER</text>
+          <text class="theme-section-title weight-title">体重记录</text>
+        </view>
+        <view class="weight-action" bindtap="goWeightList">查看</view>
+      </view>
+
+      <view class="weight-panel">
         <view class="weight-item">
           <text class="weight-label">初始</text>
-          <text class="weight-value">{{initialWeight}} kg</text>
+          <text class="weight-value">{{initialWeight}}</text>
+          <text class="weight-unit">kg</text>
         </view>
-        <view class="weight-center">
-          <view class="weight-progress">
-            <text class="progress-label">已减去(公斤)</text>
-            <text class="progress-value">{{weightLost}} kg</text>
-          </view>
-           <!-- <text class="view-plan">查看方案></text>-->
+
+        <view class="weight-progress">
+          <text class="weight-progress-label">累计变化</text>
+          <text class="weight-progress-value">{{weightLost}}</text>
+          <text class="weight-progress-unit">kg</text>
         </view>
+
         <view class="weight-item">
           <text class="weight-label">最新</text>
-          <text class="weight-value">{{latestWeight}} kg</text>
+          <text class="weight-value">{{latestWeight}}</text>
+          <text class="weight-unit">kg</text>
         </view>
       </view>
     </view>
-  </view>
 
-  <!-- 加载状态 -->
-  <view class="loading-state" wx:if="{{loading}}">
-    <text class="loading-text">加载中...</text>
+    <view class="theme-loading" wx:if="{{loading}}">
+      <view class="theme-loading-icon"></view>
+      <text class="theme-loading-text">正在刷新今天的记录数据...</text>
+    </view>
   </view>
 </view>

@@ -900,7 +900,7 @@ app.delete('/api/favorites/:id', async (req, res) => {
   }
 });
 
-// PUT /api/favorites/:id 更新收藏（仅更新 recipe_name 与 recipe_data）
+// PUT /api/favorites/:id 更新改动（仅更新 recipe_name 与 recipe_data）
 app.put('/api/favorites/:id', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -947,17 +947,17 @@ app.put('/api/favorites/:id', async (req, res) => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       }
     } catch (delErr) {
-      console.error('更新收藏删除旧图片失败（忽略）:', delErr.message);
+      console.error('更新改动删除旧图片失败（忽略）:', delErr.message);
     }
 
     res.json({ message: '更新成功', favorite: result.rows[0] });
   } catch (error) {
-    console.error('更新收藏出错:', error);
+    console.error('更新改动出错:', error);
     res.status(500).json({ error: '服务器内部错误', message: error.message });
   }
 });
 
-// PUT /api/favorites/recipe/:recipeId 通过 recipe_id 更新收藏（避免收藏记录ID变动问题）
+// PUT /api/favorites/recipe/:recipeId 通过 recipe_id 更新改动（避免收藏记录ID变动问题）
 app.put('/api/favorites/recipe/:recipeId', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -1005,12 +1005,12 @@ app.put('/api/favorites/recipe/:recipeId', async (req, res) => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       }
     } catch (delErr) {
-      console.error('通过recipe_id更新收藏删除旧图片失败（忽略）:', delErr.message);
+      console.error('通过recipe_id更新改动删除旧图片失败（忽略）:', delErr.message);
     }
 
     res.json({ message: '更新成功', favorite: result.rows[0] });
   } catch (error) {
-    console.error('通过recipe_id更新收藏出错:', error);
+    console.error('通过recipe_id更新改动出错:', error);
     res.status(500).json({ error: '服务器内部错误', message: error.message });
   }
 });

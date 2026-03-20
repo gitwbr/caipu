@@ -1,15 +1,109 @@
 const app = getApp()
 
+const TAB_OPTIONS = [
+  {
+    key: 'ingredients',
+    label: '食材',
+    desc: '先把今天想处理的食材挑出来',
+    eyebrow: 'INGREDIENTS',
+    panelTitle: '先定主角食材',
+    note: '支持多选，越贴近冰箱现状，结果越实用'
+  },
+  {
+    key: 'dishType',
+    label: '菜品类型',
+    desc: '先决定是炒菜、汤还是小吃',
+    eyebrow: 'DISH TYPE',
+    panelTitle: '给这道菜一个类型',
+    note: '适合先定餐桌氛围，再补食材'
+  },
+  {
+    key: 'cuisine',
+    label: '菜系风格',
+    desc: '让成品更偏家常、川味或轻食',
+    eyebrow: 'CUISINE',
+    panelTitle: '锁定味型方向',
+    note: '不选也可以，系统默认按家常菜生成'
+  },
+  {
+    key: 'method',
+    label: '烹饪方式',
+    desc: '决定它更像一份清蒸、红烧或凉拌',
+    eyebrow: 'METHOD',
+    panelTitle: '补上做法偏好',
+    note: '当你已经想好做法时，这一步最省时间'
+  }
+]
+
+const QUICK_SCENES = [
+  {
+    key: 'weekday-fast',
+    kicker: '快',
+    label: '家常快手',
+    desc: '炒菜 + 家常菜',
+    dishTypeIndex: 0,
+    typeIndex: 0,
+    methodIndex: 4
+  },
+  {
+    key: 'fit-light',
+    kicker: '轻',
+    label: '轻盈健身',
+    desc: '炒菜 + 健身餐 + 清蒸',
+    dishTypeIndex: 0,
+    typeIndex: 1,
+    methodIndex: 1
+  },
+  {
+    key: 'warm-soup',
+    kicker: '汤',
+    label: '暖胃热汤',
+    desc: '汤 + 家常菜 + 炖',
+    dishTypeIndex: 1,
+    typeIndex: 0,
+    methodIndex: 2
+  },
+  {
+    key: 'weekend-snack',
+    kicker: '馋',
+    label: '周末解馋',
+    desc: '小吃 + 家常菜 + 烤',
+    dishTypeIndex: 4,
+    typeIndex: 0,
+    methodIndex: 5
+  }
+]
+
+const CUSTOM_INPUT_CONFIG = {
+  ingredient: {
+    title: '添加自定义食材',
+    placeholder: '请输入自定义食材'
+  },
+  dishType: {
+    title: '添加菜品类型',
+    placeholder: '请输入自定义类型'
+  },
+  type: {
+    title: '添加菜系风格',
+    placeholder: '请输入自定义菜系'
+  },
+  method: {
+    title: '添加烹饪方式',
+    placeholder: '请输入自定义方式'
+  }
+}
+
 Page({
   data: {
     isLoading: false,
-    // ingredientList and ingredientNames are deprecated
-    categorizedIngredients: [], // New categorized data structure
+    categorizedIngredients: [],
     typeNames: [],
     methodNames: [],
     dishTypeNames: [],
     recentRecipes: [],
-    activeTab: 0, 
+    tabOptions: TAB_OPTIONS,
+    quickScenes: QUICK_SCENES,
+    activeTab: 0,
     selectedIngredientNames: [],
     selectedTypeIndex: null,
     selectedTypeName: '',
@@ -17,73 +111,79 @@ Page({
     selectedMethodName: '',
     selectedDishTypeIndex: null,
     selectedDishTypeName: '',
+    selectedSummaryItems: [],
+    selectionCount: 0,
+    selectedMetaCount: 0,
     ingredientCategoryTabs: ['肉类蛋类', '水产海鲜', '蔬菜菌菇', '豆制品', '主食'],
     activeIngredientCategoryTab: 0,
+    activePresetKey: '',
     showAddCustomInput: false,
-    addCustomType: '', // ingredient/dishType/type/method
+    addCustomType: '',
     addCustomValue: '',
-    // 用户限制信息
+    customInputTitle: '添加自定义选项',
+    customInputPlaceholder: '请输入内容',
     userLimits: null,
-    isLoggedIn: false,
+    remainingGenerationCount: null,
+    isLoggedIn: false
   },
 
   onLoad() {
-    this.initOptions();
-    this.loadRecentRecipes();
+    this.generateRequestLocked = false
+    this.initOptions()
+    this.loadRecentRecipes()
+    this.updateLoginStatus()
   },
 
   onShow() {
-    this.loadRecentRecipes();
-    this.updateLoginStatus();
+    app.syncTabBar(this)
+    this.loadRecentRecipes()
+    this.updateLoginStatus()
   },
 
-  // 更新登录状态和限制信息
+  applyUserLimits(limits) {
+    if (!limits) {
+      return
+    }
+
+    const remainingGenerationCount = Math.max(
+      Number(limits.daily_generation_limit || 0) - Number(limits.daily_generation_count || 0),
+      0
+    )
+
+    this.setData({
+      userLimits: limits,
+      remainingGenerationCount
+    })
+  },
+
   updateLoginStatus() {
-    const app = getApp();
-    const isLoggedIn = app.globalData.isLoggedIn;
-    
-    this.setData({ isLoggedIn });
-    
+    const currentApp = getApp()
+    const isLoggedIn = currentApp.globalData.isLoggedIn
+
+    this.setData({
+      isLoggedIn,
+      remainingGenerationCount: null
+    })
+
     if (isLoggedIn) {
-      // 如果已登录，获取最新的限制信息
-      app.checkUserLimits().then((limits) => {
-        this.setData({ userLimits: limits });
-        wx.setStorageSync('userLimits', limits);
+      currentApp.checkUserLimits().then((limits) => {
+        this.applyUserLimits(limits)
       }).catch((error) => {
-        console.error('获取用户限制失败:', error);
-        // 如果获取失败，尝试使用本地缓存
-        const cachedLimits = wx.getStorageSync('userLimits');
+        console.error('获取用户限制失败:', error)
+        const cachedLimits = wx.getStorageSync('userLimits')
         if (cachedLimits) {
-          this.setData({ userLimits: cachedLimits });
+          this.applyUserLimits(cachedLimits)
         }
-      });
+      })
     } else {
-      // 如果未登录，清除限制信息
-      this.setData({ userLimits: null });
-      wx.removeStorageSync('userLimits');
+      this.setData({
+        userLimits: null,
+        remainingGenerationCount: null
+      })
+      wx.removeStorageSync('userLimits')
     }
   },
 
-  // 初始化数据
-  initData() {
-    const ingredients = app.globalData.ingredients.map(item => ({
-      ...item,
-      selected: false,
-      weight: 100
-    }));
-    
-    const categories = [...new Set(ingredients.map(item => item.category))];
-    const cuisineTypes = app.globalData.cuisineTypes;
-
-    this.setData({
-      ingredients,
-      filteredIngredients: ingredients,
-      categories,
-      cuisineTypes
-    });
-  },
-
-  // 初始化选项
   initOptions() {
     const categorizedIngredients = [
       {
@@ -125,426 +225,409 @@ Page({
           { name: '饺子', selected: false }, { name: '馒头', selected: false }
         ]
       }
-    ];
-    const dishTypeNames = ['炒菜', '汤', '凉菜', '主食', '小吃'];
-    const typeNames = ["家常菜", "健身餐", "儿童营养餐", "川菜", "粤菜", "鲁菜", "苏菜", "浙菜", "闽菜", "湘菜", "徽菜", "东北菜", "西北菜", "日式料理", "韩式料理", "西餐", "东南亚风味"];
-    const methodNames = ["红烧", "清蒸", "炖", "煎", "炒", "烤", "凉拌"];
+    ]
+    const dishTypeNames = ['炒菜', '汤', '凉菜', '主食', '小吃']
+    const typeNames = ['家常菜', '健身餐', '儿童营养餐', '川菜', '粤菜', '鲁菜', '苏菜', '浙菜', '闽菜', '湘菜', '徽菜', '东北菜', '西北菜', '日式料理', '韩式料理', '西餐', '东南亚风味']
+    const methodNames = ['红烧', '清蒸', '炖', '煎', '炒', '烤', '凉拌']
+
     this.setData({
       categorizedIngredients,
       dishTypeNames,
       typeNames,
       methodNames,
       selectedIngredientNames: []
-    });
+    }, () => {
+      this.refreshSelectionSummary()
+    })
   },
 
-  // tab切换
+  buildSelectedSummaryItems(state) {
+    const ingredientItems = state.selectedIngredientNames.map((name, index) => ({
+      id: `ingredient-${index}-${name}`,
+      label: name,
+      prefix: '',
+      kind: 'ingredient'
+    }))
+    const metaItems = []
+
+    if (state.selectedDishTypeName) {
+      metaItems.push({
+        id: 'dishType',
+        label: state.selectedDishTypeName,
+        prefix: '类型',
+        kind: 'meta'
+      })
+    }
+
+    if (state.selectedTypeName) {
+      metaItems.push({
+        id: 'type',
+        label: state.selectedTypeName,
+        prefix: '菜系',
+        kind: 'meta'
+      })
+    }
+
+    if (state.selectedMethodName) {
+      metaItems.push({
+        id: 'method',
+        label: state.selectedMethodName,
+        prefix: '做法',
+        kind: 'meta'
+      })
+    }
+
+    return ingredientItems.concat(metaItems)
+  },
+
+  refreshSelectionSummary(extraState = {}) {
+    const snapshot = { ...this.data, ...extraState }
+    const selectedSummaryItems = this.buildSelectedSummaryItems(snapshot)
+    const matchedPreset = QUICK_SCENES.find((scene) =>
+      snapshot.selectedDishTypeIndex === scene.dishTypeIndex &&
+      snapshot.selectedTypeIndex === scene.typeIndex &&
+      snapshot.selectedMethodIndex === scene.methodIndex
+    )
+
+    this.setData({
+      selectedSummaryItems,
+      selectionCount: selectedSummaryItems.length,
+      selectedMetaCount: [
+        snapshot.selectedDishTypeName,
+        snapshot.selectedTypeName,
+        snapshot.selectedMethodName
+      ].filter(Boolean).length,
+      activePresetKey: matchedPreset ? matchedPreset.key : ''
+    })
+  },
+
   onTabChange(e) {
-    const index = Number(e.currentTarget.dataset.index);
-    this.setData({ activeTab: index });
+    const index = Number(e.currentTarget.dataset.index)
+    this.setData({ activeTab: index })
   },
 
-  // 食材多选标签点击
+  onApplyPreset(e) {
+    const { key } = e.currentTarget.dataset
+    const preset = QUICK_SCENES.find((item) => item.key === key)
+
+    if (!preset) {
+      return
+    }
+
+    const nextData = {
+      activeTab: 0,
+      selectedDishTypeIndex: preset.dishTypeIndex,
+      selectedDishTypeName: this.data.dishTypeNames[preset.dishTypeIndex] || '',
+      selectedTypeIndex: preset.typeIndex,
+      selectedTypeName: this.data.typeNames[preset.typeIndex] || '',
+      selectedMethodIndex: preset.methodIndex,
+      selectedMethodName: this.data.methodNames[preset.methodIndex] || ''
+    }
+
+    this.setData(nextData, () => {
+      this.refreshSelectionSummary()
+      wx.showToast({
+        title: `${preset.label}已应用`,
+        icon: 'none'
+      })
+    })
+  },
+
   onIngredientTagTap(e) {
-    const { categoryIndex, ingredientIndex } = e.currentTarget.dataset;
-    const categorizedIngredients = this.data.categorizedIngredients;
+    const { categoryIndex, ingredientIndex } = e.currentTarget.dataset
+    const categorizedIngredients = this.data.categorizedIngredients
+    const ingredient = categorizedIngredients[categoryIndex].ingredients[ingredientIndex]
 
-    // Toggle selected state
-    const ingredient = categorizedIngredients[categoryIndex].ingredients[ingredientIndex];
-    ingredient.selected = !ingredient.selected;
+    ingredient.selected = !ingredient.selected
 
-    // Flatten to get all selected names
     const selectedNames = categorizedIngredients
-      .flatMap(category => category.ingredients)
-      .filter(ingredient => ingredient.selected)
-      .map(ingredient => ingredient.name);
+      .flatMap((category) => category.ingredients)
+      .filter((selectedIngredient) => selectedIngredient.selected)
+      .map((selectedIngredient) => selectedIngredient.name)
 
     this.setData({
       categorizedIngredients,
       selectedIngredientNames: selectedNames
-    });
-
-    console.log('点击:', ingredient.name, '当前已选:', selectedNames);
+    }, () => {
+      this.refreshSelectionSummary()
+    })
   },
 
-  // 食材单选标签点击
-  onIngredientSingleTagTap(e) {
-    const index = Number(e.currentTarget.dataset.index);
-    this.setData({
-      selectedIngredientIndex: index,
-      selectedIngredientName: this.data.ingredientNames[index]
-    });
-  },
-
-  // 大类单选，支持取消
   onDishTypeTagTap(e) {
-    const index = Number(e.currentTarget.dataset.index);
-    if (this.data.selectedDishTypeIndex === index) {
-      this.setData({
-        selectedDishTypeIndex: null,
-        selectedDishTypeName: ''
-      });
-    } else {
-      this.setData({
-        selectedDishTypeIndex: index,
-        selectedDishTypeName: this.data.dishTypeNames[index]
-      });
+    const index = Number(e.currentTarget.dataset.index)
+    const nextData = this.data.selectedDishTypeIndex === index ? {
+      selectedDishTypeIndex: null,
+      selectedDishTypeName: ''
+    } : {
+      selectedDishTypeIndex: index,
+      selectedDishTypeName: this.data.dishTypeNames[index]
     }
+
+    this.setData(nextData, () => {
+      this.refreshSelectionSummary()
+    })
   },
 
-  // 菜系单选，支持取消
   onTypeTagTap(e) {
-    const index = Number(e.currentTarget.dataset.index);
-    if (this.data.selectedTypeIndex === index) {
-      this.setData({
-        selectedTypeIndex: null,
-        selectedTypeName: ''
-      });
-    } else {
-      this.setData({
-        selectedTypeIndex: index,
-        selectedTypeName: this.data.typeNames[index]
-      });
+    const index = Number(e.currentTarget.dataset.index)
+    const nextData = this.data.selectedTypeIndex === index ? {
+      selectedTypeIndex: null,
+      selectedTypeName: ''
+    } : {
+      selectedTypeIndex: index,
+      selectedTypeName: this.data.typeNames[index]
     }
+
+    this.setData(nextData, () => {
+      this.refreshSelectionSummary()
+    })
   },
 
-  // 烹饪方式单选，支持取消
   onMethodTagTap(e) {
-    const index = Number(e.currentTarget.dataset.index);
-    if (this.data.selectedMethodIndex === index) {
-      this.setData({
-        selectedMethodIndex: null,
-        selectedMethodName: ''
-      });
-    } else {
-      this.setData({
-        selectedMethodIndex: index,
-        selectedMethodName: this.data.methodNames[index]
-      });
+    const index = Number(e.currentTarget.dataset.index)
+    const nextData = this.data.selectedMethodIndex === index ? {
+      selectedMethodIndex: null,
+      selectedMethodName: ''
+    } : {
+      selectedMethodIndex: index,
+      selectedMethodName: this.data.methodNames[index]
     }
+
+    this.setData(nextData, () => {
+      this.refreshSelectionSummary()
+    })
   },
 
-  // 生成按钮逻辑
   onGenerateRecipe() {
-    const { categorizedIngredients, typeNames, methodNames, dishTypeNames, selectedIngredientNames, selectedTypeIndex, selectedTypeName, selectedMethodIndex, selectedMethodName, selectedDishTypeIndex, selectedDishTypeName } = this.data;
-    // 食材
-    let main = '';
-    if (selectedIngredientNames.length > 0) {
-      main = selectedIngredientNames.join('、');
-    } else {
-      const allIngredientNames = categorizedIngredients.flatMap(cat => cat.ingredients.map(ing => ing.name));
-      const randIdx = Math.floor(Math.random() * allIngredientNames.length);
-      main = allIngredientNames[randIdx];
-    }
-    // 菜系/种类
-    let type = '家常菜'; // 默认家常菜
-    if (selectedTypeIndex !== null && selectedTypeIndex !== undefined) {
-      type = selectedTypeName;
-    }
-    // 烹饪方式
-    let method = '';
-    if (selectedMethodIndex !== null && selectedMethodIndex !== undefined) {
-      method = selectedMethodName;
-    }
-    // 新增：大类
-    let dishType = '';
-    if (selectedDishTypeIndex !== null && selectedDishTypeIndex !== undefined) {
-      dishType = selectedDishTypeName;
+    if (this.generateRequestLocked || this.data.isLoading) {
+      return
     }
 
-    const params = { main, type, method, dishType };
-    this.generateRecipeWithParams(params);
+    this.generateRequestLocked = true
+    this.setData({ isLoading: true })
+
+    const params = this.buildGenerateParams()
+    this.generateRecipeWithParams(params).catch((error) => {
+      if (!error || error.message !== '用户取消登录') {
+        console.error('生成菜谱失败:', error)
+      }
+    }).finally(() => {
+      this.generateRequestLocked = false
+      this.setData({ isLoading: false })
+    })
   },
 
-  // 加载最近生成的菜谱
+  buildGenerateParams() {
+    const {
+      categorizedIngredients,
+      selectedIngredientNames,
+      selectedTypeIndex,
+      selectedTypeName,
+      selectedMethodIndex,
+      selectedMethodName,
+      selectedDishTypeIndex,
+      selectedDishTypeName
+    } = this.data
+
+    const main = selectedIngredientNames.length > 0
+      ? selectedIngredientNames.join('、')
+      : this.getRandomIngredientName(categorizedIngredients)
+
+    const type = selectedTypeIndex !== null && selectedTypeIndex !== undefined
+      ? selectedTypeName
+      : '家常菜'
+
+    const method = selectedMethodIndex !== null && selectedMethodIndex !== undefined
+      ? selectedMethodName
+      : ''
+
+    const dishType = selectedDishTypeIndex !== null && selectedDishTypeIndex !== undefined
+      ? selectedDishTypeName
+      : ''
+
+    return { main, type, method, dishType }
+  },
+
+  getRandomIngredientName(categorizedIngredients) {
+    const allIngredientNames = categorizedIngredients.flatMap((category) =>
+      category.ingredients.map((ingredient) => ingredient.name)
+    )
+    const randIdx = Math.floor(Math.random() * allIngredientNames.length)
+    return allIngredientNames[randIdx]
+  },
+
   loadRecentRecipes() {
-    const history = wx.getStorageSync('history') || [];
-    console.log('最近生成的菜谱 history:', history);
-    const take = history.slice(0, 3);
-    const favorites = app.globalData.favorites || [];
-    console.log('[favorites in memory]', favorites);
-    const enriched = take.map(r => ({
-      ...r,
-      isFavorited: (app.isRecipeFavorited ? app.isRecipeFavorited(r.id) : (favorites.some(f => String(f.id) === String(r.id))))
-    }));
-    console.log('[recentRecipes (enriched)]', enriched.map(i => ({ id: i.id, name: i.name, isFavorited: i.isFavorited })));
-    this.setData({ recentRecipes: enriched });
+    const history = wx.getStorageSync('history') || []
+    const take = history.slice(0, 3)
+    const favorites = app.globalData.favorites || []
+    const enriched = take.map((recipe) => ({
+      ...recipe,
+      isFavorited: app.isRecipeFavorited
+        ? app.isRecipeFavorited(recipe.id)
+        : favorites.some((favorite) => String(favorite.id) === String(recipe.id))
+    }))
+
+    this.setData({ recentRecipes: enriched })
   },
 
-  // 删除最近生成的一条
   deleteRecent(e) {
-    const idx = Number(e.currentTarget.dataset.index);
-    const history = wx.getStorageSync('history') || [];
-    // 从原始 history 中删除对应项（匹配 id 优先，退化用索引）
-    const toDelete = this.data.recentRecipes[idx];
-    let newHistory = history;
+    const idx = Number(e.currentTarget.dataset.index)
+    const history = wx.getStorageSync('history') || []
+    const toDelete = this.data.recentRecipes[idx]
+    let newHistory = history
+
     if (toDelete && toDelete.id) {
-      newHistory = history.filter(r => String(r.id) !== String(toDelete.id));
+      newHistory = history.filter((recipe) => String(recipe.id) !== String(toDelete.id))
     } else {
-      newHistory.splice(idx, 1);
+      newHistory.splice(idx, 1)
     }
-    wx.setStorageSync('history', newHistory);
-    // 重新加载最近列表
-    this.loadRecentRecipes();
-    wx.showToast({ title: '已删除', icon: 'success' });
+
+    wx.setStorageSync('history', newHistory)
+    this.loadRecentRecipes()
+    wx.showToast({
+      title: '已删除',
+      icon: 'success'
+    })
   },
 
-  // 随机生成菜谱
-  generateRandomRecipe() {
-    this.generateRecipe('random');
-  },
-
-  // 显示食材选择器
-  showIngredientSelector() {
-    this.setData({
-      showIngredientSelector: true,
-      showCuisineSelector: false
-    });
-  },
-
-  // 显示菜系选择器
-  showCuisineSelector() {
-    this.setData({
-      showCuisineSelector: true,
-      showIngredientSelector: false
-    });
-  },
-
-  // 选择食材分类
-  selectCategory(e) {
-    const category = e.currentTarget.dataset.category;
-    let filteredIngredients = this.data.ingredients;
-    
-    if (category !== 'all') {
-      filteredIngredients = this.data.ingredients.filter(item => item.category === category);
-    }
-    
-    this.setData({
-      selectedCategory: category,
-      filteredIngredients
-    });
-  },
-
-  // 切换食材选择状态
-  toggleIngredient(e) {
-    const index = e.currentTarget.dataset.index;
-    const ingredients = this.data.ingredients;
-    const filteredIngredients = this.data.filteredIngredients;
-    
-    // 更新原始数组
-    ingredients[index].selected = !ingredients[index].selected;
-    
-    // 更新过滤数组
-    const filteredIndex = filteredIngredients.findIndex(item => item.name === ingredients[index].name);
-    if (filteredIndex !== -1) {
-      filteredIngredients[filteredIndex].selected = ingredients[index].selected;
-    }
-    
-    // 更新已选择食材列表
-    const selectedIngredients = ingredients.filter(item => item.selected);
-    
-    this.setData({
-      ingredients,
-      filteredIngredients,
-      selectedIngredients
-    });
-  },
-
-  // 更新食材重量
-  updateIngredientWeight(e) {
-    const index = e.currentTarget.dataset.index;
-    const weight = parseInt(e.detail.value) || 100;
-    const ingredients = this.data.ingredients;
-    const filteredIngredients = this.data.filteredIngredients;
-    
-    // 更新原始数组
-    ingredients[index].weight = weight;
-    
-    // 更新过滤数组
-    const filteredIndex = filteredIngredients.findIndex(item => item.name === ingredients[index].name);
-    if (filteredIndex !== -1) {
-      filteredIngredients[filteredIndex].weight = weight;
-    }
-    
-    // 更新已选择食材列表
-    const selectedIngredients = ingredients.filter(item => item.selected);
-    
-    this.setData({
-      ingredients,
-      filteredIngredients,
-      selectedIngredients
-    });
-  },
-
-  // 选择菜系
-  selectCuisine(e) {
-    const cuisine = e.currentTarget.dataset.cuisine;
-    this.setData({
-      selectedCuisine: cuisine
-    });
-  },
-
-  // 根据食材生成菜谱
-  generateRecipeWithIngredients() {
-    if (this.data.selectedIngredients.length === 0) {
-      wx.showToast({
-        title: '请选择食材',
-        icon: 'none'
-      });
-      return;
-    }
-    const ingredients = this.data.selectedIngredients.map(item => `${item.name}${item.weight}g`).join('、');
-    // 直接调用generateRecipeWithParams
-    this.generateRecipeWithParams({ main: ingredients, type: '家常菜', method: '', dishType: '' });
-  },
-
-  // 根据菜系生成菜谱
-  generateRecipeWithCuisine() {
-    if (!this.data.selectedCuisine) {
-      wx.showToast({
-        title: '请选择菜系',
-        icon: 'none'
-      });
-      return;
-    }
-    // 直接调用generateRecipeWithParams
-    this.generateRecipeWithParams({ main: this.data.selectedCuisine, type: this.data.selectedCuisine, method: '', dishType: '' });
-  },
-
-  // 新的生成菜谱方法
   generateRecipeWithParams(params) {
-    if (this.data.isLoading) {
-      wx.showToast({ title: '正在生成中...', icon: 'none' });
-      return;
-    }
-    const app = getApp();
-    
-    // 检查登录状态
-    app.checkLoginAndShowModal().then(() => {
-      // 检查用户限制
-      return app.checkUserLimits();
+    const currentApp = getApp()
+
+    return currentApp.checkLoginAndShowModal().then(() => {
+      return currentApp.checkUserLimits()
     }).then((limits) => {
-      // 检查是否超过每日生成限制
-      if (limits.daily_generation_count >= limits.daily_generation_limit) {
+      this.applyUserLimits(limits)
+
+      if (Number(limits.daily_generation_count || 0) >= Number(limits.daily_generation_limit || 0)) {
         wx.showModal({
           title: '生成次数已达上限',
           content: `今日已生成 ${limits.daily_generation_count} 次菜谱，每日限制 ${limits.daily_generation_limit} 次。明天再来吧！`,
           showCancel: false
-        });
-        return Promise.reject(new Error('生成次数已达上限'));
+        })
+        return Promise.reject(new Error('生成次数已达上限'))
       }
-      
-      // 显示剩余次数
-      const remaining = limits.daily_generation_limit - limits.daily_generation_count;
-      wx.showToast({
-        title: `今日剩余 ${remaining} 次`,
-        icon: 'none',
-        duration: 2000
-      });
-      
-      // 开始生成菜谱
-      this.setData({ isLoading: true });
-      const randomSeed = Math.floor(Math.random() * 1000000);
-      let prompt = `请用${params.main}为食材，`;
-      if (params.method) {
-        prompt += `采用${params.method}的方式，`;
-      }
-      prompt += `做一道`;
-      if (params.dishType) {
-        prompt += `属于"${params.dishType}"的`;
-      }
-      prompt += `${params.type}。你收到的随机数是：${randomSeed}，请基于它生成不一样的搭配。严格要求：
+
+      const requestData = this.buildRecipeRequestData(params)
+      return this.requestGeneratedRecipe(currentApp, requestData)
+    })
+  },
+
+  buildRecipeRequestData(params) {
+    const randomSeed = Math.floor(Math.random() * 1000000)
+    let prompt = `请用${params.main}为食材，`
+
+    if (params.method) {
+      prompt += `采用${params.method}的方式，`
+    }
+
+    prompt += '做一道'
+
+    if (params.dishType) {
+      prompt += `属于"${params.dishType}"的`
+    }
+
+    prompt += `${params.type}。你收到的随机数是：${randomSeed}，请基于它生成不一样的搭配。严格要求：
 1) ingredients 为数组，数组中“每一项”必须是 { name, amount, nutrition_per_100g }，其中 nutrition_per_100g = { calories, protein, fat, carbohydrates }（单位：千卡/g/g/g，按每100g或每100ml）；
 2) amount 仅允许 g 或 ml（示例："150g"、"200ml"），严禁出现“个/勺/适量/约xxg”等文字；
 3) 顶层对象不要返回 nutrition 或 nutrition_per_100g，只在每个食材项内提供 nutrition_per_100g；
 4) 若某项难以给出，请依据常识合理估算，切勿省略字段；
-5) 仅返回纯 JSON（name/description/ingredients/steps/tips/tags）。`;
-      
-      const requestData = {
-        prompt: prompt,
-        system: '你是一个专业的中国菜谱生成助手，请严格按照JSON格式返回菜谱信息。请以JSON格式返回，包含以下字段:name(菜名), description(描述), ingredients(食材数组，包含name和amount), steps(步骤数组), tips(烹饪技巧), tags(标签数组)。'
-      };
-      
-      console.log('请求数据:', requestData);
-      
-      // 暂时返回，不做任何处理
-      /* this.setData({ isLoading: false });
-      return; */
-      
+5) 仅返回纯 JSON（name/description/ingredients/steps/tips/tags）。`
+
+    return {
+      prompt,
+      system: '你是一个专业的中国菜谱生成助手，请严格按照JSON格式返回菜谱信息。请以JSON格式返回，包含以下字段:name(菜名), description(描述), ingredients(食材数组，包含name和amount), steps(步骤数组), tips(烹饪技巧), tags(标签数组)。'
+    }
+  },
+
+  requestGeneratedRecipe(currentApp, requestData) {
+    return new Promise((resolve, reject) => {
       wx.request({
-        url: app.globalData.serverUrl + '/api/ai',
+        url: currentApp.globalData.serverUrl + '/api/ai',
         method: 'POST',
         header: { 'Content-Type': 'application/json' },
         data: requestData,
         success: (res) => {
-          let content = '';
-          if (res.data && res.data.result && res.data.result.choices && res.data.result.choices[0] && res.data.result.choices[0].message) {
-            content = res.data.result.choices[0].message.content;
-          } else if (res.data && res.data.choices && res.data.choices[0] && res.data.choices[0].message) {
-            content = res.data.choices[0].message.content;
-          } else if (res.data && res.data.result && res.data.result.content) {
-            content = res.data.result.content;
+          if (res.statusCode !== 200) {
+            wx.showToast({
+              title: (res.data && res.data.error) || '生成失败，请重试',
+              icon: 'none'
+            })
+            reject(new Error((res.data && res.data.error) || '生成失败，请重试'))
+            return
           }
-          console.log('API返回内容:', content);
-          try {
-            const recipe = this.parseRecipeResponse(content);
-            if (recipe) {
-              // 增加生成次数
-              app.incrementGenerationCount().then(() => {
-                this.saveToHistory(recipe);
-                wx.navigateTo({
-                  url: `/pages/recipe/recipe?recipe=${encodeURIComponent(JSON.stringify(recipe))}`
-                });
-              }).catch((error) => {
-                console.error('增加生成次数失败:', error);
-                // 即使增加次数失败，也继续显示菜谱
-                this.saveToHistory(recipe);
-                wx.navigateTo({
-                  url: `/pages/recipe/recipe?recipe=${encodeURIComponent(JSON.stringify(recipe))}`
-                });
-              });
-            } else {
-              wx.showToast({
-                title: '生成失败，请重试',
-                icon: 'none'
-              });
-            }
-          } catch (error) {
+
+          const content = this.extractRecipeContent(res)
+          if (!content) {
             wx.showToast({
               title: '生成失败，请重试',
               icon: 'none'
-            });
+            })
+            reject(new Error('生成失败，请重试'))
+            return
           }
+
+          const recipe = this.parseRecipeResponse(content)
+
+          if (!recipe || !recipe.name || !Array.isArray(recipe.steps) || recipe.steps.length === 0) {
+            wx.showToast({
+              title: '生成失败，请重试',
+              icon: 'none'
+            })
+            reject(new Error('生成失败，请重试'))
+            return
+          }
+
+          currentApp.incrementGenerationCount().catch((error) => {
+            console.error('增加生成次数失败:', error)
+          }).finally(() => {
+            this.saveToHistory(recipe)
+            this.navigateToGeneratedRecipe(recipe)
+            resolve(recipe)
+          })
         },
-        fail: (error) => {
+        fail: () => {
           wx.showToast({
             title: '网络错误，请重试',
             icon: 'none'
-          });
-        },
-        complete: () => {
-          this.setData({ isLoading: false });
+          })
+          reject(new Error('网络错误，请重试'))
         }
-      });
-    }).catch((error) => {
-      console.error('生成菜谱失败:', error);
-      this.setData({ isLoading: false });
-      // 错误已经在各个步骤中处理了，这里不需要额外处理
-    });
+      })
+    })
   },
 
-  // 解析AI返回的菜谱数据
+  extractRecipeContent(res) {
+    if (res.data && res.data.result && res.data.result.choices && res.data.result.choices[0] && res.data.result.choices[0].message) {
+      return res.data.result.choices[0].message.content
+    }
+
+    if (res.data && res.data.choices && res.data.choices[0] && res.data.choices[0].message) {
+      return res.data.choices[0].message.content
+    }
+
+    if (res.data && res.data.result && res.data.result.content) {
+      return res.data.result.content
+    }
+
+    return ''
+  },
+
+  navigateToGeneratedRecipe(recipe) {
+    wx.navigateTo({
+      url: `/pages/recipe/recipe?recipe=${encodeURIComponent(JSON.stringify(recipe))}`
+    })
+  },
+
   parseRecipeResponse(content) {
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
-        const recipe = JSON.parse(jsonMatch[0]);
-        // 标准化：为每个食材保留 nutrition_per_100g，仅在详情页按 weight 计算总营养
+        const recipe = JSON.parse(jsonMatch[0])
         if (recipe.ingredients && Array.isArray(recipe.ingredients)) {
-          recipe.ingredients = recipe.ingredients.map(it => ({
-            ...it,
-            nutrition_per_100g: it.nutrition_per_100g || it.nutrition || it.nutritionPer100g || {},
-          }));
+          recipe.ingredients = recipe.ingredients.map((item) => ({
+            ...item,
+            nutrition_per_100g: item.nutrition_per_100g || item.nutrition || item.nutritionPer100g || {}
+          }))
         }
         if (recipe.name && recipe.ingredients && recipe.steps) {
           return {
@@ -559,18 +642,17 @@ Page({
             },
             tags: recipe.tags || [],
             tips: recipe.tips || ''
-          };
+          }
         }
       }
-      return this.parseRecipeText(content);
+      return this.parseRecipeText(content)
     } catch (error) {
-      return this.parseRecipeText(content);
+      return this.parseRecipeText(content)
     }
   },
 
-  // 手动解析菜谱文本
   parseRecipeText(content) {
-    const lines = content.split('\n').filter(line => line.trim());
+    const lines = content.split('\n').filter((line) => line.trim())
     const recipe = {
       id: Date.now().toString(),
       createTime: new Date().toISOString(),
@@ -586,75 +668,62 @@ Page({
       },
       tags: [],
       tips: ''
-    };
-    let currentSection = '';
+    }
+    let currentSection = ''
+
     for (let line of lines) {
-      line = line.trim();
+      line = line.trim()
       if (line.includes('食材') || line.includes('原料')) {
-        currentSection = 'ingredients';
+        currentSection = 'ingredients'
       } else if (line.includes('步骤') || line.includes('做法')) {
-        currentSection = 'steps';
+        currentSection = 'steps'
       } else if (line.includes('营养') || line.includes('热量')) {
-        currentSection = 'nutrition';
+        currentSection = 'nutrition'
       } else if (line.includes('技巧') || line.includes('注意')) {
-        currentSection = 'tips';
+        currentSection = 'tips'
       } else if (line && currentSection === 'ingredients') {
         recipe.ingredients.push({
           name: line.replace(/^\d+\.\s*/, ''),
           amount: '适量'
-        });
+        })
       } else if (line && currentSection === 'steps') {
-        recipe.steps.push(line.replace(/^\d+\.\s*/, ''));
+        recipe.steps.push(line.replace(/^\d+\.\s*/, ''))
       } else if (line && currentSection === 'tips') {
-        recipe.tips += line + '\n';
+        recipe.tips += `${line}\n`
       }
     }
-    return recipe;
+
+    return recipe
   },
 
-  // 保存到历史记录
   saveToHistory(recipe) {
-    const history = wx.getStorageSync('history') || [];
-    history.unshift(recipe);
-    // 只保留最近20个记录
+    const history = wx.getStorageSync('history') || []
+    history.unshift(recipe)
     if (history.length > 20) {
-      history.splice(20);
+      history.splice(20)
     }
-    wx.setStorageSync('history', history);
+    wx.setStorageSync('history', history)
   },
 
-  // 查看菜谱详情
   viewRecipe(e) {
-    const recipe = e.currentTarget.dataset.recipe;
+    const recipe = e.currentTarget.dataset.recipe
     wx.navigateTo({
       url: `/pages/recipe/recipe?recipe=${encodeURIComponent(JSON.stringify(recipe))}`
-    });
+    })
   },
 
   onIngredientCategoryTabChange(e) {
     this.setData({
-      activeIngredientCategoryTab: e.currentTarget.dataset.index
-    });
-  },
-
-  onClearSelectedIngredients() {
-    // 清空所有已选食材
-    const categorizedIngredients = this.data.categorizedIngredients.map(cat => ({
-      ...cat,
-      ingredients: cat.ingredients.map(ing => ({ ...ing, selected: false }))
-    }));
-    this.setData({
-      categorizedIngredients,
-      selectedIngredientNames: []
-    });
+      activeIngredientCategoryTab: Number(e.currentTarget.dataset.index)
+    })
   },
 
   onClearAllSelections() {
-    // 清空所有已选内容
-    const categorizedIngredients = this.data.categorizedIngredients.map(cat => ({
-      ...cat,
-      ingredients: cat.ingredients.map(ing => ({ ...ing, selected: false }))
-    }));
+    const categorizedIngredients = this.data.categorizedIngredients.map((category) => ({
+      ...category,
+      ingredients: category.ingredients.map((ingredient) => ({ ...ingredient, selected: false }))
+    }))
+
     this.setData({
       categorizedIngredients,
       selectedIngredientNames: [],
@@ -664,57 +733,97 @@ Page({
       selectedTypeName: '',
       selectedMethodIndex: null,
       selectedMethodName: ''
-    });
+    }, () => {
+      this.refreshSelectionSummary()
+    })
   },
+
   onShowAddCustomInput(e) {
+    const type = e.currentTarget.dataset.type
+    const config = CUSTOM_INPUT_CONFIG[type] || {
+      title: '添加自定义选项',
+      placeholder: '请输入内容'
+    }
+
     this.setData({
       showAddCustomInput: true,
-      addCustomType: e.currentTarget.dataset.type,
-      addCustomValue: ''
-    });
+      addCustomType: type,
+      addCustomValue: '',
+      customInputTitle: config.title,
+      customInputPlaceholder: config.placeholder
+    })
   },
+
   onAddCustomInput(e) {
-    this.setData({ addCustomValue: e.detail.value });
+    this.setData({
+      addCustomValue: e.detail.value
+    })
   },
+
   onAddCustomConfirm() {
-    const { addCustomType, addCustomValue, categorizedIngredients, activeIngredientCategoryTab, dishTypeNames, typeNames, methodNames } = this.data;
-    if (!addCustomValue.trim()) return;
+    const {
+      addCustomType,
+      addCustomValue,
+      categorizedIngredients,
+      activeIngredientCategoryTab,
+      dishTypeNames,
+      typeNames,
+      methodNames
+    } = this.data
+    const value = addCustomValue.trim()
+
+    if (!value) {
+      wx.showToast({
+        title: '请输入内容',
+        icon: 'none'
+      })
+      return
+    }
+
     if (addCustomType === 'ingredient') {
-      const newIngredients = [...categorizedIngredients];
-      newIngredients[activeIngredientCategoryTab].ingredients.push({ name: addCustomValue.trim(), selected: false });
+      const newIngredients = [...categorizedIngredients]
+      newIngredients[activeIngredientCategoryTab].ingredients.push({
+        name: value,
+        selected: false
+      })
       this.setData({
         categorizedIngredients: newIngredients,
         showAddCustomInput: false,
         addCustomValue: ''
-      });
+      })
     } else if (addCustomType === 'dishType') {
       this.setData({
-        dishTypeNames: [...dishTypeNames, addCustomValue.trim()],
+        dishTypeNames: [...dishTypeNames, value],
         showAddCustomInput: false,
         addCustomValue: ''
-      });
+      })
     } else if (addCustomType === 'type') {
       this.setData({
-        typeNames: [...typeNames, addCustomValue.trim()],
+        typeNames: [...typeNames, value],
         showAddCustomInput: false,
         addCustomValue: ''
-      });
+      })
     } else if (addCustomType === 'method') {
       this.setData({
-        methodNames: [...methodNames, addCustomValue.trim()],
+        methodNames: [...methodNames, value],
         showAddCustomInput: false,
         addCustomValue: ''
-      });
+      })
     }
   },
+
   onAddCustomCancel() {
-    this.setData({ showAddCustomInput: false, addCustomValue: '' });
+    this.setData({
+      showAddCustomInput: false,
+      addCustomValue: ''
+    })
   },
 
-  // 跳转到食物营养页面
+  onModalContentTap() {},
+
   onGoToFoodNutrition() {
     wx.navigateTo({
       url: '/pages/ingredients/ingredients'
-    });
+    })
   }
 })

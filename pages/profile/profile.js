@@ -20,32 +20,20 @@ Page({
   },
 
   onShow: function () {
+    app.syncTabBar(this);
     // 每次页面显示时都刷新用户信息和本地头像，并统一弹出登录框
     const localAvatar = wx.getStorageSync('localAvatar') || '';
     this.setData({ localAvatar });
-    if (!app.globalData.isLoggedIn && typeof app.checkLoginAndShowModal === 'function') {
-      app.checkLoginAndShowModal()
-        .then(() => this.updateLoginStatus())
-        .catch(() => this.updateLoginStatus());
-    } else {
-      this.updateLoginStatus();
-    }
+    this.updateLoginStatus();
   },
 
   // 更新登录状态
   updateLoginStatus() {
     const userInfo = app.globalData.userInfo;
-    
-    console.log('=== 个人资料页面数据更新 ===');
-    console.log('全局用户信息:', userInfo);
-    console.log('登录状态:', app.globalData.isLoggedIn);
-    console.log('BMR值:', userInfo ? userInfo.bmr || 1500 : 1500);
-    
-    // 计算年龄（如果生日存在）
+
     let calculatedAge = null;
     let formattedBirthday = null;
     if (userInfo && userInfo.birthday) {
-      // 格式化生日显示
       formattedBirthday = getApp().toLocalYMD(userInfo.birthday); // 转换为 YYYY-MM-DD 格式
       calculatedAge = this.calculateAge(userInfo.birthday);
     }
@@ -58,8 +46,6 @@ Page({
       formattedBirthday: formattedBirthday,
       bmi: this.calcBMI(userInfo)
     });
-    
-    console.log('页面数据已更新:', this.data);
   },
 
   // 计算 BMI = 体重(kg) / 身高(m)^2
@@ -121,6 +107,22 @@ Page({
 
   // 编辑用户信息
   editUserInfo: function() {
+    if (!this.data.isLoggedIn) {
+      app.checkLoginAndShowModal()
+        .then(() => {
+          this.updateLoginStatus();
+          wx.navigateTo({
+            url: '/pages/profile/edit'
+          });
+        })
+        .catch(() => {});
+      return;
+    }
+    wx.navigateTo({
+      url: '/pages/profile/edit'
+    });
+    return;
+
     console.log('点击编辑按钮');
     
     if (!this.data.isLoggedIn) {
@@ -136,7 +138,7 @@ Page({
   // 顶部卡片点击 → 进入编辑
   goEdit() { this.editUserInfo(); },
   // 收藏
-  goFavorites() { wx.navigateTo({ url: '/pages/favorites/favorites' }); },
+  goFavorites() { wx.switchTab({ url: '/pages/favorites/favorites' }); },
 
   // 网络连接测试
   testNetworkConnection() {

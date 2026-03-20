@@ -1,51 +1,100 @@
-<!--pages/profile/edit.wxml-->
-<view class="edit-container">
-  <view class="edit-avatar-box">
-   <image class="edit-avatar" src="{{avatarPreview || (userInfo && userInfo.avatar_url) || '/images/profile.png'}}" mode="aspectFit" bindtap="chooseAvatar" lazy-load></image>
-    <text class="edit-avatar-tip">点击头像可更换</text>
-  </view>
-  <view class="edit-nickname-box edit-card">
-    <text class="edit-label">昵称：</text>
-    <input class="edit-nickname-input" value="{{nickname}}" placeholder="请输入昵称" bindinput="onNicknameInput" />
-  </view>
-  
-  <!-- 身体信息 -->
-  <view class="edit-body-info edit-card">
-    <text class="edit-section-title">身体信息</text>
-    
-    <view class="edit-form-item">
-      <text class="edit-label">身高 (cm)：</text>
-      <input class="edit-input" type="digit" value="{{height}}" placeholder="请输入身高" bindinput="onHeightInput" />
+<view class="theme-page edit-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
+
+  <view class="theme-shell theme-shell--detail">
+    <view class="theme-hero-card edit-hero">
+      <text class="theme-kicker">PROFILE EDITOR</text>
+      <text class="theme-hero-title">完善个人资料</text>
+      <text class="theme-hero-desc">身高、体重、性别和生日会影响热量建议、BMI 与 BMR 结果</text>
     </view>
-    
-    <view class="edit-form-item">
-      <text class="edit-label">体重 (kg)：</text>
-      <input class="edit-input" type="digit" value="{{weight}}" placeholder="请输入体重" bindinput="onWeightInput" />
+
+    <view class="theme-surface avatar-card">
+      <view class="avatar-frame" bindtap="chooseAvatar">
+        <image class="edit-avatar" src="{{avatarPreview || (userInfo && userInfo.avatar_url) || '/images/profile.png'}}" mode="aspectFill" lazy-load></image>
+        <view class="avatar-badge">头像</view>
+      </view>
+      <view class="avatar-copy">
+        <text class="avatar-title">个人头像</text>
+        <text class="avatar-tip">点击头像即可更换本地头像，保存后会同步展示到我的页面</text>
+      </view>
     </view>
-    
-    <view class="edit-form-item">
-      <text class="edit-label">性别：</text>
-      <picker mode="selector" range="{{['男', '女']}}" value="{{gender === 'male' ? 0 : (gender === 'female' ? 1 : -1)}}" bindchange="onGenderChange">
-        <view class="edit-picker">
-          <text class="picker-text">{{gender === 'male' ? '男' : (gender === 'female' ? '女' : '请选择性别')}}</text>
-          <text class="picker-arrow">›</text>
+
+    <view class="theme-surface form-card">
+      <text class="theme-inline-title">BASIC</text>
+      <text class="theme-section-title form-title">基础信息</text>
+
+      <view class="field-stack">
+        <view class="form-field">
+          <view class="field-head">
+            <text class="form-label">昵称</text>
+            <text class="field-note">公开显示名称</text>
+          </view>
+          <view class="input-shell">
+            <input class="form-input" value="{{nickname}}" placeholder="填写昵称" bindinput="onNicknameInput" />
+          </view>
         </view>
-      </picker>
+      </view>
     </view>
-    
-    <view class="edit-form-item">
-      <text class="edit-label">生日：</text>
-      <picker mode="date" value="{{birthday}}" bindchange="onBirthdayChange">
-        <view class="edit-picker">
-          <text class="picker-text">{{birthday || '请选择生日'}}</text>
-          <text class="picker-arrow">›</text>
+
+    <view class="theme-surface form-card">
+      <text class="theme-inline-title">BODY DATA</text>
+      <text class="theme-section-title form-title">身体信息</text>
+
+      <view class="field-stack">
+        <view class="form-field">
+          <view class="field-head">
+            <text class="form-label">身高</text>
+            <text class="field-note">单位 cm</text>
+          </view>
+          <view class="input-shell">
+            <input class="form-input" type="digit" value="{{height}}" placeholder="填写身高 cm" bindinput="onHeightInput" />
+            <text class="field-unit">cm</text>
+          </view>
         </view>
-      </picker>
+
+        <view class="form-field">
+          <view class="field-head">
+            <text class="form-label">体重</text>
+            <text class="field-note">单位 kg</text>
+          </view>
+          <view class="input-shell">
+            <input class="form-input" type="digit" value="{{weight}}" placeholder="填写体重 kg" bindinput="onWeightInput" />
+            <text class="field-unit">kg</text>
+          </view>
+        </view>
+
+        <view class="form-field">
+          <view class="field-head">
+            <text class="form-label">性别</text>
+            <text class="field-note">影响 BMR 计算</text>
+          </view>
+          <picker mode="selector" range="{{['男', '女']}}" value="{{gender === 'male' ? 0 : (gender === 'female' ? 1 : 0)}}" bindchange="onGenderChange">
+            <view class="form-picker">
+              <text class="picker-text">{{gender === 'male' ? '男' : (gender === 'female' ? '女' : '请选择性别')}}</text>
+              <text class="picker-arrow">></text>
+            </view>
+          </picker>
+        </view>
+
+        <view class="form-field form-field-last">
+          <view class="field-head">
+            <text class="form-label">生日</text>
+            <text class="field-note">用于年龄估算</text>
+          </view>
+          <picker mode="date" value="{{birthday}}" bindchange="onBirthdayChange">
+            <view class="form-picker">
+              <text class="picker-text">{{birthday || '请选择生日'}}</text>
+              <text class="picker-arrow">></text>
+            </view>
+          </picker>
+        </view>
+      </view>
+    </view>
+
+    <view class="save-wrap">
+      <button type="primary" class="btn-primary save-btn" bindtap="saveProfile">保存资料</button>
+      <text class="save-tip">Save to refresh BMI, BMR and home suggestions</text>
     </view>
   </view>
-  
-  <view class="btn-row">
-    <!-- <button type="primary" class="edit-auth-btn" bindtap="getUserProfile">获取微信头像昵称</button> -->
-    <button type="primary" class="edit-save-btn" bindtap="saveProfile">保存</button>
-  </view>
-</view> 
+</view>

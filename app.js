@@ -9,6 +9,13 @@ App({
     isLoggedIn: false,
     userInfo: null,
     token: null,
+    userLimits: null,
+    userLimitsLastUpdate: 0,
+    pendingLoginPromise: null,
+    pendingUserLimitsPromise: null,
+    weightSummary: null,
+    weightSummaryLastUpdate: 0,
+    pendingWeightSummaryPromise: null,
     // 食物营养数据
     foodNutritionData: [],
     foodNutritionLastUpdate: null,
@@ -169,16 +176,43 @@ App({
   },
 
   // ===== 收藏（本地+云端统一接口） =====
+  getRecipeId(recipeOrId) {
+    if (!recipeOrId) return '';
+    if (typeof recipeOrId === 'object') {
+      return recipeOrId.id || recipeOrId.recipe_id || recipeOrId.recipeId || '';
+    }
+    return recipeOrId;
+  },
+
+  normalizeFavoriteRecipe(recipe) {
+    if (!recipe || typeof recipe !== 'object') return recipe;
+    const normalizedId = this.getRecipeId(recipe);
+    if (!normalizedId) return { ...recipe };
+    return {
+      ...recipe,
+      id: normalizedId,
+      recipe_id: recipe.recipe_id || normalizedId
+    };
+  },
+
   loadFavorites() {
     const list = wx.getStorageSync('favorites') || [];
     const last = wx.getStorageSync('favoritesLastUpdate');
-    this.globalData.favorites = Array.isArray(list) ? list : [];
+    const normalized = Array.isArray(list)
+      ? list.map(item => this.normalizeFavoriteRecipe(item))
+      : [];
+    this.globalData.favorites = normalized;
     this.globalData.favoritesLastUpdate = last || null;
+    if (Array.isArray(list) && normalized.length === list.length) {
+      wx.setStorageSync('favorites', normalized);
+    }
     return this.globalData.favorites;
   },
 
   saveFavoritesToLocal(list) {
-    const arr = Array.isArray(list) ? list : [];
+    const arr = Array.isArray(list)
+      ? list.map(item => this.normalizeFavoriteRecipe(item))
+      : [];
     wx.setStorageSync('favorites', arr);
     const ts = new Date().toISOString();
     wx.setStorageSync('favoritesLastUpdate', ts);
@@ -188,10 +222,11 @@ App({
 
   // 本地：根据 recipe_id 查找收藏项（返回 recipe 对象，含 favoriteId）
   findFavoriteByRecipeId(recipeId) {
+    const normalizedRecipeId = this.getRecipeId(recipeId);
     const list = this.globalData.favorites && this.globalData.favorites.length > 0
       ? this.globalData.favorites
       : (wx.getStorageSync('favorites') || []);
-    return list.find(r => String(r.id) === String(recipeId));
+    return list.find(r => String(this.getRecipeId(r)) === String(normalizedRecipeId));
   },
 
   // 本地：判断是否已收藏
@@ -208,7 +243,13 @@ App({
         header: { 'Authorization': 'Bearer ' + this.globalData.token, 'Content-Type': 'application/json' },
         success: (res) => {
           if (res.statusCode === 200) {
-            const arr = (res.data || []).map(item => ({ ...item.recipe_data, favoriteId: item.id, image_url: item.image_url }));
+            const arr = (res.data || []).map(item => this.normalizeFavoriteRecipe({
+              ...(item.recipe_data || {}),
+              id: (item.recipe_data && item.recipe_data.id) || item.recipe_id,
+              recipe_id: item.recipe_id || (item.recipe_data && item.recipe_data.id),
+              favoriteId: item.id,
+              image_url: item.image_url
+            }));
             resolve(arr);
           } else {
             reject(new Error(res.data.error || '获取收藏失败'));
@@ -246,7 +287,7 @@ App({
             // 未收藏则尝试新增
             this.addFavoriteWithSync(recipe).then(resolve).catch(reject);
           } else {
-            reject(new Error(res.data.error || '更新收藏失败'));
+            reject(new Error(res.data.error || '更新改动失败'));
           }
         },
         fail: reject
@@ -647,52 +688,105 @@ App({
     this.globalData.isLoggedIn = false;
     this.globalData.userInfo = null;
     this.globalData.token = null;
+    this.globalData.userLimits = null;
+    this.globalData.userLimitsLastUpdate = 0;
+    this.globalData.pendingLoginPromise = null;
+    this.globalData.pendingUserLimitsPromise = null;
+    this.invalidateWeightSummaryCache();
     wx.removeStorageSync('token');
     wx.removeStorageSync('userInfo');
+    wx.removeStorageSync('userLimits');
   },
 
   // 检查登录状态，如果未登录则弹出登录确认
-  checkLoginAndShowModal() {
-    return new Promise((resolve, reject) => {
-      if (this.globalData.isLoggedIn) {
-        resolve(true);
-        return;
-      }
+  invalidateWeightSummaryCache() {
+    this.globalData.weightSummary = null;
+    this.globalData.weightSummaryLastUpdate = 0;
+    this.globalData.pendingWeightSummaryPromise = null;
+  },
 
+  syncTabBar(page) {
+    if (!page || typeof page.getTabBar !== 'function') {
+      return;
+    }
+
+    wx.nextTick(() => {
+      try {
+        const tabBar = page.getTabBar();
+        if (!tabBar || typeof tabBar.setSelectedByPath !== 'function') {
+          return;
+        }
+
+        const route = page.route || ((getCurrentPages().slice(-1)[0] || {}).route);
+        if (route) {
+          tabBar.setSelectedByPath(route);
+        }
+      } catch (_) {}
+    });
+  },
+
+  checkLoginAndShowModal() {
+    if (this.globalData.isLoggedIn) {
+      return Promise.resolve(true);
+    }
+
+    if (this.globalData.pendingLoginPromise) {
+      return this.globalData.pendingLoginPromise;
+    }
+
+    const loginPromise = new Promise((resolve, reject) => {
       wx.showModal({
         title: '需要登录',
         content: '此功能需要登录后才能使用，是否立即登录？',
         confirmText: '登录',
         cancelText: '取消',
         success: (res) => {
-          if (res.confirm) {
-            // 用户点击登录
-            this.wxLogin().then(() => {
-              resolve(true);
-            }).catch((error) => {
-              wx.showToast({
-                title: '登录失败',
-                icon: 'none'
-              });
-              reject(error);
-            });
-          } else {
-            // 用户取消登录
+          if (!res.confirm) {
             reject(new Error('用户取消登录'));
+            return;
           }
-        }
+
+          this.wxLogin().then(() => {
+            resolve(true);
+          }).catch((error) => {
+            wx.showToast({
+              title: '登录失败',
+              icon: 'none'
+            });
+            reject(error);
+          });
+        },
+        fail: reject
       });
+    }).finally(() => {
+      this.globalData.pendingLoginPromise = null;
     });
+
+    this.globalData.pendingLoginPromise = loginPromise;
+    return loginPromise;
   },
 
   // 检查用户生成限制
-  checkUserLimits() {
-    return new Promise((resolve, reject) => {
-      if (!this.globalData.isLoggedIn) {
-        reject(new Error('用户未登录'));
-        return;
-      }
+  checkUserLimits(forceRefresh = false) {
+    if (!this.globalData.isLoggedIn) {
+      return Promise.reject(new Error('用户未登录'));
+    }
 
+    const now = Date.now();
+    const hasFreshCache =
+      !forceRefresh &&
+      this.globalData.userLimits &&
+      now - this.globalData.userLimitsLastUpdate < 5000;
+
+    if (hasFreshCache) {
+      return Promise.resolve(this.globalData.userLimits);
+    }
+
+    if (this.globalData.pendingUserLimitsPromise) {
+      return this.globalData.pendingUserLimitsPromise;
+    }
+
+    const requestPromise = new Promise((resolve, reject) => {
       wx.request({
         url: this.globalData.serverUrl + '/api/user-limits',
         method: 'GET',
@@ -701,16 +795,25 @@ App({
           'Content-Type': 'application/json'
         },
         success: (res) => {
-          if (res.statusCode === 200) {
-            const limits = res.data;
-            resolve(limits);
-          } else {
+          if (res.statusCode !== 200) {
             reject(new Error(res.data.error || '获取限制信息失败'));
+            return;
           }
+
+          const limits = res.data;
+          this.globalData.userLimits = limits;
+          this.globalData.userLimitsLastUpdate = Date.now();
+          wx.setStorageSync('userLimits', limits);
+          resolve(limits);
         },
         fail: reject
       });
+    }).finally(() => {
+      this.globalData.pendingUserLimitsPromise = null;
     });
+
+    this.globalData.pendingUserLimitsPromise = requestPromise;
+    return requestPromise;
   },
 
   // 增加生成次数
@@ -730,6 +833,20 @@ App({
         },
         success: (res) => {
           if (res.statusCode === 200) {
+            const nextLimits = res.data && res.data.limits
+              ? res.data.limits
+              : (this.globalData.userLimits
+                ? {
+                    ...this.globalData.userLimits,
+                    daily_generation_count: Number(this.globalData.userLimits.daily_generation_count || 0) + 1
+                  }
+                : null);
+
+            if (nextLimits) {
+              this.globalData.userLimits = nextLimits;
+              this.globalData.userLimitsLastUpdate = Date.now();
+              wx.setStorageSync('userLimits', nextLimits);
+            }
             resolve(res.data);
           } else {
             reject(new Error(res.data.error || '更新生成次数失败'));
@@ -825,7 +942,19 @@ App({
   },
 
   getWeightSummary() {
-    return new Promise((resolve, reject) => {
+    if (!this.globalData.isLoggedIn) return Promise.reject(new Error('璇峰厛鐧诲綍'));
+
+    const now = Date.now();
+    const hasFreshCache = this.globalData.weightSummary && now - this.globalData.weightSummaryLastUpdate < 15000;
+
+    if (hasFreshCache) {
+      return Promise.resolve(this.globalData.weightSummary);
+    }
+
+    if (this.globalData.pendingWeightSummaryPromise) {
+      return this.globalData.pendingWeightSummaryPromise;
+    }
+    const requestPromise = new Promise((resolve, reject) => {
       if (!this.globalData.isLoggedIn) return reject(new Error('请先登录'));
       wx.request({
         url: this.globalData.serverUrl + '/api/weight-records/summary',
@@ -834,7 +963,16 @@ App({
         success: (res) => { if (res.statusCode === 200) resolve(res.data); else reject(new Error(res.data.error || '获取体重汇总失败')); },
         fail: reject
       });
+    }).then((summary) => {
+      this.globalData.weightSummary = summary;
+      this.globalData.weightSummaryLastUpdate = Date.now();
+      return summary;
+    }).finally(() => {
+      this.globalData.pendingWeightSummaryPromise = null;
     });
+
+    this.globalData.pendingWeightSummaryPromise = requestPromise;
+    return requestPromise;
   },
 
   addWeightRecord(data) {
@@ -848,6 +986,9 @@ App({
         success: (res) => { if (res.statusCode === 200) resolve(res.data.record || res.data); else reject(new Error(res.data.error || '添加体重记录失败')); },
         fail: reject
       });
+    }).then((record) => {
+      this.invalidateWeightSummaryCache();
+      return record;
     });
   },
 
@@ -862,6 +1003,9 @@ App({
         success: (res) => { if (res.statusCode === 200) resolve(res.data.record || res.data); else reject(new Error(res.data.error || '更新体重记录失败')); },
         fail: reject
       });
+    }).then((record) => {
+      this.invalidateWeightSummaryCache();
+      return record;
     });
   },
 
@@ -875,6 +1019,8 @@ App({
         success: (res) => { if (res.statusCode === 200) resolve(); else reject(new Error(res.data.error || '删除体重记录失败')); },
         fail: reject
       });
+    }).then(() => {
+      this.invalidateWeightSummaryCache();
     });
   },
 

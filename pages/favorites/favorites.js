@@ -12,6 +12,7 @@ Page({
   },
 
   onShow() {
+    app.syncTabBar(this);
     this.updateLoginStatus();
     if (app.globalData.isLoggedIn) {
       this.loadFavorites();
@@ -35,15 +36,9 @@ Page({
 
   // 加载收藏列表
   loadFavorites() {
-    // 仅读本地（与记录页一致：页面渲染一律从本地读取；登录后由全量刷新覆盖本地）
-    console.log('=== loadFavorites() 调用 ===');
-    console.log('[globalData.favorites]', app.globalData.favorites);
-    const storageList = wx.getStorageSync('favorites') || [];
-    console.log('[wxStorage favorites]', storageList);
     const local = app.globalData.favorites && app.globalData.favorites.length > 0
       ? app.globalData.favorites
       : (app.loadFavorites() || []);
-    console.log('[local (before enrich)]', local);
     const enriched = (local || []).map(it => {
       const calories = (it && it.nutrition && it.nutrition.calories != null)
         ? it.nutrition.calories
@@ -56,7 +51,6 @@ Page({
         calorie_display: calories != null ? `${Number(calories).toFixed(0)}千卡` : '-- 千卡'
       };
     });
-    console.log('[enriched for render]', enriched);
     this.setData({ favorites: enriched, isLoading: false });
   },
 
