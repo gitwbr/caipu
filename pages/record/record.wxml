@@ -70,7 +70,10 @@
           <text class="theme-inline-title">WEIGHT TRACKER</text>
           <text class="theme-section-title weight-title">体重记录</text>
         </view>
-        <view class="weight-action" bindtap="goWeightList">查看</view>
+        <view class="weight-actions">
+          <view class="weight-action" bindtap="goWeightList">查看</view>
+          <view class="weight-action weight-action--add" bindtap="goWeightAdd">新增</view>
+        </view>
       </view>
 
       <view class="weight-panel">

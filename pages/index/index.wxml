@@ -2,7 +2,48 @@
   <view class="ambient ambient-top"></view>
   <view class="ambient ambient-side"></view>
 
-  <view class="hero-shell">
+  <view class="generate-sticky-bar">
+    <view class="generate-sticky-copy">
+      <text class="generate-sticky-kicker">GENERATE</text>
+      <text class="generate-sticky-summary">{{stickyGenerateSummaryText}}</text>
+    </view>
+    <button class="generate-sticky-button" bindtap="onGenerateRecipe" disabled="{{isLoading}}">
+      <text wx:if="{{isLoading}}">生成中...</text>
+      <text wx:elif="{{isLoggedIn}}">生成菜谱</text>
+      <text wx:else>登录生成</text>
+    </button>
+  </view>
+
+  <view class="selection-sticky-bar" wx:if="{{selectedSummaryItems.length > 0}}">
+    <view class="selection-sticky-top">
+      <view class="selection-sticky-head">
+        <view class="selection-sticky-count">{{selectionCount}}</view>
+        <text class="selection-sticky-title">已选主料与约束</text>
+      </view>
+      <view class="selection-sticky-clear" bindtap="onClearAllSelections">清空</view>
+    </view>
+    <view class="selection-sticky-wrap">
+      <view class="selection-sticky-row">
+        <block wx:for="{{selectedSummaryItems}}" wx:key="id">
+          <view class="selection-sticky-chip {{item.kind === 'ingredient' ? 'selection-sticky-chip-ingredient' : 'selection-sticky-chip-meta'}}">
+            <text class="selection-sticky-prefix" wx:if="{{item.prefix}}">{{item.prefix}}</text>
+            <text class="selection-sticky-text">{{item.label}}</text>
+            <view
+              class="selection-sticky-remove"
+              catchtap="onRemoveSummaryItem"
+              data-remove-kind="{{item.removeKind}}"
+              data-remove-field="{{item.removeField}}"
+              data-remove-value="{{item.removeValue}}"
+            >
+              ×
+            </view>
+          </view>
+        </block>
+      </view>
+    </view>
+  </view>
+
+  <view class="hero-shell {{selectedSummaryItems.length > 0 ? 'hero-shell--with-selection' : ''}}">
     <view class="hero-card">
       <view class="hero-topline">
         <text class="hero-label">KITCHEN NOTE</text>
@@ -13,7 +54,7 @@
 
       <view class="hero-copy">
         <text class="hero-title">今天吃点什么？</text>
-        <text class="hero-subtitle">从食材、菜系到做法，组合一份更懂你口味的 AI 菜谱。</text>
+        <text class="hero-subtitle">从主料、口味到锅具设备，组合一份更真实、更能下锅的 AI 家常菜谱。</text>
       </view>
 
       <view class="hero-limit-card">
@@ -34,12 +75,12 @@
           <text class="hero-stat-value">{{selectedIngredientNames.length}}</text>
         </view>
         <view class="hero-stat">
-          <text class="hero-stat-label">已设风格</text>
+          <text class="hero-stat-label">已加约束</text>
           <text class="hero-stat-value">{{selectedMetaCount}}</text>
         </view>
         <view class="hero-stat">
-          <text class="hero-stat-label">最近记录</text>
-          <text class="hero-stat-value">{{recentRecipes.length}}</text>
+          <text class="hero-stat-label">已选设备</text>
+          <text class="hero-stat-value">{{selectedKitchenEnvironmentNames.length}}</text>
         </view>
       </view>
 
@@ -67,7 +108,7 @@
         <text class="section-title">定制今日菜谱</text>
         <view class="selection-count">{{selectionCount}} 项偏好</view>
       </view>
-      <text class="section-desc">不需要一次想全。先挑一个方向，AI 会把剩下的搭配完整。</text>
+      <text class="section-desc">不需要一次想全。你先定主料和关键约束，剩下的维度会由 AI 按普通家庭厨房逻辑自动补全。</text>
     </view>
 
     <view class="tab-grid">
@@ -85,6 +126,14 @@
         <text class="selector-kicker">{{tabOptions[activeTab].eyebrow}}</text>
         <text class="selector-title">{{tabOptions[activeTab].panelTitle}}</text>
         <text class="selector-note">{{tabOptions[activeTab].note}}</text>
+        <view class="selector-status-card" wx:if="{{autoFillSummaryText}}">
+          <text class="selector-status-label">AUTO FILL</text>
+          <text class="selector-status-text">{{autoFillSummaryText}}</text>
+        </view>
+        <view class="selector-warning-card" wx:if="{{methodKitchenConflictMessage}}">
+          <text class="selector-warning-label">冲突提示</text>
+          <text class="selector-warning-text">{{methodKitchenConflictMessage}}</text>
+        </view>
       </view>
 
       <view class="selector-panel" wx:if="{{activeTab === 0}}">
@@ -136,6 +185,16 @@
 
       <view class="selector-panel" wx:if="{{activeTab === 3}}">
         <view class="chip-grid">
+          <block wx:for="{{tasteNames}}" wx:key="index">
+            <view class="select-chip select-chip-meta {{selectedTasteIndex === index ? 'select-chip-active' : ''}}" bindtap="onTasteTagTap" data-index="{{index}}">
+              {{item}}
+            </view>
+          </block>
+        </view>
+      </view>
+
+      <view class="selector-panel" wx:if="{{activeTab === 4}}">
+        <view class="chip-grid">
           <block wx:for="{{methodNames}}" wx:key="index">
             <view class="select-chip select-chip-meta {{selectedMethodIndex === index ? 'select-chip-active' : ''}}" bindtap="onMethodTagTap" data-index="{{index}}">
               {{item}}
@@ -144,23 +203,15 @@
           <view class="add-custom-chip" bindtap="onShowAddCustomInput" data-type="method">+ 添加做法</view>
         </view>
       </view>
-    </view>
 
-    <view class="selection-board" wx:if="{{selectedSummaryItems.length > 0}}">
-      <view class="selection-board-header">
-        <view class="selection-board-copy">
-          <text class="selection-board-kicker">FLAVOR BASKET</text>
-          <text class="selection-board-title">你已经锁定了这些偏好</text>
+      <view class="selector-panel" wx:if="{{activeTab === 5}}">
+        <view class="chip-grid">
+          <block wx:for="{{kitchenEnvironmentOptions}}" wx:key="name">
+            <view class="select-chip select-chip-meta {{item.selected ? 'select-chip-active' : ''}}" bindtap="onKitchenEnvironmentTagTap" data-index="{{index}}">
+              {{item.name}}
+            </view>
+          </block>
         </view>
-        <view class="selection-reset" bindtap="onClearAllSelections">清空</view>
-      </view>
-      <view class="summary-chip-grid">
-        <block wx:for="{{selectedSummaryItems}}" wx:key="id">
-          <view class="summary-chip {{item.kind === 'ingredient' ? 'summary-chip-ingredient' : 'summary-chip-meta'}}">
-            <text class="summary-chip-prefix" wx:if="{{item.prefix}}">{{item.prefix}}</text>
-            <text class="summary-chip-text">{{item.label}}</text>
-          </view>
-        </block>
       </view>
     </view>
 
@@ -168,60 +219,15 @@
       <view class="cta-copy">
         <text class="cta-kicker">AI COOK MODE</text>
         <text class="cta-title" wx:if="{{selectedIngredientNames.length > 0}}">你的食材组合已经准备好了</text>
-        <text class="cta-title" wx:else>没选食材也能开始，AI 会帮你随机搭配</text>
-        <text class="cta-desc" wx:if="{{isLoggedIn}}">生成后会进入菜谱详情，并自动记录到最近历史。</text>
+        <text class="cta-title" wx:else>没选食材也能开始，AI 会按偏好补全更自然的主料组合</text>
+        <text class="cta-desc" wx:if="{{isLoggedIn}}">生成后会进入菜谱详情，并自动记录到最近历史；营养会按每 100g 或每 100ml 自动兼容。</text>
         <text class="cta-desc" wx:else>登录后可以查看额度、收藏菜谱，并保留你的历史记录。</text>
       </view>
-
-      <button class="generate-button" bindtap="onGenerateRecipe" disabled="{{isLoading}}">
-        <text wx:if="{{isLoading}}">正在生成菜谱...</text>
-        <text wx:elif="{{isLoggedIn}}">立即生成今日菜谱</text>
-        <text wx:else>登录后生成菜谱</text>
-      </button>
     </view>
 
     <view class="loading-panel" wx:if="{{isLoading}}">
       <view class="loading-icon"></view>
       <text class="loading-text">AI 正在整理口味搭配和步骤，请稍候...</text>
-    </view>
-
-    <view class="history-card">
-      <view class="history-header">
-        <view class="history-copy">
-          <text class="history-kicker">RECENT NOTES</text>
-          <text class="history-title">最近厨房笔记</text>
-        </view>
-        <view class="history-count">{{recentRecipes.length}} 条</view>
-      </view>
-
-      <view wx:if="{{recentRecipes.length > 0}}">
-        <block wx:for="{{recentRecipes}}" wx:key="id">
-          <view class="history-item" bindtap="viewRecipe" data-recipe="{{item}}">
-            <view class="history-index">0{{index + 1}}</view>
-            <view class="history-main">
-              <view class="history-name-row">
-                <text class="history-name">{{item.name}}</text>
-                <text class="history-fav" wx:if="{{item.isFavorited}}">已收藏</text>
-              </view>
-              <text class="history-desc">{{item.description}}</text>
-              <view class="history-tags" wx:if="{{item.tags && item.tags.length > 0}}">
-                <block wx:for="{{item.tags}}" wx:key="index">
-                  <text class="history-tag">{{item}}</text>
-                </block>
-              </view>
-            </view>
-            <view class="history-actions">
-              <view class="history-delete" catchtap="deleteRecent" data-index="{{index}}">删</view>
-              <text class="history-arrow">></text>
-            </view>
-          </view>
-        </block>
-      </view>
-
-      <view class="history-empty" wx:else>
-        <text class="history-empty-title">还没有生成记录</text>
-        <text class="history-empty-desc">试试先应用一个灵感捷径，再生成你的第一道今日菜谱。</text>
-      </view>
     </view>
   </view>
 

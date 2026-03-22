@@ -56,14 +56,14 @@
         <view class="grid-mask"></view>
         <view class="grid-content">
           <view class="grid-topline">
-            <text class="grid-kicker">FAVORITES</text>
+            <text class="grid-kicker">RECIPES</text>
             <text class="grid-chip">快捷入口</text>
           </view>
 
           <view class="grid-footer">
             <view class="grid-copy">
-              <text class="grid-title">收藏菜谱</text>
-              <text class="grid-desc">回看常做菜，继续完善你的菜单</text>
+              <text class="grid-title">菜谱库</text>
+              <text class="grid-desc">最近生成和已收藏都统一放在这里</text>
             </view>
             <text class="grid-arrow">></text>
           </view>
@@ -90,7 +90,7 @@
 
         <view class="menu-item" bindtap="handleLogout" wx:if="{{isLoggedIn}}">
           <image class="menu-icon" src="/images/profile/logout-color.png" mode="widthFix"></image>
-          <text class="menu-text">Logout</text>
+          <text class="menu-text">退出登录</text>
           <text class="menu-arrow">></text>
         </view>
       </view>

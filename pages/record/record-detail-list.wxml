@@ -1,186 +1,213 @@
 <!--pages/record/record-detail-list.wxml-->
-<!-- 自定义导航栏 -->
-<view class="custom-navbar">
-  <view class="navbar-content">
-    <view class="navbar-left">
-      <text class="back-btn" bindtap="goBack">‹</text>
-    </view>
-    <view class="navbar-center" bindtap="showCalendar">
-      <view class="date-display">
-        <text class="date-text">{{formattedDate}}</text>
-        <text class="weekday-text">{{weekdayText}}</text>
+<view class="theme-page detail-list-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
+
+  <view class="custom-navbar">
+    <view class="navbar-content">
+      <view class="navbar-left">
+        <text class="back-btn" bindtap="goBack">‹</text>
       </view>
-      <text class="calendar-icon">▼</text>
+      <view class="navbar-center" bindtap="showCalendar">
+        <view class="date-display">
+          <text class="date-text">{{formattedDate}}</text>
+          <text class="weekday-text">{{weekdayText}}</text>
+        </view>
+        <text class="calendar-icon">▼</text>
+      </view>
+      <view class="navbar-right"></view>
     </view>
-  <view class="navbar-right"></view>
+  </view>
+
+  <view class="detail-list-shell">
+    <view class="calendar-overlay" wx:if="{{showCalendar}}" bindtap="hideCalendar">
+      <view class="calendar-popup" catchtap="stopPropagation">
+        <view class="calendar-header">
+          <view class="calendar-nav">
+            <text class="nav-arrow" bindtap="prevMonth">‹</text>
+            <text class="calendar-title">{{currentYear}}年{{currentMonth}}月</text>
+            <text class="nav-arrow" bindtap="nextMonth">›</text>
+          </view>
+          <view class="weekdays">
+            <text class="weekday">日</text>
+            <text class="weekday">一</text>
+            <text class="weekday">二</text>
+            <text class="weekday">三</text>
+            <text class="weekday">四</text>
+            <text class="weekday">五</text>
+            <text class="weekday">六</text>
+          </view>
+        </view>
+
+        <view class="calendar-grid">
+          <view
+            class="calendar-day {{item.isOtherMonth ? 'other-month' : ''}} {{item.isSelected ? 'selected' : ''}} {{item.hasRecord ? 'has-record' : ''}}"
+            wx:for="{{calendarDays}}"
+            wx:key="date"
+            bindtap="selectDate"
+            data-date="{{item.date}}"
+          >
+            <text class="day-number">{{item.day}}</text>
+            <view class="record-dot" wx:if="{{item.hasRecord}}"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="summary-card">
+      <view class="summary-card-head">
+        <view class="summary-head-copy">
+          <text class="theme-inline-title">DAY BALANCE</text>
+          <text class="summary-title">今天的能量圈</text>
+        </view>
+        <view class="summary-date-chip">{{selectedDate}}</view>
+      </view>
+
+      <view class="top-summary">
+        <view class="summary-side-card">
+          <text class="mini-label">已摄入</text>
+          <text class="mini-value">{{consumedCalories}}</text>
+          <text class="mini-unit">kcal</text>
+        </view>
+
+        <view class="summary-center">
+          <view class="ring-wrap">
+            <canvas canvas-id="ringCanvas" class="ring-canvas" width="{{ringSize}}" height="{{ringSize}}"></canvas>
+            <view class="ring-text">
+              <text class="ring-main">还可摄入</text>
+              <text class="ring-value">{{remainingCalories}}</text>
+              <text class="ring-sub">基础代谢 {{bmr}} / 今日预算 {{calorieBudget}}</text>
+              <text class="ring-sub">kcal</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="summary-side-card summary-side-card--warm">
+          <text class="mini-label">运动消耗</text>
+          <text class="mini-value">{{exerciseCalories}}</text>
+          <text class="mini-unit">kcal</text>
+        </view>
+      </view>
+
+      <view class="macro-row">
+        <view class="macro-col">
+          <text class="macro-label">蛋白质</text>
+          <text class="macro-number protein">{{totalProtein}} g</text>
+        </view>
+        <view class="macro-col">
+          <text class="macro-label">脂肪</text>
+          <text class="macro-number fat">{{totalFat}} g</text>
+        </view>
+        <view class="macro-col">
+          <text class="macro-label">碳水</text>
+          <text class="macro-number carb">{{totalCarbs}} g</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="record-buttons">
+      <view class="record-btn diet-btn" catchtap="addRecord">
+        <view class="btn-icon">食</view>
+        <text class="btn-text">记录饮食</text>
+        <text class="btn-note">添加食物、菜谱或快速热量</text>
+      </view>
+      <view class="record-btn exercise-btn" catchtap="addExercise">
+        <view class="btn-icon">动</view>
+        <text class="btn-text">记录运动</text>
+        <text class="btn-note">补充步行、跑步或训练消耗</text>
+      </view>
+    </view>
+
+    <view class="records-section">
+      <view class="section-title">
+        <view class="section-title-copy">
+          <text class="theme-inline-title">DIET LOG</text>
+          <view class="section-title-row">
+            <text class="title-text">饮食记录</text>
+            <text class="record-count">{{records.length}} 条</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="records-list" wx:if="{{records.length > 0}}">
+        <view id="rec-{{item.id}}" class="record-item {{item.id == highlightId ? 'highlight' : ''}}" wx:for="{{records}}" wx:key="id" bindtap="onRecordTap" data-id="{{item.id}}">
+          <view class="record-thumb">
+            <image wx:if="{{item.image_full_url}}" class="thumb" src="{{item.image_full_url}}" mode="aspectFill" lazy-load />
+            <text wx:else class="thumb-placeholder">食</text>
+          </view>
+          <view class="record-info">
+            <view class="food-header">
+              <text class="food-name">{{item.food_name}}</text>
+              <text class="record-type-tag {{item.record_type}}">{{item.record_type_display}}</text>
+            </view>
+            <view class="food-details">
+              <text class="food-quantity" wx:if="{{item.record_type === 'recipe'}}">菜谱记录</text>
+              <text class="food-quantity" wx:elif="{{item.record_type === 'quick'}}">快速记录</text>
+              <text class="food-quantity" wx:else>{{item.quantity_g}}g</text>
+              <text class="food-time" wx:if="{{item.record_time}}">{{item.record_time}}</text>
+            </view>
+          </view>
+          <view class="record-calories">
+            <text class="calories-value">{{item.calculated_calories}} kcal</text>
+          </view>
+          <view class="record-actions" catchtap="deleteRecord" data-id="{{item.id}}">
+            <view class="icon-circle danger small">🗑️</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="empty-state" wx:if="{{records.length === 0 && !loading}}">
+        <view class="empty-badge">食</view>
+        <text class="empty-text">{{selectedDate}} 还没有饮食记录</text>
+        <text class="empty-hint">从上面的入口开始补第一餐，能量圈会自动更新。</text>
+      </view>
+
+      <view class="loading-state" wx:if="{{loading}}">
+        <text class="loading-text">加载中...</text>
+      </view>
+    </view>
+
+    <view class="records-section records-section-secondary">
+      <view class="section-title">
+        <view class="section-title-copy">
+          <text class="theme-inline-title">MOVE LOG</text>
+          <view class="section-title-row">
+            <text class="title-text">运动记录</text>
+            <text class="record-count">{{exerciseList.length}} 条</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="records-list" wx:if="{{exerciseList.length > 0}}">
+        <view class="record-item" wx:for="{{exerciseList}}" wx:key="id" bindtap="onExerciseTap" data-id="{{item.id}}">
+          <view class="record-thumb record-thumb-exercise">
+            <image wx:if="{{item.icon_url}}" class="thumb" src="{{item.icon_url}}" mode="aspectFill" lazy-load />
+            <text wx:else class="thumb-placeholder">动</text>
+          </view>
+          <view class="record-info">
+            <view class="food-header">
+              <text class="food-name">{{item.type_name}}</text>
+              <text class="record-type-tag standard">{{item.method_label}}</text>
+            </view>
+            <view class="food-details">
+              <text class="food-quantity">{{item.duration_min}} min</text>
+              <text class="food-time" wx:if="{{item.record_time}}">{{item.record_time}}</text>
+            </view>
+          </view>
+          <view class="record-calories">
+            <text class="calories-value">{{item.calories_burned_kcal}} kcal</text>
+          </view>
+          <view class="record-actions" catchtap="deleteExercise" data-id="{{item.id}}">
+            <view class="icon-circle danger small">🗑️</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="empty-state empty-state-exercise" wx:if="{{exerciseList.length === 0 && !loading}}">
+        <view class="empty-badge empty-badge-exercise">动</view>
+        <text class="empty-text">{{selectedDate}} 还没有运动记录</text>
+        <text class="empty-hint">补一条运动后，顶部能量圈会把消耗算进去。</text>
+      </view>
+    </view>
   </view>
 </view>
-
-<view class="container">
-  <!-- 悬浮日历 -->
-  <view class="calendar-overlay" wx:if="{{showCalendar}}" bindtap="hideCalendar">
-    <view class="calendar-popup" catchtap="stopPropagation">
-      <view class="calendar-header">
-        <view class="calendar-nav">
-          <text class="nav-arrow" bindtap="prevMonth">‹</text>
-          <text class="calendar-title">{{currentYear}}年{{currentMonth}}月</text>
-          <text class="nav-arrow" bindtap="nextMonth">›</text>
-        </view>
-        <view class="weekdays">
-          <text class="weekday">日</text>
-          <text class="weekday">一</text>
-          <text class="weekday">二</text>
-          <text class="weekday">三</text>
-          <text class="weekday">四</text>
-          <text class="weekday">五</text>
-          <text class="weekday">六</text>
-        </view>
-      </view>
-      
-      <view class="calendar-grid">
-        <view class="calendar-day {{item.isOtherMonth ? 'other-month' : ''}} {{item.isSelected ? 'selected' : ''}} {{item.hasRecord ? 'has-record' : ''}}" 
-              wx:for="{{calendarDays}}" 
-              wx:key="date" 
-              bindtap="selectDate" 
-              data-date="{{item.date}}">
-          <text class="day-number">{{item.day}}</text>
-          <view class="record-dot" wx:if="{{item.hasRecord}}"></view>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 顶部三列与圆环 -->
-  <view class="summary-card">
-    <view class="top-summary">
-    <view class="summary-left">
-      <text class="mini-label">已摄入</text>
-      <text class="mini-value">{{consumedCalories}}</text>
-    </view>
-    <view class="summary-center">
-      <view class="ring-wrap">
-          <canvas canvas-id="ringCanvas" class="ring-canvas" width="{{ringSize}}" height="{{ringSize}}"></canvas>
-        <view class="ring-text">
-          <text class="ring-main">还可摄入</text>
-          <text class="mini-value danger">{{remainingCalories}} </text>
-          <text class="ring-sub">基础代谢 {{bmr}} 可摄入总量{{calorieBudget}}</text>
-          <text class="ring-sub">kcal</text>
-        </view>
-      </view>
-    </view>
-    <view class="summary-right">
-      <text class="mini-label">运动消耗</text>
-      <text class="mini-value">{{exerciseCalories}}</text>
-    </view>
-    </view>
-    <view class="macro-row">
-    <view class="macro-col">
-      <text class="macro-label">蛋白质</text>
-      <text class="macro-number protein">{{totalProtein}} g</text>
-    </view>
-    <view class="macro-col">
-      <text class="macro-label">脂肪</text>
-      <text class="macro-number fat">{{totalFat}} g</text>
-    </view>
-    <view class="macro-col">
-      <text class="macro-label">碳水</text>
-      <text class="macro-number carb">{{totalCarbs}} g</text>
-    </view>
-  </view>
-  </view>  
-
-  <!-- 记录按钮（与 record 首页一致的样式） -->
-  <view class="record-buttons">
-    <view class="record-btn diet-btn" catchtap="addRecord">
-      <view class="btn-icon">🍽️</view>
-      <text class="btn-text">记录饮食</text>
-    </view>
-    <view class="record-btn exercise-btn" catchtap="addExercise">
-      <view class="btn-icon">🏃</view>
-      <text class="btn-text">记录运动</text>
-    </view>
-  </view>
-
-  <!-- 饮食记录列表 -->
-  <view class="records-section">
-    <view class="section-title">
-      <text class="title-text">饮食记录</text>
-      <text class="record-count">({{records.length}})</text>
-    </view>
-
-    <view class="records-list" wx:if="{{records.length > 0}}">
-      <view id="rec-{{item.id}}" class="record-item {{item.id == highlightId ? 'highlight' : ''}}" wx:for="{{records}}" wx:key="id" bindtap="onRecordTap" data-id="{{item.id}}">
-        <view class="record-thumb">
-          <image wx:if="{{item.image_full_url}}" class="thumb" src="{{item.image_full_url}}" mode="aspectFill" lazy-load />
-          <text wx:else class="thumb-placeholder">🍽️</text>
-        </view>
-        <view class="record-info">
-          <view class="food-header">
-            <text class="food-name">{{item.food_name}}</text>
-            <text class="record-type-tag {{item.record_type}}">{{item.record_type_display}}</text>
-          </view>
-          <view class="food-details">
-            <text class="food-quantity" wx:if="{{item.record_type === 'recipe'}}">菜谱记录</text>
-            <text class="food-quantity" wx:elif="{{item.record_type === 'quick'}}">快速记录</text>
-            <text class="food-quantity" wx:else>{{item.quantity_g}}g</text>
-            <text class="food-time" wx:if="{{item.record_time}}">{{item.record_time}}</text>
-          </view>
-        </view>
-        <view class="record-calories">
-          <text class="calories-value">{{item.calculated_calories}} kcal</text>
-        </view>
-        <view class="record-actions" catchtap="deleteRecord" data-id="{{item.id}}">
-          <view class="icon-circle danger small">🗑️</view>
-        </view>
-      </view>
-    </view>
-
-    <!-- 空状态 -->
-    <view class="empty-state" wx:if="{{records.length === 0 && !loading}}">
-      <text class="empty-icon">📝</text>
-      <text class="empty-text">{{selectedDate}} 还没有记录</text>
-      <text class="empty-hint">点击上方按钮添加第一条记录</text>
-    </view>
-
-    <!-- 加载状态 -->
-    <view class="loading-state" wx:if="{{loading}}">
-      <text class="loading-text">加载中...</text>
-    </view>
-  </view>
-
-  <!-- 运动记录列表 -->
-  <view class="records-section" wx:if="{{true}}" style="margin-top:16rpx;">
-    <view class="section-title">
-      <text class="title-text">运动记录</text>
-      <text class="record-count">({{exerciseList.length}})</text>
-    </view>
-    <view class="records-list" wx:if="{{exerciseList.length > 0}}">
-      <view class="record-item" wx:for="{{exerciseList}}" wx:key="id" bindtap="onExerciseTap" data-id="{{item.id}}">
-        <view class="record-thumb">
-          <image wx:if="{{item.icon_url}}" class="thumb" src="{{item.icon_url}}" mode="aspectFill" lazy-load />
-          <text wx:else class="thumb-placeholder">🏃</text>
-        </view>
-        <view class="record-info">
-          <view class="food-header">
-            <text class="food-name">{{item.type_name}}</text>
-            <text class="record-type-tag standard">{{item.method_label}}</text>
-          </view>
-          <view class="food-details">
-            <text class="food-quantity">{{item.duration_min}} min</text>
-            <text class="food-time" wx:if="{{item.record_time}}">{{item.record_time}}</text>
-          </view>
-        </view>
-        <view class="record-calories">
-          <text class="calories-value">{{item.calories_burned_kcal}} kcal</text>
-        </view>
-        <view class="record-actions" catchtap="deleteExercise" data-id="{{item.id}}">
-          <view class="icon-circle danger small">🗑️</view>
-        </view>
-      </view>
-    </view>
-    <view class="empty-state" wx:if="{{exerciseList.length === 0 && !loading}}">
-      <text class="empty-icon">🏃</text>
-      <text class="empty-text">{{selectedDate}} 暂无运动记录</text>
-    </view>
-  </view>
-</view> 

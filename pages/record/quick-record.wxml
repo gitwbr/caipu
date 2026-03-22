@@ -1,114 +1,125 @@
 <!--pages/record/quick-record.wxml-->
-<view class="container">
-  <!-- 日期移到导航栏标题显示，移除此处 -->
+<view class="theme-page quick-record-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
 
-  <view class="form">
-    <view class="section-title">基本信息</view>
-    <!-- 记录时间选择，与 record-detail 一致的交互 -->
-    <view class="form-item">
-      <picker mode="time" value="{{recordTime}}" bindchange="onTimeChange">
-        <view class="picker-content">
-          <text class="picker-value">{{recordTime}}</text>
-          <text class="picker-arrow">></text>
+  <view class="theme-shell theme-shell--detail quick-record-shell">
+    <view class="theme-hero-card quick-record-hero">
+      <text class="theme-kicker">QUICK ENTRY</text>
+      <text class="theme-hero-title">快速补一条热量记录</text>
+      <text class="theme-hero-desc">适合临时吃了零食、饮料或包装食品时快速录入，先记热量，宏量营养可以后补。</text>
+    </view>
+
+    <view class="card quick-form-card">
+      <text class="theme-inline-title">BASIC INFO</text>
+      <text class="theme-section-title quick-form-title">基本信息</text>
+
+      <view class="form-item">
+        <picker mode="time" value="{{recordTime}}" bindchange="onTimeChange">
+          <view class="picker-content">
+            <text class="picker-value">{{recordTime}}</text>
+            <text class="picker-arrow">></text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="label">食物名称</view>
+        <input
+          class="input"
+          placeholder="快速记录"
+          value="{{food_name}}"
+          data-field="food_name"
+          bindinput="onInputChange"
+        />
+      </view>
+
+      <view class="form-item">
+        <view class="label">热量 (千卡) *</view>
+        <input
+          class="input"
+          type="digit"
+          placeholder="请输入热量"
+          value="{{energy_kcal}}"
+          data-field="energy_kcal"
+          bindinput="onInputChange"
+        />
+      </view>
+
+      <view class="section-divider"></view>
+      <text class="theme-inline-title">MACROS</text>
+      <text class="theme-section-title quick-form-title">宏量营养</text>
+
+      <view class="form-grid">
+        <view class="form-item half">
+          <view class="label">蛋白质 (g)</view>
+          <input
+            class="input"
+            type="digit"
+            placeholder="请输入蛋白质含量"
+            value="{{protein_g}}"
+            data-field="protein_g"
+            bindinput="onInputChange"
+          />
         </view>
-      </picker>
-    </view>
-    <!-- 食物名称 -->
-    <view class="form-item">
-      <view class="label">食物名称</view>
-      <input 
-        class="input" 
-        placeholder="快速记录" 
-        value="{{food_name}}"
-        data-field="food_name"
-        bindinput="onInputChange"
-      />
-    </view>
 
-    <!-- 热量 -->
-    <view class="form-item">
-      <view class="label">热量 (千卡) *</view>
-      <input 
-        class="input" 
-        type="digit"
-        placeholder="请输入热量" 
-        value="{{energy_kcal}}"
-        data-field="energy_kcal"
-        bindinput="onInputChange"
-      />
-    </view>
-
-
-
-    <!-- 蛋白质 -->
-    <view class="form-item">
-      <view class="label">蛋白质 (g)</view>
-      <input 
-        class="input" 
-        type="digit"
-        placeholder="请输入蛋白质含量" 
-        value="{{protein_g}}"
-        data-field="protein_g"
-        bindinput="onInputChange"
-      />
-    </view>
-
-    <!-- 脂肪 -->
-    <view class="form-item">
-      <view class="label">脂肪 (g)</view>
-      <input 
-        class="input" 
-        type="digit"
-        placeholder="请输入脂肪含量" 
-        value="{{fat_g}}"
-        data-field="fat_g"
-        bindinput="onInputChange"
-      />
-    </view>
-
-    <!-- 碳水化合物 -->
-    <view class="form-item">
-      <view class="label">碳水化合物 (g)</view>
-      <input 
-        class="input" 
-        type="digit"
-        placeholder="请输入碳水化合物含量" 
-        value="{{carbohydrate_g}}"
-        data-field="carbohydrate_g"
-        bindinput="onInputChange"
-      />
-    </view>
-
-    <view class="section-divider"></view>
-    <view class="section-title">图片</view>
-    <!-- 图片上传（与自定义食物一致的样式：左文字右相机/缩略图） -->
-    <view class="form-item image-inline">
-      <text class="label">食物图片</text>
-      <view class="image-inline-slot">
-        <view wx:if="{{!(imagePath || imageUrl)}}" class="camera-btn-mini" bindtap="onCameraClick">📷</view>
-        <view wx:else class="thumb-wrap">
-          <image class="thumb" src="{{imagePath || imageUrl}}" mode="aspectFill" lazy-load />
-          <view class="remove-thumb" bindtap="removeImage">−</view>
+        <view class="form-item half">
+          <view class="label">脂肪 (g)</view>
+          <input
+            class="input"
+            type="digit"
+            placeholder="请输入脂肪含量"
+            value="{{fat_g}}"
+            data-field="fat_g"
+            bindinput="onInputChange"
+          />
         </view>
+      </view>
+
+      <view class="form-item">
+        <view class="label">碳水化合物 (g)</view>
+        <input
+          class="input"
+          type="digit"
+          placeholder="请输入碳水化合物含量"
+          value="{{carbohydrate_g}}"
+          data-field="carbohydrate_g"
+          bindinput="onInputChange"
+        />
+      </view>
+
+      <view class="section-divider"></view>
+      <text class="theme-inline-title">MEDIA & NOTE</text>
+      <text class="theme-section-title quick-form-title">图片与备注</text>
+
+      <view class="form-item image-inline">
+        <text class="label image-label">食物图片</text>
+        <view class="image-inline-slot">
+          <view wx:if="{{!(imagePath || imageUrl)}}" class="camera-btn-mini" bindtap="onCameraClick">📷</view>
+          <view wx:else class="thumb-wrap">
+            <image class="thumb" src="{{imagePath || imageUrl}}" mode="aspectFill" lazy-load />
+            <view class="remove-thumb" bindtap="removeImage">−</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="label">备注</view>
+        <textarea
+          class="textarea"
+          placeholder="请输入备注信息"
+          value="{{notes}}"
+          data-field="notes"
+          bindinput="onInputChange"
+        />
       </view>
     </view>
 
-    <!-- 备注 -->
-    <view class="form-item">
-      <view class="label">备注</view>
-      <textarea 
-        class="textarea" 
-        placeholder="请输入备注信息" 
-        value="{{notes}}"
-        data-field="notes"
-        bindinput="onInputChange"
-      />
+    <view class="actions">
+      <button class="btn btn-secondary" bindtap="onClear" disabled="{{submitting}}">清空</button>
+      <button class="btn btn-primary {{submitting ? 'loading' : ''}}" bindtap="onSubmit" disabled="{{submitting}}">
+        {{submitting ? '保存中...' : '保存'}}
+      </button>
     </view>
-  </view>
-
-  <!-- 操作按钮 -->
-  <view class="actions">
-    <button class="btn btn-secondary" bindtap="onClear" disabled="{{submitting}}">清空</button>
-    <button class="btn btn-primary {{submitting ? 'loading' : ''}}" bindtap="onSubmit" disabled="{{submitting}}">{{submitting ? '保存中...' : '保存'}}</button>
   </view>
 </view>

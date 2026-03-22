@@ -283,7 +283,7 @@ app.get('/health', (req, res) => {
 // 获取赛程数据接口
 app.get('/api/schedule', async (req, res) => {
   try {
-    const client = await pool.connect();
+    let client = await pool.connect();
     
     // 查询所有轮次和比赛数据
     const query = `
@@ -319,6 +319,10 @@ app.get('/api/schedule', async (req, res) => {
       error: '服务器内部错误',
       message: error.message 
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
@@ -629,8 +633,47 @@ app.post('/api/update-user-info', async (req, res) => {
  * body: { prompt: string, model?: string, [其它参数] }
  * 可选model: 'openai'（默认），后续可扩展其它模型
  */
+// 百度千帆（Qianfan）OAuth token 缓存：避免每次请求都换 token
+let qianfanAccessToken = null;
+let qianfanTokenExpireTime = 0;
+async function getQianfanAccessToken() {
+  // 提前 60 秒过期，避免边界抖动
+  if (qianfanAccessToken && Date.now() < qianfanTokenExpireTime - 60000) {
+    return qianfanAccessToken;
+  }
+
+  const qianfanApiKey = process.env.QIANFAN_API_KEY;
+  const qianfanApiSecret = process.env.QIANFAN_SECRET_KEY;
+  if (!qianfanApiKey || !qianfanApiSecret) {
+    throw new Error('未配置 QIANFAN_API_KEY / QIANFAN_SECRET_KEY');
+  }
+
+  const tokenUrl = 'https://aip.baidubce.com/oauth/2.0/token';
+  const resp = await axios.post(tokenUrl, null, {
+    params: {
+      grant_type: 'client_credentials',
+      client_id: qianfanApiKey,
+      client_secret: qianfanApiSecret
+    }
+  });
+
+  if (!resp.data?.access_token) {
+    throw new Error(`获取 Qianfan access_token 失败: ${JSON.stringify(resp.data)}`);
+  }
+
+  qianfanAccessToken = resp.data.access_token;
+  // expires_in 单位：秒
+  const expiresInSeconds = Number(resp.data.expires_in || 0);
+  qianfanTokenExpireTime = Date.now() + expiresInSeconds * 1000;
+  return qianfanAccessToken;
+}
+
 app.post('/api/ai', async (req, res) => {
-  const { prompt, model = 'openai', messages, ...otherParams } = req.body;
+  // 未传 model 时使用环境变量 AI_DEFAULT_MODEL（可选值：openai | deepseek），默认 openai
+  const modelFromRequest = req.body.model;
+  const model = modelFromRequest || process.env.AI_DEFAULT_MODEL || 'openai';
+  const modelSource = modelFromRequest ? 'request.model' : 'env.AI_DEFAULT_MODEL';
+  const { prompt, messages, ...otherParams } = req.body;
   if (!prompt && !messages) {
     return res.status(400).json({ error: '缺少prompt或messages参数' });
   }
@@ -655,6 +698,7 @@ app.post('/api/ai', async (req, res) => {
         messages: chatMessages,
         ...otherParams
       };
+      console.error(`[AI_ROUTE] provider=openai request_model=${modelFromRequest || 'none'} source=${modelSource} actual_model=${completionParams.model}`);
       const response = await openai.chat.completions.create(completionParams);
       aiResult = response;
     } else if (model === 'deepseek') {
@@ -675,6 +719,7 @@ app.post('/api/ai', async (req, res) => {
         messages: chatMessages,
         ...otherParams
       };
+      console.error(`[AI_ROUTE] provider=deepseek request_model=${modelFromRequest || 'none'} source=${modelSource} actual_model=${completionParams.model}`);
       const response = await axios.post(
         'https://api.deepseek.com/v1/chat/completions',
         completionParams,
@@ -686,6 +731,49 @@ app.post('/api/ai', async (req, res) => {
         }
       );
       aiResult = response.data;
+    } else if (model === 'qianfan') {
+      // 百度千帆（Qianfan / 文心千帆）
+      const qianfanModel =
+        otherParams.qianfan_model ||
+        process.env.QIANFAN_MODEL ||
+        'ERNIE-Bot-turbo';
+
+      let chatMessages = messages;
+      if (!Array.isArray(messages)) {
+        chatMessages = [
+          { role: 'system', content: otherParams.system || '你是一个有帮助的AI助手' },
+          { role: 'user', content: prompt }
+        ];
+      }
+
+      // 生成参数：允许前端传入 temperature/top_p/penalty_score 覆盖默认值
+      const temperature = typeof otherParams.temperature === 'number' ? otherParams.temperature : 0.95;
+      const top_p = typeof otherParams.top_p === 'number' ? otherParams.top_p : 0.8;
+      const penalty_score =
+        typeof otherParams.penalty_score === 'number' ? otherParams.penalty_score : 1.0;
+
+      // 即使 access_token 获取失败，也要先打印最终走的 provider/model 便于排查
+      console.error(`[AI_ROUTE] provider=qianfan request_model=${modelFromRequest || 'none'} source=${modelSource} actual_model=${qianfanModel}`);
+
+      const accessToken = await getQianfanAccessToken();
+      const url =
+        `https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions?access_token=${encodeURIComponent(accessToken)}`;
+
+      const completionParams = {
+        model: qianfanModel,
+        messages: chatMessages,
+        temperature,
+        top_p,
+        penalty_score,
+        stream: false
+      };
+      const response = await axios.post(url, completionParams, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: typeof otherParams.timeout === 'number' ? otherParams.timeout : 60000
+      });
+
+      // Qianfan 返回常见字段：{ result: "...", is_truncated: false, ... }
+      aiResult = response.data?.result ?? response.data;
     } else {
       return res.status(400).json({ error: `暂不支持的AI模型: ${model}` });
     }
@@ -900,7 +988,7 @@ app.delete('/api/favorites/:id', async (req, res) => {
   }
 });
 
-// PUT /api/favorites/:id 更新改动（仅更新 recipe_name 与 recipe_data）
+// PUT /api/favorites/:id 更新收藏（仅更新 recipe_name 与 recipe_data）
 app.put('/api/favorites/:id', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -947,17 +1035,17 @@ app.put('/api/favorites/:id', async (req, res) => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       }
     } catch (delErr) {
-      console.error('更新改动删除旧图片失败（忽略）:', delErr.message);
+      console.error('更新收藏删除旧图片失败（忽略）:', delErr.message);
     }
 
     res.json({ message: '更新成功', favorite: result.rows[0] });
   } catch (error) {
-    console.error('更新改动出错:', error);
+    console.error('更新收藏出错:', error);
     res.status(500).json({ error: '服务器内部错误', message: error.message });
   }
 });
 
-// PUT /api/favorites/recipe/:recipeId 通过 recipe_id 更新改动（避免收藏记录ID变动问题）
+// PUT /api/favorites/recipe/:recipeId 通过 recipe_id 更新收藏（避免收藏记录ID变动问题）
 app.put('/api/favorites/recipe/:recipeId', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -1005,12 +1093,12 @@ app.put('/api/favorites/recipe/:recipeId', async (req, res) => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       }
     } catch (delErr) {
-      console.error('通过recipe_id更新改动删除旧图片失败（忽略）:', delErr.message);
+      console.error('通过recipe_id更新收藏删除旧图片失败（忽略）:', delErr.message);
     }
 
     res.json({ message: '更新成功', favorite: result.rows[0] });
   } catch (error) {
-    console.error('通过recipe_id更新改动出错:', error);
+    console.error('通过recipe_id更新收藏出错:', error);
     res.status(500).json({ error: '服务器内部错误', message: error.message });
   }
 });
@@ -2078,6 +2166,8 @@ async function getBaiduAccessToken() {
 
 // POST /api/baidu-ocr/upload 百度OCR图片识别
 app.post('/api/baidu-ocr/upload', ocrUpload.single('image'), async (req, res) => {
+  let client = null;
+
   try {
     console.log('=== 百度OCR图片识别API调试 ===');
     
@@ -2100,7 +2190,7 @@ app.post('/api/baidu-ocr/upload', ocrUpload.single('image'), async (req, res) =>
       return res.status(400).json({ error: '请上传图片文件' });
     }
     // --- 读取/创建今日限制记录，并检查OCR次数是否超过上限 ---
-    const client = await pool.connect();
+    client = await pool.connect();
     const today = getLocalDateStr();
     // 确保存在今日记录
     await client.query(
@@ -2117,7 +2207,6 @@ app.post('/api/baidu-ocr/upload', ocrUpload.single('image'), async (req, res) =>
     const ocrCount = parseInt(limRes.rows[0]?.daily_ocr_count || 0);
     const ocrLimit = parseInt(limRes.rows[0]?.daily_ocr_limit || 3);
     if (ocrCount >= ocrLimit) {
-      client.release();
       return res.status(429).json({ error: `当日OCR次数已用完(${ocrLimit}次)` });
     }
     
@@ -2211,10 +2300,9 @@ app.post('/api/baidu-ocr/upload', ocrUpload.single('image'), async (req, res) =>
       );
     } catch (incErr) {
       console.error('递增OCR计数失败（不影响OCR结果返回）:', incErr.message);
-    } finally {
-      client.release();
     }
-    res.json(result);
+
+    return res.json(result);
     
   } catch (error) {
     console.error('百度OCR识别失败:', error);
@@ -2222,6 +2310,10 @@ app.post('/api/baidu-ocr/upload', ocrUpload.single('image'), async (req, res) =>
       error: 'OCR识别失败',
       message: error.message
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
@@ -2352,7 +2444,8 @@ app.get('/api/exercise/meta', async (req, res) => {
       const latest = latestRes.rows[0] || null;
       const initialWeight = earliest ? Number(earliest.weight_kg) : null;
       const latestWeight = latest ? Number(latest.weight_kg) : null;
-      const deltaKg = (initialWeight != null && latestWeight != null) ? (initialWeight - latestWeight) : null;
+      // 累计变化：最新 - 初始（体重增加为正，下降为负）
+      const deltaKg = (initialWeight != null && latestWeight != null) ? (latestWeight - initialWeight) : null;
       res.json({
         success: true,
         initial_weight_kg: initialWeight,

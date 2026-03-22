@@ -1,17 +1,19 @@
 <!--pages/record/record-detail.wxml-->
-<view class="container">
-  <!-- 日期显示改为标题栏，移除本地显示 -->
+<view class="theme-page record-entry-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
 
-  <!-- 食物信息卡片 -->
-  <view class="card food-card" wx:if="{{food}}" bindtap="showFoodNutrition">
-    <view class="card-content">
+  <view class="theme-shell theme-shell--detail record-entry-shell">
+    <view class="card food-card" wx:if="{{food}}" bindtap="showFoodNutrition">
+      <text class="theme-inline-title">FOOD SNAPSHOT</text>
       <view class="food-header">
-        <text class="food-name">{{food.display_name}}</text>
-        <view class="food-header-right">
+        <view class="food-header-copy">
+          <text class="food-name">{{food.display_name}}</text>
           <text class="food-type">{{food.type === 'standard' ? '标准食物' : food.type === 'custom' ? '自定义食物' : '快速记录'}}</text>
-          <text class="edit-icon icon-circle primary" wx:if="{{food.type === 'custom' && !hideCustomEdit}}" catchtap="editCustomFood" data-food="{{food}}">✏️</text>
         </view>
+        <text class="edit-icon icon-circle primary" wx:if="{{food.type === 'custom' && !hideCustomEdit}}" catchtap="editCustomFood" data-food="{{food}}">✏️</text>
       </view>
+
       <view class="food-nutrition">
         <view class="nutrition-item">
           <text class="nutrition-label">卡路里</text>
@@ -35,12 +37,11 @@
         </view>
       </view>
     </view>
-  </view>
 
-  <!-- 输入表单卡片 -->
-  <view class="card form-card">
-    <view class="card-content">
-      <!-- 记录时间 -->
+    <view class="card form-card">
+      <text class="theme-inline-title">ENTRY PANEL</text>
+      <text class="theme-section-title form-title">输入数量与时间</text>
+
       <view class="form-item">
         <picker mode="time" value="{{recordTime}}" bindchange="onTimeChange">
           <view class="picker-content">
@@ -50,29 +51,27 @@
         </picker>
       </view>
 
-      <!-- 数量输入区域 -->
       <view class="form-item quantity-section" wx:if="{{food.type !== 'quick'}}">
         <view class="quantity-display">
-          <text class="quantity-value">{{keypadValue || quantity || '0'}}</text>
-          <text class="quantity-unit">克</text>
+          <text class="quantity-label">当前数量</text>
+          <view class="quantity-main">
+            <text class="quantity-value">{{keypadValue || quantity || '0'}}</text>
+            <text class="quantity-unit">克</text>
+          </view>
         </view>
       </view>
 
-      <!-- 备注 -->
       <view class="form-item">
-        <textarea 
-          class="form-textarea-small" 
-          placeholder="可选备注信息" 
+        <textarea
+          class="form-textarea-small"
+          placeholder="可选备注信息"
           value="{{notes}}"
           bindinput="onNotesInput"
           maxlength="100"
         />
       </view>
 
-      <!-- 自定义数字键盘 -->
-      <!-- index.wxml -->
       <view class="keypad" wx:if="{{food.type !== 'quick'}}">
-        <!-- 1~9 自动从左到右、从上到下填满前三行的前三列 -->
         <view class="key" data-value="1" bindtap="onKeypadInput">1</view>
         <view class="key" data-value="2" bindtap="onKeypadInput">2</view>
         <view class="key" data-value="3" bindtap="onKeypadInput">3</view>
@@ -85,17 +84,13 @@
         <view class="key" data-value="8" bindtap="onKeypadInput">8</view>
         <view class="key" data-value="9" bindtap="onKeypadInput">9</view>
 
-        <!-- 右侧 x，占 3 行 -->
         <view class="key key-x" data-value="x" bindtap="onKeypadClear">×</view>
-
-        <!-- 第四行：. 0 保存(占两列) -->
         <view class="key key-dot" data-value="." bindtap="onKeypadInput">.</view>
         <view class="key key-zero" data-value="0" bindtap="onKeypadInput">0</view>
         <view class="key key-save" bindtap="saveRecord" bindlongpress="deleteRecord" wx:if="{{isEdit}}">{{isEdit ? '更新' : '保存'}}</view>
         <view class="key key-save" bindtap="saveRecord" wx:else>{{isEdit ? '更新' : '保存'}}</view>
       </view>
 
-      <!-- 计算结果显示 -->
       <view class="calculation-result" wx:if="{{food && calculatedNutrition && (food.type === 'quick' || quantity)}}">
         <view class="calc-header">
           <text class="calc-title">计算结果</text>
@@ -120,29 +115,27 @@
         </view>
       </view>
     </view>
-  </view>
 
-  <!-- 加载状态 -->
-  <view class="loading" wx:if="{{loading && !food}}">
-    <text>加载中...</text>
-  </view>
+    <view class="loading" wx:if="{{loading && !food}}">
+      <text>加载中...</text>
+    </view>
 
-  <!-- 营养信息弹层 -->
-  <view class="nutri-mask" wx:if="{{showNutritionPanel}}" catchtouchmove="true">
-    <view class="nutri-sheet">
-      <view class="nutri-header">
-        <text class="nutri-title">{{nutritionTitle}}</text>
-        <text class="nutri-close" bindtap="closeNutritionPanel">×</text>
-      </view>
-      <scroll-view scroll-y class="nutri-body">
-        <view class="nutri-grid">
-          <view class="nutri-item" wx:for="{{nutritionItems}}" wx:key="label">
-            <text class="nutri-label">{{item.label}}</text>
-            <text class="nutri-value">{{item.value}}</text>
-            <text class="nutri-unit">{{item.unit}}</text>
-          </view>
+    <view class="nutri-mask" wx:if="{{showNutritionPanel}}" catchtouchmove="true">
+      <view class="nutri-sheet">
+        <view class="nutri-header">
+          <text class="nutri-title">{{nutritionTitle}}</text>
+          <text class="nutri-close" bindtap="closeNutritionPanel">×</text>
         </view>
-      </scroll-view>
+        <scroll-view scroll-y class="nutri-body">
+          <view class="nutri-grid">
+            <view class="nutri-item" wx:for="{{nutritionItems}}" wx:key="label">
+              <text class="nutri-label">{{item.label}}</text>
+              <text class="nutri-value">{{item.value}}</text>
+              <text class="nutri-unit">{{item.unit}}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
     </view>
   </view>
 </view>

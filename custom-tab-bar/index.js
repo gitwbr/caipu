@@ -11,7 +11,7 @@ Component({
       },
       {
         pagePath: 'pages/favorites/favorites',
-        text: '收藏',
+        text: '菜谱',
         iconPath: '/images/menu/favorite-gray.png',
         selectedIconPath: '/images/menu/favorite-color.png'
       },

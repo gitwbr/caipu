@@ -240,7 +240,16 @@ Page({
     });
   },
   // 帮助与反馈
-  goHelp() { wx.showToast({ title: '敬请期待', icon: 'none' }); },
+  goHelp() {
+    wx.navigateTo({
+      url: '/pages/profile/help'
+    });
+  },
+
   // 关于我们
-  goAbout() { wx.showModal({ title: '关于我们', content: '卡路里记录小助手', showCancel: false }); }
+  goAbout() {
+    wx.navigateTo({
+      url: '/pages/profile/about'
+    });
+  }
 }); 

@@ -1,0 +1,52 @@
+<view class="theme-page help-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
+
+  <view class="theme-shell">
+    <view class="theme-hero-card help-hero">
+      <text class="theme-kicker">HELP DESK</text>
+      <text class="theme-hero-title">帮助与反馈</text>
+      <text class="theme-hero-desc">把常见问题和反馈方式整理到一起，遇到登录、识别、同步或记录异常时，可以先从这里快速排查。</text>
+
+      <view class="help-hero-tags">
+        <text class="theme-status-pill">登录与同步</text>
+        <text class="theme-status-pill">OCR 识别</text>
+        <text class="theme-status-pill">记录与收藏</text>
+      </view>
+    </view>
+
+    <view class="theme-surface">
+      <text class="theme-inline-title">QUICK CHECK</text>
+      <text class="theme-section-title help-section-title">常见问题排查</text>
+
+      <view class="faq-list">
+        <view class="faq-card" wx:for="{{faqList}}" wx:key="title">
+          <text class="faq-title">{{item.title}}</text>
+          <text class="faq-desc">{{item.desc}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="theme-surface">
+      <text class="theme-inline-title">FEEDBACK GUIDE</text>
+      <text class="theme-section-title help-section-title">反馈时尽量带上这些信息</text>
+
+      <view class="feedback-step" wx:for="{{feedbackSteps}}" wx:key="*this">
+        <view class="feedback-index">{{index + 1}}</view>
+        <text class="feedback-text">{{item}}</text>
+      </view>
+    </view>
+
+    <view class="theme-surface feedback-template-card">
+      <text class="theme-inline-title">COPY TEMPLATE</text>
+      <text class="theme-section-title help-section-title">一键复制反馈模板</text>
+      <text class="theme-section-desc">把模板发给开发者时，只需要把对应内容填进去，定位问题会快很多。</text>
+
+      <view class="template-box">
+        <text class="template-text">{{feedbackTemplate}}</text>
+      </view>
+
+      <button class="btn-primary template-btn" bindtap="copyFeedbackTemplate">复制反馈模板</button>
+    </view>
+  </view>
+</view>

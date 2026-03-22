@@ -1,0 +1,70 @@
+<view class="login-page">
+  <view class="login-backdrop" catchtap="handleBackdropTap"></view>
+
+  <view class="login-shell">
+    <view class="login-orb login-orb--warm"></view>
+    <view class="login-orb login-orb--deep"></view>
+
+    <view class="login-card">
+      <view class="login-card-bar"></view>
+      <view class="login-close {{isSubmitting ? 'login-close--disabled' : ''}}" bindtap="handleCancel">x</view>
+
+      <view class="login-emblem">
+        <view class="login-emblem-ring"></view>
+        <text class="login-emblem-dot"></text>
+      </view>
+
+      <text class="login-kicker">{{kicker}}</text>
+      <text class="login-title">{{title}}</text>
+      <text class="login-desc">{{content}}</text>
+
+      <view class="login-benefits">
+        <view class="login-benefit" wx:for="{{benefitList}}" wx:key="*this">
+          <text class="login-benefit-dot"></text>
+          <text class="login-benefit-text">{{item}}</text>
+        </view>
+      </view>
+
+      <view class="login-progress" wx:if="{{isSubmitting}}">
+        <view class="login-spinner"></view>
+        <view class="login-progress-copy">
+          <text class="login-progress-title">{{loadingTitle}}</text>
+          <text class="login-progress-desc">{{progressHint}}</text>
+        </view>
+      </view>
+
+      <view class="login-error" wx:if="{{errorText}}">
+        <text class="login-error-label">登录没有完成</text>
+        <text class="login-error-text">{{errorText}}</text>
+      </view>
+
+      <view class="login-actions">
+        <button
+          wx:if="{{showCancel}}"
+          class="login-btn login-btn--ghost"
+          hover-class="login-btn--ghost-hover"
+          bindtap="handleCancel"
+          disabled="{{isSubmitting}}"
+        >
+          {{cancelText}}
+        </button>
+
+        <button
+          class="login-btn login-btn--primary {{showCancel ? '' : 'login-btn--full'}}"
+          hover-class="login-btn--primary-hover"
+          bindtap="handleConfirm"
+          disabled="{{isSubmitting}}"
+        >
+          <view class="login-btn-inner">
+            <view class="login-btn-spinner" wx:if="{{isSubmitting}}"></view>
+            <text>{{isSubmitting ? '登录中...' : confirmText}}</text>
+          </view>
+        </button>
+      </view>
+
+      <text class="login-footnote">
+        {{isSubmitting ? '慢一点是正常的，我们正在拉取你的云端资料。' : '登录后就能同步收藏、记录和个人资料。'}}
+      </text>
+    </view>
+  </view>
+</view>

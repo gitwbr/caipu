@@ -1,84 +1,192 @@
 const app = getApp();
 
+function getRecipeId(recipeOrId) {
+  if (!recipeOrId) return '';
+  if (typeof recipeOrId === 'object') {
+    return recipeOrId.id || recipeOrId.recipe_id || recipeOrId.recipeId || '';
+  }
+  return recipeOrId;
+}
+
+function getCalories(recipe) {
+  if (!recipe || typeof recipe !== 'object') {
+    return null;
+  }
+
+  if (recipe.nutrition && recipe.nutrition.calories != null) {
+    return recipe.nutrition.calories;
+  }
+
+  if (recipe.nutrition_total && recipe.nutrition_total.calories != null) {
+    return recipe.nutrition_total.calories;
+  }
+
+  return null;
+}
+
+function buildRecipeCard(recipe, options = {}) {
+  const recipeId = getRecipeId(recipe);
+  const favoriteRecipe = recipeId && app.findFavoriteByRecipeId
+    ? app.findFavoriteByRecipeId(recipeId)
+    : null;
+  const merged = favoriteRecipe
+    ? { ...recipe, ...favoriteRecipe }
+    : { ...recipe };
+  const imagePath = merged.image_url || recipe.image_url || '';
+  const calories = getCalories(merged);
+
+  return {
+    ...merged,
+    id: recipeId || recipe.id || Date.now().toString(),
+    favoriteId: merged.favoriteId || recipe.favoriteId || '',
+    image_full_url: imagePath ? app.buildImageUrl(imagePath) : '',
+    calorie_display: calories != null ? `${Number(calories).toFixed(0)}千卡` : '-- 千卡',
+    isFavorited: !!favoriteRecipe,
+    originLabel: options.originLabel || '',
+    actionLabel: options.actionLabel || ''
+  };
+}
+
 Page({
   data: {
+    activeRecipeTab: 'recent',
+    recentRecipes: [],
     favorites: [],
     isLoading: false,
     isLoggedIn: false
   },
 
   onLoad() {
-    this.updateLoginStatus();
+    this.refreshPageData();
   },
 
   onShow() {
     app.syncTabBar(this);
-    this.updateLoginStatus();
-    if (app.globalData.isLoggedIn) {
-      this.loadFavorites();
-    }
+    this.refreshPageData();
   },
 
-  // 更新登录状态
+  refreshPageData() {
+    this.updateLoginStatus();
+    this.loadRecentRecipes();
+
+    if (app.globalData.isLoggedIn) {
+      this.loadFavorites();
+      return;
+    }
+
+    this.setData({
+      favorites: [],
+      isLoading: false
+    });
+  },
+
   updateLoginStatus() {
     this.setData({ isLoggedIn: app.globalData.isLoggedIn });
   },
 
-  // 登录弹窗
+  onRecipeTabChange(e) {
+    const { tab } = e.currentTarget.dataset;
+    if (!tab || tab === this.data.activeRecipeTab) {
+      return;
+    }
+
+    this.setData({ activeRecipeTab: tab });
+  },
+
+  loadRecentRecipes() {
+    const history = wx.getStorageSync('history') || [];
+    const recentRecipes = history.map((recipe) => buildRecipeCard(recipe, {
+      originLabel: '最近生成',
+      actionLabel: '删'
+    }));
+
+    this.setData({ recentRecipes });
+  },
+
+  loadFavorites() {
+    const local = app.globalData.favorites && app.globalData.favorites.length > 0
+      ? app.globalData.favorites
+      : (app.loadFavorites() || []);
+    const favorites = (local || []).map((recipe) => buildRecipeCard(recipe, {
+      originLabel: '已收藏',
+      actionLabel: '取消'
+    }));
+
+    this.setData({
+      favorites,
+      isLoading: false
+    });
+  },
+
+  syncFavoritesFromServer() {
+    if (!app.globalData.isLoggedIn) {
+      return Promise.resolve();
+    }
+
+    this.setData({ isLoading: true });
+
+    return app.getFavorites()
+      .then((list) => {
+        app.saveFavoritesToLocal(list);
+        const favorites = (list || []).map((recipe) => buildRecipeCard(recipe, {
+          originLabel: '已收藏',
+          actionLabel: '取消'
+        }));
+        this.setData({ favorites });
+      })
+      .finally(() => {
+        this.setData({ isLoading: false });
+      });
+  },
+
   showLoginModal() {
     app.checkLoginAndShowModal().then(() => {
       this.updateLoginStatus();
-      this.loadFavorites();
+      this.syncFavoritesFromServer();
     }).catch(() => {
       // 用户取消登录
     });
   },
 
-  // 加载收藏列表
-  loadFavorites() {
-    const local = app.globalData.favorites && app.globalData.favorites.length > 0
-      ? app.globalData.favorites
-      : (app.loadFavorites() || []);
-    const enriched = (local || []).map(it => {
-      const calories = (it && it.nutrition && it.nutrition.calories != null)
-        ? it.nutrition.calories
-        : (it && it.nutrition_total && it.nutrition_total.calories != null
-          ? it.nutrition_total.calories
-          : null);
-      return {
-        ...it,
-        image_full_url: it && it.image_url ? app.buildImageUrl(it.image_url) : '',
-        calorie_display: calories != null ? `${Number(calories).toFixed(0)}千卡` : '-- 千卡'
-      };
-    });
-    this.setData({ favorites: enriched, isLoading: false });
-  },
-
-  // 查看菜谱详情
   viewRecipe(e) {
     const recipe = e.currentTarget.dataset.recipe;
+    const scope = e.currentTarget.dataset.scope;
+    const from = scope === 'favorites' ? 'favorites' : 'library';
     wx.navigateTo({
-      url: `/pages/recipe/recipe?from=favorites&recipe=${encodeURIComponent(JSON.stringify(recipe))}`
+      url: `/pages/recipe/recipe?from=${from}&recipe=${encodeURIComponent(JSON.stringify(recipe))}`
     });
   },
 
-  // 缩略图加载失败回退
   onThumbError(e) {
-    const { index } = e.currentTarget.dataset;
-    const list = [...this.data.favorites];
+    const { index, scope } = e.currentTarget.dataset;
+    const key = scope === 'favorites' ? 'favorites' : 'recentRecipes';
+    const list = [...this.data[key]];
+
     if (list[index]) {
       list[index].image_full_url = '';
-      this.setData({ favorites: list });
+      this.setData({ [key]: list });
     }
   },
 
-  // 删除收藏
+  deleteRecent(e) {
+    const recipeId = e.currentTarget.dataset.id;
+    const index = Number(e.currentTarget.dataset.index);
+    const history = wx.getStorageSync('history') || [];
+    const nextHistory = recipeId
+      ? history.filter((recipe) => String(getRecipeId(recipe)) !== String(recipeId))
+      : history.filter((_, itemIndex) => itemIndex !== index);
+
+    wx.setStorageSync('history', nextHistory);
+    this.loadRecentRecipes();
+    wx.showToast({ title: '已删除', icon: 'success' });
+  },
+
   removeFavorite(e) {
     const favoriteId = e.currentTarget.dataset.id;
-    
+
     wx.showModal({
-      title: '确认删除',
-      content: '确定要删除这个收藏的菜谱吗？',
+      title: '确认取消收藏',
+      content: '确定要把这道菜谱移出收藏吗？',
       success: (res) => {
         if (res.confirm) {
           this.deleteFavoriteFromServer(favoriteId);
@@ -87,61 +195,38 @@ Page({
     });
   },
 
-  // 从服务器删除收藏
   deleteFavoriteFromServer(favoriteId) {
-    wx.showLoading({ title: '删除中...' });
-    // 通过统一接口：根据 recipeId 删除本地+云端
-    const item = this.data.favorites.find(f => f.favoriteId === favoriteId);
+    wx.showLoading({ title: '更新中...' });
+    const item = this.data.favorites.find((favorite) => favorite.favoriteId === favoriteId);
     const recipeId = item ? item.id : favoriteId;
+
     app.removeFavoriteWithSync(recipeId)
       .then(() => {
         wx.hideLoading();
-        const favorites = this.data.favorites.filter(it => (it.favoriteId || it.id) !== favoriteId && it.id !== recipeId);
-        this.setData({ favorites });
-        wx.showToast({ title: '删除成功', icon: 'success' });
+        this.loadFavorites();
+        this.loadRecentRecipes();
+        wx.showToast({ title: '已取消', icon: 'success' });
       })
-      .catch(err => {
+      .catch((err) => {
         wx.hideLoading();
-        wx.showToast({ title: err.message || '删除失败', icon: 'none' });
+        wx.showToast({ title: err.message || '取消失败', icon: 'none' });
       });
   },
 
-  
-
-  // 下拉刷新：登录状态下可手动同步云端覆盖本地
   onPullDownRefresh() {
-    if (!app.globalData.isLoggedIn) {
-      wx.stopPullDownRefresh();
-      return;
+    const tasks = [Promise.resolve().then(() => this.loadRecentRecipes())];
+
+    if (app.globalData.isLoggedIn) {
+      tasks.push(this.syncFavoritesFromServer());
     }
-    app.getFavorites()
-      .then(list => {
-        app.saveFavoritesToLocal(list);
-        const enriched = (list || []).map(it => {
-          const calories = (it && it.nutrition && it.nutrition.calories != null)
-            ? it.nutrition.calories
-            : (it && it.nutrition_total && it.nutrition_total.calories != null
-              ? it.nutrition_total.calories
-              : null);
-          return {
-            ...it,
-            image_full_url: it && it.image_url ? app.buildImageUrl(it.image_url) : '',
-            calorie_display: calories != null ? `${Number(calories).toFixed(0)}千卡` : '-- 千卡'
-          };
-        });
-        this.setData({ favorites: enriched });
-      })
+
+    Promise.all(tasks)
       .finally(() => wx.stopPullDownRefresh());
   },
 
-  // 跳转到首页（未登录时按钮用弹窗，不跳转）
   goToHome() {
-    if (!this.data.isLoggedIn) {
-      this.showLoginModal();
-      return;
-    }
     wx.switchTab({
       url: '/pages/index/index'
     });
   }
-}) 
+});

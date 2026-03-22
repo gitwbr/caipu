@@ -3,7 +3,10 @@
     "pages/index/index",
     "pages/recipe/recipe",
     "pages/favorites/favorites",
+    "pages/login-prompt/login-prompt",
     "pages/profile/profile",
+    "pages/profile/help",
+    "pages/profile/about",
     "pages/profile/edit",
     "pages/ingredients/ingredients",
     "pages/record/record",
@@ -40,7 +43,7 @@
         "pagePath": "pages/favorites/favorites",
         "iconPath": "images/menu/favorite-gray.png",
         "selectedIconPath": "images/menu/favorite-color.png",
-        "text": "收藏"
+        "text": "菜谱"
       },
       {
         "pagePath": "pages/record/record",

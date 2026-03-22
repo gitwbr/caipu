@@ -1,5 +1,156 @@
 const app = getApp()
 
+const TASTE_NAMES = ['清淡', '开胃', '下饭', '解馋', '暖胃']
+const KITCHEN_ENVIRONMENT_NAMES = ['炒锅', '平底锅', '汤锅/炖锅', '蒸锅', '电饭煲', '砂锅', '烤箱', '空气炸锅', '微波炉']
+const METHOD_KITCHEN_REQUIREMENTS = {
+  清蒸: ['蒸锅'],
+  炖: ['汤锅/炖锅', '砂锅', '电饭煲'],
+  煎: ['平底锅', '炒锅'],
+  炒: ['炒锅', '平底锅'],
+  红烧: ['炒锅', '汤锅/炖锅', '砂锅'],
+  烤: ['烤箱', '空气炸锅'],
+  凉拌: []
+}
+const AUTO_FILL_LABELS = {
+  dishType: '菜品类型',
+  cuisine: '菜系风格',
+  taste: '口味',
+  method: '烹饪方式',
+  kitchenEnvironment: '厨房环境'
+}
+const SUPPORTING_INGREDIENTS = ['葱', '姜', '蒜', '鸡蛋', '青椒', '洋葱', '番茄', '淀粉']
+const BASIC_SEASONINGS = ['食用油', '盐', '糖', '生抽', '老抽', '料酒', '醋', '蚝油', '胡椒']
+
+function createEmptyNutrition() {
+  return {
+    calories: 0,
+    protein: 0,
+    fat: 0,
+    carbohydrates: 0,
+    carbs: 0
+  }
+}
+
+function parseNumericValue(value) {
+  if (typeof value === 'number') {
+    return value
+  }
+
+  if (value === null || value === undefined || value === '') {
+    return 0
+  }
+
+  const match = String(value).match(/-?\d+(\.\d+)?/)
+  return match ? parseFloat(match[0]) : 0
+}
+
+function normalizeUnit(unit, fallback = 'g') {
+  const normalized = String(unit || '').trim().toLowerCase()
+  if (normalized === 'ml') {
+    return 'ml'
+  }
+  if (normalized === 'g') {
+    return 'g'
+  }
+  return fallback
+}
+
+function parseAmount(amount) {
+  const raw = String(amount || '').trim()
+  const match = raw.match(/(-?\d+(?:\.\d+)?)\s*(g|ml)/i)
+
+  if (!match) {
+    return {
+      raw,
+      value: null,
+      unit: ''
+    }
+  }
+
+  return {
+    raw,
+    value: Number(match[1]),
+    unit: normalizeUnit(match[2])
+  }
+}
+
+function normalizeNutritionInfo(source) {
+  const empty = createEmptyNutrition()
+  if (!source || typeof source !== 'object') {
+    return empty
+  }
+
+  const calories = Number(source.calories || 0)
+  const protein = parseNumericValue(source.protein)
+  const fat = parseNumericValue(source.fat)
+  const carbohydrates = parseNumericValue(source.carbohydrates ?? source.carbs)
+
+  return {
+    calories: Number.isFinite(calories) ? calories : parseNumericValue(source.calories),
+    protein: Number.isFinite(protein) ? protein : 0,
+    fat: Number.isFinite(fat) ? fat : 0,
+    carbohydrates: Number.isFinite(carbohydrates) ? carbohydrates : 0,
+    carbs: Number.isFinite(carbohydrates) ? carbohydrates : 0
+  }
+}
+
+function normalizeIngredientItem(item = {}, index = 0) {
+  const parsedAmount = parseAmount(item.amount)
+  const amountValue = item.weight !== undefined && item.weight !== null && item.weight !== '' && !Number.isNaN(Number(item.weight))
+    ? Number(item.weight)
+    : parsedAmount.value
+  const basisUnit = normalizeUnit(
+    item.nutrition_basis_unit || item.nutritionBasisUnit || parsedAmount.unit || 'g',
+    parsedAmount.unit || 'g'
+  )
+  const unitNormalized = normalizeUnit(item.unitNormalized || item.unit || parsedAmount.unit || basisUnit, basisUnit)
+  const nutritionPer100 = normalizeNutritionInfo(
+    item.nutrition_per_100 || item.nutritionPer100 || item.nutrition_per_100g || item.nutrition
+  )
+  const amount = amountValue !== null && amountValue !== undefined && amountValue !== ''
+    ? `${amountValue}${unitNormalized}`
+    : String(item.amount || '').trim()
+
+  return {
+    ...item,
+    name: item.name || `食材${index + 1}`,
+    amount,
+    weight: amountValue !== null && amountValue !== undefined ? amountValue : '',
+    unit: unitNormalized,
+    unitNormalized,
+    nutrition_per_100: nutritionPer100,
+    nutrition_basis_unit: basisUnit,
+    nutritionInfo: nutritionPer100
+  }
+}
+
+function normalizeRecipePayload(recipe = {}) {
+  const ingredients = Array.isArray(recipe.ingredients)
+    ? recipe.ingredients.map((item, index) => normalizeIngredientItem(item, index))
+    : []
+  const nutrition = recipe.nutrition || {}
+  const normalizedNutrition = {
+    calories: parseNumericValue(nutrition.calories),
+    protein: parseNumericValue(nutrition.protein),
+    fat: parseNumericValue(nutrition.fat),
+    carbs: parseNumericValue(nutrition.carbs ?? nutrition.carbohydrates)
+  }
+
+  return {
+    ...recipe,
+    id: recipe.id || Date.now().toString(),
+    createTime: recipe.createTime || new Date().toISOString(),
+    description: recipe.description || '',
+    ingredients,
+    steps: Array.isArray(recipe.steps)
+      ? recipe.steps.map((step) => String(step || '').trim()).filter(Boolean)
+      : [],
+    nutrition: normalizedNutrition,
+    tags: Array.isArray(recipe.tags) ? recipe.tags.filter(Boolean) : [],
+    tips: recipe.tips || ''
+  }
+}
+
 const TAB_OPTIONS = [
   {
     key: 'ingredients',
@@ -23,7 +174,15 @@ const TAB_OPTIONS = [
     desc: '让成品更偏家常、川味或轻食',
     eyebrow: 'CUISINE',
     panelTitle: '锁定味型方向',
-    note: '不选也可以，系统默认按家常菜生成'
+    note: '不选也可以，AI 会按最自然的家常路线自动补全'
+  },
+  {
+    key: 'taste',
+    label: '口味',
+    desc: '给成菜定下清淡、开胃或暖胃方向',
+    eyebrow: 'TASTE',
+    panelTitle: '补上入口风味',
+    note: '口味只控制风味，不会盖过主料本身'
   },
   {
     key: 'method',
@@ -32,6 +191,14 @@ const TAB_OPTIONS = [
     eyebrow: 'METHOD',
     panelTitle: '补上做法偏好',
     note: '当你已经想好做法时，这一步最省时间'
+  },
+  {
+    key: 'kitchenEnvironment',
+    label: '厨房环境',
+    desc: '多选你手头有的锅具设备，避开做不到的方案',
+    eyebrow: 'KITCHEN',
+    panelTitle: '限定可用设备',
+    note: '不选时默认按普通家庭厨房自动补全，优先灶台路线'
   }
 ]
 
@@ -43,7 +210,8 @@ const QUICK_SCENES = [
     desc: '炒菜 + 家常菜',
     dishTypeIndex: 0,
     typeIndex: 0,
-    methodIndex: 4
+    methodIndex: 4,
+    tasteIndex: 2
   },
   {
     key: 'fit-light',
@@ -52,7 +220,8 @@ const QUICK_SCENES = [
     desc: '炒菜 + 健身餐 + 清蒸',
     dishTypeIndex: 0,
     typeIndex: 1,
-    methodIndex: 1
+    methodIndex: 1,
+    tasteIndex: 0
   },
   {
     key: 'warm-soup',
@@ -61,7 +230,8 @@ const QUICK_SCENES = [
     desc: '汤 + 家常菜 + 炖',
     dishTypeIndex: 1,
     typeIndex: 0,
-    methodIndex: 2
+    methodIndex: 2,
+    tasteIndex: 4
   },
   {
     key: 'weekend-snack',
@@ -70,7 +240,8 @@ const QUICK_SCENES = [
     desc: '小吃 + 家常菜 + 烤',
     dishTypeIndex: 4,
     typeIndex: 0,
-    methodIndex: 5
+    methodIndex: 5,
+    tasteIndex: 3
   }
 ]
 
@@ -100,7 +271,9 @@ Page({
     typeNames: [],
     methodNames: [],
     dishTypeNames: [],
-    recentRecipes: [],
+    tasteNames: TASTE_NAMES,
+    kitchenEnvironmentNames: KITCHEN_ENVIRONMENT_NAMES,
+    kitchenEnvironmentOptions: [],
     tabOptions: TAB_OPTIONS,
     quickScenes: QUICK_SCENES,
     activeTab: 0,
@@ -111,9 +284,16 @@ Page({
     selectedMethodName: '',
     selectedDishTypeIndex: null,
     selectedDishTypeName: '',
+    selectedTasteIndex: null,
+    selectedTasteName: '',
+    selectedKitchenEnvironmentIndexes: [],
+    selectedKitchenEnvironmentNames: [],
     selectedSummaryItems: [],
     selectionCount: 0,
     selectedMetaCount: 0,
+    stickyGenerateSummaryText: '还没选主料，AI 会按普通家庭厨房路线补全。',
+    autoFillSummaryText: '',
+    methodKitchenConflictMessage: '',
     ingredientCategoryTabs: ['肉类蛋类', '水产海鲜', '蔬菜菌菇', '豆制品', '主食'],
     activeIngredientCategoryTab: 0,
     activePresetKey: '',
@@ -130,13 +310,11 @@ Page({
   onLoad() {
     this.generateRequestLocked = false
     this.initOptions()
-    this.loadRecentRecipes()
     this.updateLoginStatus()
   },
 
   onShow() {
     app.syncTabBar(this)
-    this.loadRecentRecipes()
     this.updateLoginStatus()
   },
 
@@ -229,16 +407,87 @@ Page({
     const dishTypeNames = ['炒菜', '汤', '凉菜', '主食', '小吃']
     const typeNames = ['家常菜', '健身餐', '儿童营养餐', '川菜', '粤菜', '鲁菜', '苏菜', '浙菜', '闽菜', '湘菜', '徽菜', '东北菜', '西北菜', '日式料理', '韩式料理', '西餐', '东南亚风味']
     const methodNames = ['红烧', '清蒸', '炖', '煎', '炒', '烤', '凉拌']
+    const kitchenEnvironmentOptions = KITCHEN_ENVIRONMENT_NAMES.map((name) => ({
+      name,
+      selected: false
+    }))
 
     this.setData({
       categorizedIngredients,
       dishTypeNames,
       typeNames,
       methodNames,
+      tasteNames: TASTE_NAMES,
+      kitchenEnvironmentNames: KITCHEN_ENVIRONMENT_NAMES,
+      kitchenEnvironmentOptions,
       selectedIngredientNames: []
     }, () => {
       this.refreshSelectionSummary()
     })
+  },
+
+  getAutoFillSummaryText(state) {
+    const autoFillFields = []
+
+    if (!state.selectedDishTypeName) {
+      autoFillFields.push(AUTO_FILL_LABELS.dishType)
+    }
+    if (!state.selectedTypeName) {
+      autoFillFields.push(AUTO_FILL_LABELS.cuisine)
+    }
+    if (!state.selectedTasteName) {
+      autoFillFields.push(AUTO_FILL_LABELS.taste)
+    }
+    if (!state.selectedMethodName) {
+      autoFillFields.push(AUTO_FILL_LABELS.method)
+    }
+    if (!state.selectedKitchenEnvironmentNames.length) {
+      autoFillFields.push(AUTO_FILL_LABELS.kitchenEnvironment)
+    }
+
+    if (!autoFillFields.length) {
+      return '约束已经足够完整，AI 会优先贴合你的设定来生成。'
+    }
+
+    return `未选的 ${autoFillFields.join(' / ')} 会由 AI 按普通家庭厨房逻辑自动补全。`
+  },
+
+  getStickyGenerateSummaryText(state) {
+    const ingredientCount = Array.isArray(state.selectedIngredientNames) ? state.selectedIngredientNames.length : 0
+    const metaCount = Array.isArray(state.selectedSummaryItems)
+      ? state.selectedSummaryItems.filter((item) => item.kind === 'meta').length
+      : 0
+
+    if (ingredientCount > 0) {
+      return `已选 ${ingredientCount} 个食材 / ${metaCount} 项约束`
+    }
+
+    if (metaCount > 0) {
+      return `还没选主料，已加 ${metaCount} 项约束`
+    }
+
+    return '还没选主料，AI 会按普通家庭厨房路线补全'
+  },
+
+  getMethodKitchenConflictMessage(methodName, kitchenEnvironmentNames = []) {
+    if (!methodName || !kitchenEnvironmentNames.length) {
+      return ''
+    }
+
+    const requiredEnvironments = METHOD_KITCHEN_REQUIREMENTS[methodName]
+    if (!Array.isArray(requiredEnvironments) || !requiredEnvironments.length) {
+      return ''
+    }
+
+    const hasSupportedEnvironment = requiredEnvironments.some((environmentName) =>
+      kitchenEnvironmentNames.includes(environmentName)
+    )
+
+    if (hasSupportedEnvironment) {
+      return ''
+    }
+
+    return `${methodName} 需要 ${requiredEnvironments.join(' 或 ')}，当前厨房环境不满足。`
   },
 
   buildSelectedSummaryItems(state) {
@@ -246,7 +495,9 @@ Page({
       id: `ingredient-${index}-${name}`,
       label: name,
       prefix: '',
-      kind: 'ingredient'
+      kind: 'ingredient',
+      removeKind: 'ingredient',
+      removeValue: name
     }))
     const metaItems = []
 
@@ -255,7 +506,9 @@ Page({
         id: 'dishType',
         label: state.selectedDishTypeName,
         prefix: '类型',
-        kind: 'meta'
+        kind: 'meta',
+        removeKind: 'single',
+        removeField: 'dishType'
       })
     }
 
@@ -264,7 +517,20 @@ Page({
         id: 'type',
         label: state.selectedTypeName,
         prefix: '菜系',
-        kind: 'meta'
+        kind: 'meta',
+        removeKind: 'single',
+        removeField: 'type'
+      })
+    }
+
+    if (state.selectedTasteName) {
+      metaItems.push({
+        id: 'taste',
+        label: state.selectedTasteName,
+        prefix: '口味',
+        kind: 'meta',
+        removeKind: 'single',
+        removeField: 'taste'
       })
     }
 
@@ -273,7 +539,22 @@ Page({
         id: 'method',
         label: state.selectedMethodName,
         prefix: '做法',
-        kind: 'meta'
+        kind: 'meta',
+        removeKind: 'single',
+        removeField: 'method'
+      })
+    }
+
+    if (Array.isArray(state.selectedKitchenEnvironmentNames)) {
+      state.selectedKitchenEnvironmentNames.forEach((name, index) => {
+        metaItems.push({
+          id: `kitchen-${index}-${name}`,
+          label: name,
+          prefix: '设备',
+          kind: 'meta',
+          removeKind: 'kitchen',
+          removeValue: name
+        })
       })
     }
 
@@ -283,21 +564,29 @@ Page({
   refreshSelectionSummary(extraState = {}) {
     const snapshot = { ...this.data, ...extraState }
     const selectedSummaryItems = this.buildSelectedSummaryItems(snapshot)
+    const methodKitchenConflictMessage = this.getMethodKitchenConflictMessage(
+      snapshot.selectedMethodName,
+      snapshot.selectedKitchenEnvironmentNames
+    )
     const matchedPreset = QUICK_SCENES.find((scene) =>
       snapshot.selectedDishTypeIndex === scene.dishTypeIndex &&
       snapshot.selectedTypeIndex === scene.typeIndex &&
-      snapshot.selectedMethodIndex === scene.methodIndex
+      snapshot.selectedMethodIndex === scene.methodIndex &&
+      snapshot.selectedTasteIndex === scene.tasteIndex &&
+      (!snapshot.selectedKitchenEnvironmentIndexes || snapshot.selectedKitchenEnvironmentIndexes.length === 0)
     )
 
     this.setData({
       selectedSummaryItems,
       selectionCount: selectedSummaryItems.length,
-      selectedMetaCount: [
-        snapshot.selectedDishTypeName,
-        snapshot.selectedTypeName,
-        snapshot.selectedMethodName
-      ].filter(Boolean).length,
-      activePresetKey: matchedPreset ? matchedPreset.key : ''
+      selectedMetaCount: selectedSummaryItems.filter((item) => item.kind === 'meta').length,
+      stickyGenerateSummaryText: this.getStickyGenerateSummaryText({
+        ...snapshot,
+        selectedSummaryItems
+      }),
+      activePresetKey: matchedPreset ? matchedPreset.key : '',
+      autoFillSummaryText: this.getAutoFillSummaryText(snapshot),
+      methodKitchenConflictMessage
     })
   },
 
@@ -320,6 +609,8 @@ Page({
       selectedDishTypeName: this.data.dishTypeNames[preset.dishTypeIndex] || '',
       selectedTypeIndex: preset.typeIndex,
       selectedTypeName: this.data.typeNames[preset.typeIndex] || '',
+      selectedTasteIndex: preset.tasteIndex,
+      selectedTasteName: this.data.tasteNames[preset.tasteIndex] || '',
       selectedMethodIndex: preset.methodIndex,
       selectedMethodName: this.data.methodNames[preset.methodIndex] || ''
     }
@@ -398,8 +689,55 @@ Page({
     })
   },
 
+  onTasteTagTap(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const nextData = this.data.selectedTasteIndex === index ? {
+      selectedTasteIndex: null,
+      selectedTasteName: ''
+    } : {
+      selectedTasteIndex: index,
+      selectedTasteName: this.data.tasteNames[index]
+    }
+
+    this.setData(nextData, () => {
+      this.refreshSelectionSummary()
+    })
+  },
+
+  onKitchenEnvironmentTagTap(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const kitchenEnvironmentOptions = this.data.kitchenEnvironmentOptions.map((item, optionIndex) => (
+      optionIndex === index
+        ? { ...item, selected: !item.selected }
+        : item
+    ))
+    const selectedKitchenEnvironmentIndexes = kitchenEnvironmentOptions
+      .map((item, optionIndex) => (item.selected ? optionIndex : null))
+      .filter((item) => item !== null)
+    const selectedKitchenEnvironmentNames = kitchenEnvironmentOptions
+      .filter((item) => item.selected)
+      .map((item) => item.name)
+
+    this.setData({
+      kitchenEnvironmentOptions,
+      selectedKitchenEnvironmentIndexes,
+      selectedKitchenEnvironmentNames
+    }, () => {
+      this.refreshSelectionSummary()
+    })
+  },
+
   onGenerateRecipe() {
     if (this.generateRequestLocked || this.data.isLoading) {
+      return
+    }
+
+    if (this.data.methodKitchenConflictMessage) {
+      wx.showModal({
+        title: '生成前需要调整',
+        content: this.data.methodKitchenConflictMessage,
+        showCancel: false
+      })
       return
     }
 
@@ -419,23 +757,21 @@ Page({
 
   buildGenerateParams() {
     const {
-      categorizedIngredients,
       selectedIngredientNames,
       selectedTypeIndex,
       selectedTypeName,
+      selectedTasteIndex,
+      selectedTasteName,
       selectedMethodIndex,
       selectedMethodName,
       selectedDishTypeIndex,
-      selectedDishTypeName
+      selectedDishTypeName,
+      selectedKitchenEnvironmentNames
     } = this.data
 
-    const main = selectedIngredientNames.length > 0
-      ? selectedIngredientNames.join('、')
-      : this.getRandomIngredientName(categorizedIngredients)
-
-    const type = selectedTypeIndex !== null && selectedTypeIndex !== undefined
-      ? selectedTypeName
-      : '家常菜'
+    const mainIngredients = selectedIngredientNames.length > 0
+      ? [...selectedIngredientNames]
+      : []
 
     const method = selectedMethodIndex !== null && selectedMethodIndex !== undefined
       ? selectedMethodName
@@ -445,49 +781,32 @@ Page({
       ? selectedDishTypeName
       : ''
 
-    return { main, type, method, dishType }
-  },
+    const cuisine = selectedTypeIndex !== null && selectedTypeIndex !== undefined
+      ? selectedTypeName
+      : ''
 
-  getRandomIngredientName(categorizedIngredients) {
-    const allIngredientNames = categorizedIngredients.flatMap((category) =>
-      category.ingredients.map((ingredient) => ingredient.name)
-    )
-    const randIdx = Math.floor(Math.random() * allIngredientNames.length)
-    return allIngredientNames[randIdx]
-  },
+    const taste = selectedTasteIndex !== null && selectedTasteIndex !== undefined
+      ? selectedTasteName
+      : ''
 
-  loadRecentRecipes() {
-    const history = wx.getStorageSync('history') || []
-    const take = history.slice(0, 3)
-    const favorites = app.globalData.favorites || []
-    const enriched = take.map((recipe) => ({
-      ...recipe,
-      isFavorited: app.isRecipeFavorited
-        ? app.isRecipeFavorited(recipe.id)
-        : favorites.some((favorite) => String(favorite.id) === String(recipe.id))
-    }))
+    const autoFillDimensions = [
+      !dishType && '菜品类型',
+      !cuisine && '菜系风格',
+      !taste && '口味',
+      !method && '烹饪方式',
+      !selectedKitchenEnvironmentNames.length && '厨房环境'
+    ].filter(Boolean)
 
-    this.setData({ recentRecipes: enriched })
-  },
-
-  deleteRecent(e) {
-    const idx = Number(e.currentTarget.dataset.index)
-    const history = wx.getStorageSync('history') || []
-    const toDelete = this.data.recentRecipes[idx]
-    let newHistory = history
-
-    if (toDelete && toDelete.id) {
-      newHistory = history.filter((recipe) => String(recipe.id) !== String(toDelete.id))
-    } else {
-      newHistory.splice(idx, 1)
+    return {
+      mainIngredients,
+      hasSelectedIngredients: mainIngredients.length > 0,
+      dishType,
+      cuisine,
+      taste,
+      method,
+      kitchenEnvironment: [...selectedKitchenEnvironmentNames],
+      autoFillDimensions
     }
-
-    wx.setStorageSync('history', newHistory)
-    this.loadRecentRecipes()
-    wx.showToast({
-      title: '已删除',
-      icon: 'success'
-    })
   },
 
   generateRecipeWithParams(params) {
@@ -514,32 +833,90 @@ Page({
 
   buildRecipeRequestData(params) {
     const randomSeed = Math.floor(Math.random() * 1000000)
-    let prompt = `请用${params.main}为食材，`
-
-    if (params.method) {
-      prompt += `采用${params.method}的方式，`
-    }
-
-    prompt += '做一道'
-
-    if (params.dishType) {
-      prompt += `属于"${params.dishType}"的`
-    }
-
-    prompt += `${params.type}。你收到的随机数是：${randomSeed}，请基于它生成不一样的搭配。严格要求：
-1) ingredients 为数组，数组中“每一项”必须是 { name, amount, nutrition_per_100g }，其中 nutrition_per_100g = { calories, protein, fat, carbohydrates }（单位：千卡/g/g/g，按每100g或每100ml）；
-2) amount 仅允许 g 或 ml（示例："150g"、"200ml"），严禁出现“个/勺/适量/约xxg”等文字；
-3) 顶层对象不要返回 nutrition 或 nutrition_per_100g，只在每个食材项内提供 nutrition_per_100g；
-4) 若某项难以给出，请依据常识合理估算，切勿省略字段；
-5) 仅返回纯 JSON（name/description/ingredients/steps/tips/tags）。`
+    const selectedIngredientsText = params.hasSelectedIngredients
+      ? params.mainIngredients.join('、')
+      : '未指定，请先补一个最自然、普通家庭常见且与其它条件匹配的主料组合'
+    const kitchenEnvironmentText = params.kitchenEnvironment.length
+      ? params.kitchenEnvironment.join('、')
+      : '未指定，按普通家庭厨房自动补全，优先灶台锅具路线'
+    const autoFillText = params.autoFillDimensions.length
+      ? params.autoFillDimensions.join('、')
+      : '无，当前维度已完整指定'
+    const systemPrompt = [
+      '你是一位擅长中国家庭厨房的菜谱生成助手。',
+      '请优先生成普通家庭真能做、步骤能照着做的菜谱，不要写得像餐厅菜单或创意料理。',
+      '你必须只返回纯 JSON，不要 Markdown 代码块，不要解释文字，不要注释，不要额外顶层字段。',
+      '顶层 JSON 只能包含：name、description、ingredients、steps、tips、tags。',
+      'ingredients 必须是数组，且每一项都必须包含 name、amount、nutrition_per_100、nutrition_basis_unit。',
+      'nutrition_per_100 必须是对象，包含 calories、protein、fat、carbohydrates 四个字段。',
+      'nutrition_basis_unit 只能是 g 或 ml；amount 也只能使用 g 或 ml，例如 150g、200ml。',
+      '不要返回顶层 nutrition，也不要再使用 nutrition_per_100g 作为新字段。'
+    ].join('\n')
+    const userPrompt = [
+      '请按照以下任务生成一份家庭厨房菜谱：',
+      `随机种子：${randomSeed}`,
+      `已选主料：${selectedIngredientsText}`,
+      `菜品类型：${params.dishType || '自动补全为最自然的结果'}`,
+      `菜系风格：${params.cuisine || '自动补全为最自然的结果'}`,
+      `口味：${params.taste || '自动补全为最自然的结果'}`,
+      `烹饪方式：${params.method || '自动补全为最自然的结果'}`,
+      `厨房环境：${kitchenEnvironmentText}`,
+      `未选维度：${autoFillText}`,
+      '',
+      '执行规则：',
+      '1. 已选主料视为我手头现有的主料，必须尽量全部使用；如果天然不太搭，可以降为配角，但不能直接忽略。',
+      `2. 允许补充常见辅料：${SUPPORTING_INGREDIENTS.join('、')}。`,
+      `3. 允许补充基础调味：${BASIC_SEASONINGS.join('、')}。`,
+      '4. 不允许额外补新的主菜级食材。',
+      '5. 如果只选了部分维度，未选项要自动补成最自然、最家常、最能做成的组合，不是随机乱发挥。',
+      '6. 如果厨房环境已指定，步骤中只能使用这些设备可完成的方案；如果有潜在冲突，也必须优先生成真正能做成的版本。',
+      '7. 步骤必须写成家常做法，每步都要尽量包含关键动作，并至少体现火候、时间、状态变化中的一种。',
+      '8. 成品必须符合普通家庭可执行标准：食材数量控制在家常范围，步骤数量控制在 4 到 7 步左右，避免过度复杂。',
+      '9. 主料和关键辅料不要写“适量、少许、若干、约xxg、1个、2勺”这类不落地的量，必须给出明确的 g 或 ml。',
+      '10. 如某个营养值难以精确给出，请按常识合理估算，但字段不能缺失。',
+      '',
+      '返回格式要求：',
+      'A. name 为字符串，像真人会起的家常菜名。',
+      'B. description 为一句话，概括这道菜为什么适合当前主料与条件。',
+      'C. ingredients 为数组，每项格式：{ "name": "...", "amount": "150g", "nutrition_per_100": { "calories": 0, "protein": 0, "fat": 0, "carbohydrates": 0 }, "nutrition_basis_unit": "g" }。',
+      'D. steps 为字符串数组。',
+      'E. tips 为字符串。',
+      'F. tags 为短标签字符串数组。',
+      'G. 除上述 JSON 外不要输出任何多余内容。'
+    ].join('\n')
 
     return {
-      prompt,
-      system: '你是一个专业的中国菜谱生成助手，请严格按照JSON格式返回菜谱信息。请以JSON格式返回，包含以下字段:name(菜名), description(描述), ingredients(食材数组，包含name和amount), steps(步骤数组), tips(烹饪技巧), tags(标签数组)。'
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.65
+    }
+  },
+
+  logRecipeRequestData(requestData) {
+    try {
+      const messages = Array.isArray(requestData.messages) ? requestData.messages : []
+      const systemMessage = messages.find((item) => item.role === 'system')
+      const userMessage = messages.find((item) => item.role === 'user')
+
+      console.log('========== AI菜谱生成请求开始 ==========')
+      if (systemMessage) {
+        console.log('[AI菜谱生成][system]\n' + systemMessage.content)
+      }
+      if (userMessage) {
+        console.log('[AI菜谱生成][user]\n' + userMessage.content)
+      }
+      console.log('[AI菜谱生成][payload]\n' + JSON.stringify(requestData, null, 2))
+      console.log('========== AI菜谱生成请求结束 ==========')
+    } catch (error) {
+      console.error('打印AI菜谱提示词失败:', error)
     }
   },
 
   requestGeneratedRecipe(currentApp, requestData) {
+    this.logRecipeRequestData(requestData)
+
     return new Promise((resolve, reject) => {
       wx.request({
         url: currentApp.globalData.serverUrl + '/api/ai',
@@ -623,26 +1000,8 @@ Page({
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         const recipe = JSON.parse(jsonMatch[0])
-        if (recipe.ingredients && Array.isArray(recipe.ingredients)) {
-          recipe.ingredients = recipe.ingredients.map((item) => ({
-            ...item,
-            nutrition_per_100g: item.nutrition_per_100g || item.nutrition || item.nutritionPer100g || {}
-          }))
-        }
         if (recipe.name && recipe.ingredients && recipe.steps) {
-          return {
-            ...recipe,
-            id: Date.now().toString(),
-            createTime: new Date().toISOString(),
-            nutrition: recipe.nutrition || {
-              calories: 0,
-              protein: 0,
-              fat: 0,
-              carbs: 0
-            },
-            tags: recipe.tags || [],
-            tips: recipe.tips || ''
-          }
+          return normalizeRecipePayload(recipe)
         }
       }
       return this.parseRecipeText(content)
@@ -682,9 +1041,11 @@ Page({
       } else if (line.includes('技巧') || line.includes('注意')) {
         currentSection = 'tips'
       } else if (line && currentSection === 'ingredients') {
+        const ingredientLine = line.replace(/^\d+\.\s*/, '')
+        const amountMatch = ingredientLine.match(/(.+?)\s+(\d+(?:\.\d+)?\s*(?:g|ml))$/i)
         recipe.ingredients.push({
-          name: line.replace(/^\d+\.\s*/, ''),
-          amount: '适量'
+          name: amountMatch ? amountMatch[1].trim() : ingredientLine,
+          amount: amountMatch ? amountMatch[2].replace(/\s+/g, '').toLowerCase() : '100g'
         })
       } else if (line && currentSection === 'steps') {
         recipe.steps.push(line.replace(/^\d+\.\s*/, ''))
@@ -693,7 +1054,7 @@ Page({
       }
     }
 
-    return recipe
+    return normalizeRecipePayload(recipe)
   },
 
   saveToHistory(recipe) {
@@ -705,17 +1066,82 @@ Page({
     wx.setStorageSync('history', history)
   },
 
-  viewRecipe(e) {
-    const recipe = e.currentTarget.dataset.recipe
-    wx.navigateTo({
-      url: `/pages/recipe/recipe?recipe=${encodeURIComponent(JSON.stringify(recipe))}`
-    })
-  },
-
   onIngredientCategoryTabChange(e) {
     this.setData({
       activeIngredientCategoryTab: Number(e.currentTarget.dataset.index)
     })
+  },
+
+  onRemoveSummaryItem(e) {
+    const { removeKind, removeField, removeValue } = e.currentTarget.dataset
+
+    if (removeKind === 'ingredient') {
+      const categorizedIngredients = this.data.categorizedIngredients.map((category) => ({
+        ...category,
+        ingredients: category.ingredients.map((ingredient) => (
+          ingredient.name === removeValue
+            ? { ...ingredient, selected: false }
+            : ingredient
+        ))
+      }))
+      const selectedIngredientNames = categorizedIngredients
+        .flatMap((category) => category.ingredients)
+        .filter((ingredient) => ingredient.selected)
+        .map((ingredient) => ingredient.name)
+
+      this.setData({
+        categorizedIngredients,
+        selectedIngredientNames
+      }, () => {
+        this.refreshSelectionSummary()
+      })
+      return
+    }
+
+    if (removeKind === 'kitchen') {
+      const kitchenEnvironmentOptions = this.data.kitchenEnvironmentOptions.map((item) => (
+        item.name === removeValue
+          ? { ...item, selected: false }
+          : item
+      ))
+      const selectedKitchenEnvironmentIndexes = kitchenEnvironmentOptions
+        .map((item, index) => (item.selected ? index : null))
+        .filter((item) => item !== null)
+      const selectedKitchenEnvironmentNames = kitchenEnvironmentOptions
+        .filter((item) => item.selected)
+        .map((item) => item.name)
+
+      this.setData({
+        kitchenEnvironmentOptions,
+        selectedKitchenEnvironmentIndexes,
+        selectedKitchenEnvironmentNames
+      }, () => {
+        this.refreshSelectionSummary()
+      })
+      return
+    }
+
+    if (removeKind === 'single') {
+      const nextData = {}
+
+      if (removeField === 'dishType') {
+        nextData.selectedDishTypeIndex = null
+        nextData.selectedDishTypeName = ''
+      } else if (removeField === 'type') {
+        nextData.selectedTypeIndex = null
+        nextData.selectedTypeName = ''
+      } else if (removeField === 'taste') {
+        nextData.selectedTasteIndex = null
+        nextData.selectedTasteName = ''
+      } else if (removeField === 'method') {
+        nextData.selectedMethodIndex = null
+        nextData.selectedMethodName = ''
+      }
+
+      this.setData(nextData, () => {
+        this.refreshSelectionSummary()
+      })
+    }
   },
 
   onClearAllSelections() {
@@ -723,16 +1149,25 @@ Page({
       ...category,
       ingredients: category.ingredients.map((ingredient) => ({ ...ingredient, selected: false }))
     }))
+    const kitchenEnvironmentOptions = this.data.kitchenEnvironmentOptions.map((item) => ({
+      ...item,
+      selected: false
+    }))
 
     this.setData({
       categorizedIngredients,
+      kitchenEnvironmentOptions,
       selectedIngredientNames: [],
       selectedDishTypeIndex: null,
       selectedDishTypeName: '',
       selectedTypeIndex: null,
       selectedTypeName: '',
+      selectedTasteIndex: null,
+      selectedTasteName: '',
       selectedMethodIndex: null,
-      selectedMethodName: ''
+      selectedMethodName: '',
+      selectedKitchenEnvironmentIndexes: [],
+      selectedKitchenEnvironmentNames: []
     }, () => {
       this.refreshSelectionSummary()
     })

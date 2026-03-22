@@ -78,16 +78,23 @@
     <view class="card">
       <text class="theme-inline-title">INGREDIENTS</text>
       <text class="theme-section-title utility-title">食材清单</text>
-      <text class="theme-section-desc">这里可以直接微调用量，营养信息会跟着重新计算。</text>
+      <text class="theme-section-desc">这里可以直接微调用量，营养会按每 100g 或每 100ml 的原始基准重新计算，不做 g 与 ml 互转。</text>
 
       <view class="ingredients-list">
         <view wx:for="{{recipe.ingredients}}" wx:key="index" class="ingredient-item-card">
           <view class="ingredient-top">
-            <text class="ingredient-title">{{item.name}}</text>
+            <view class="ingredient-copy">
+              <text class="ingredient-title">{{item.name}}</text>
+              <text class="ingredient-basis">{{item.nutritionBasisLabel}}</text>
+            </view>
             <view class="ingredient-input-group">
               <input type="number" value="{{item.weight}}" data-index="{{index}}" bindinput="updateIngredientWeight" class="weight-input" />
-              <text class="unit-text">{{item.unitNormalized || 'g'}}</text>
+              <text class="unit-text">{{item.unitNormalized || item.unit || 'g'}}</text>
             </view>
+          </view>
+
+          <view class="ingredient-warning" wx:if="{{item.nutritionCalculationBlocked}}">
+            当前数量单位与营养基准不一致，这一项已暂停换算，请按原单位编辑。
           </view>
 
           <view class="ingredient-nutrition-grid">

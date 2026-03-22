@@ -1,0 +1,45 @@
+<view class="theme-page about-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
+
+  <view class="theme-shell">
+    <view class="theme-hero-card about-hero">
+      <view class="about-hero-top">
+        <view>
+          <text class="theme-kicker">ABOUT THIS PROJECT</text>
+          <text class="theme-hero-title">关于我们</text>
+        </view>
+
+        <view class="about-version-pill">
+          <text class="about-version-label">版本号</text>
+          <text class="about-version-value">{{versionNumber}}</text>
+        </view>
+      </view>
+
+      <text class="theme-hero-desc">这是一款围绕“AI 菜谱生成 + 饮食运动记录 + 体重追踪”搭起来的健康饮食小助手，核心目标是让做饭、记录和回看都更顺手。</text>
+    </view>
+
+    <view class="theme-surface">
+      <text class="theme-inline-title">WHAT IT DOES</text>
+      <text class="theme-section-title about-section-title">覆盖的核心能力</text>
+
+      <view class="feature-list">
+        <view class="feature-card" wx:for="{{featureList}}" wx:key="title">
+          <text class="feature-title">{{item.title}}</text>
+          <text class="feature-desc">{{item.desc}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="theme-surface">
+      <text class="theme-inline-title">PROJECT NOTES</text>
+      <text class="theme-section-title about-section-title">当前版本对应的说明</text>
+
+      <view class="fact-row" wx:for="{{projectFacts}}" wx:key="*this">
+        <view class="fact-mark"></view>
+        <text class="fact-text">{{item}}</text>
+      </view>
+    </view>
+
+  </view>
+</view>

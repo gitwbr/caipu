@@ -10,6 +10,16 @@ Page({
     energy_value: '',
     energy_units: ['kcal', 'kJ'],
     energy_unit_index: 0, // 默认选择kcal
+    ocrSource: false,
+    ocrBasisLabel: '',
+    ocrBasisWarning: '',
+    ocrQualityHint: '',
+    ocrDetectionSummary: '',
+    ocrDetectedValuesText: '',
+    ocrRawText: '',
+    nutritionBasisText: '100g',
+    macroBasisText: 'g/100g',
+    microBasisText: 'mg/100g',
     
     // 图片相关
     imagePath: '',
@@ -79,45 +89,66 @@ Page({
     }
   },
 
+  formatFieldValue(value) {
+    if (value === undefined || value === null || value === '') {
+      return '';
+    }
+
+    return String(value);
+  },
+
+  resolveBasisDisplay() {
+    return {
+      nutritionBasisText: '100g',
+      macroBasisText: 'g/100g',
+      microBasisText: 'mg/100g'
+    };
+  },
+
   // 加载食物数据到表单（编辑模式）
   loadFoodData(food) {
     console.log('=== 加载食物数据到表单 ===');
     console.log('传入的food对象:', food);
     console.log('food.id:', food.id);
     
-    // 计算能量值和单位
-    let energyValue = food.energy_kcal || 0;
-    let energyUnitIndex = 0; // 默认kcal
-    
-    // 如果能量值很大（>1000），且没有明确指定单位，假设是kJ
-    // 但这里我们直接使用传入的值，因为OCR传入的就是千焦
-    if (energyValue > 1000) {
-      energyUnitIndex = 1; // kJ
-    }
+    // 优先使用显式传入的能量值与单位，避免再靠数值大小猜测 kJ/kcal
+    const hasExplicitEnergyValue = food.energy_value !== undefined && food.energy_value !== null && food.energy_value !== '';
+    const energyValue = hasExplicitEnergyValue ? food.energy_value : (food.energy_kcal || '');
+    const energyUnit = String(food.energy_unit || 'kcal').toLowerCase();
+    const energyUnitIndex = energyUnit === 'kj' ? 1 : 0;
+    const basisDisplay = this.resolveBasisDisplay(food.ocr_basis_label || '');
     
     this.setData({
       food_id: food.id || null, // 确保food_id不为undefined
       food_name: food.food_name || '',
-      energy_value: energyValue.toString(),
+      energy_value: this.formatFieldValue(energyValue),
       energy_unit_index: energyUnitIndex,
-      protein_g: (food.protein_g || 0).toString(),
-      fat_g: (food.fat_g || 0).toString(),
-      carbohydrate_g: (food.carbohydrate_g || 0).toString(),
-      fiber_g: (food.fiber_g || 0).toString(),
-      moisture_g: (food.moisture_g || 0).toString(),
-      vitamin_a_ug: (food.vitamin_a_ug || 0).toString(),
-      vitamin_b1_mg: (food.vitamin_b1_mg || 0).toString(),
-      vitamin_b2_mg: (food.vitamin_b2_mg || 0).toString(),
-      vitamin_b3_mg: (food.vitamin_b3_mg || 0).toString(),
-      vitamin_e_mg: (food.vitamin_e_mg || 0).toString(),
-      na_mg: (food.na_mg || 0).toString(),
-      ca_mg: (food.ca_mg || 0).toString(),
-      fe_mg: (food.fe_mg || 0).toString(),
-      vitamin_c_mg: (food.vitamin_c_mg || 0).toString(),
-      cholesterol_mg: (food.cholesterol_mg || 0).toString(),
+      protein_g: this.formatFieldValue(food.protein_g),
+      fat_g: this.formatFieldValue(food.fat_g),
+      carbohydrate_g: this.formatFieldValue(food.carbohydrate_g),
+      fiber_g: this.formatFieldValue(food.fiber_g),
+      moisture_g: this.formatFieldValue(food.moisture_g),
+      vitamin_a_ug: this.formatFieldValue(food.vitamin_a_ug),
+      vitamin_b1_mg: this.formatFieldValue(food.vitamin_b1_mg),
+      vitamin_b2_mg: this.formatFieldValue(food.vitamin_b2_mg),
+      vitamin_b3_mg: this.formatFieldValue(food.vitamin_b3_mg),
+      vitamin_e_mg: this.formatFieldValue(food.vitamin_e_mg),
+      na_mg: this.formatFieldValue(food.na_mg),
+      ca_mg: this.formatFieldValue(food.ca_mg),
+      fe_mg: this.formatFieldValue(food.fe_mg),
+      vitamin_c_mg: this.formatFieldValue(food.vitamin_c_mg),
+      cholesterol_mg: this.formatFieldValue(food.cholesterol_mg),
       imageUrl: food.image_url || '',
       imageFullUrl: food.image_url ? getApp().buildImageUrl(food.image_url) : '',
-      showImagePreview: food.image_url ? true : false
+      showImagePreview: !!food.image_url,
+      ocrSource: !!(food.ocr_source || food.ocr_raw_text),
+      ocrBasisLabel: food.ocr_basis_label || '',
+      ocrBasisWarning: food.ocr_basis_warning || '',
+      ocrQualityHint: food.ocr_quality_hint || '',
+      ocrDetectionSummary: food.ocr_detection_summary || '',
+      ocrDetectedValuesText: food.ocr_detected_values_text || '',
+      ocrRawText: food.ocr_raw_text || '',
+      ...basisDisplay
     });
     
     console.log('设置后的food_id:', this.data.food_id);
@@ -142,6 +173,22 @@ Page({
       energy_unit_index: index
     });
     console.log('选择能量单位:', this.data.energy_units[index]);
+  },
+
+  copyOcrRawText() {
+    if (!this.data.ocrRawText) {
+      return;
+    }
+
+    wx.setClipboardData({
+      data: this.data.ocrRawText,
+      success: () => {
+        wx.showToast({
+          title: '已复制识别文字',
+          icon: 'success'
+        });
+      }
+    });
   },
 
   // 拍照
@@ -337,26 +384,29 @@ Page({
     
     console.log('表单数据:', formData);
     
-         // 显示确认对话框
-     const originalEnergy = this.data.energy_value;
-     const originalUnit = this.data.energy_units[this.data.energy_unit_index];
-     // 根据是否有food_id判断是编辑还是新增
-     const action = (this.data.isEditMode && this.data.food_id) ? '更新' : '添加';
+    // 显示确认对话框
+    const originalEnergy = this.data.energy_value;
+    const originalUnit = this.data.energy_units[this.data.energy_unit_index];
+    const basisText = this.data.nutritionBasisText || '100g';
+    // 根据是否有food_id判断是编辑还是新增
+    const action = (this.data.isEditMode && this.data.food_id) ? '更新' : '添加';
+    const ocrNotes = [this.data.ocrBasisWarning, this.data.ocrQualityHint].filter(Boolean);
+    const noteBlock = ocrNotes.length ? `\n\n提醒：${ocrNotes.join(' ')}` : '';
     wx.showModal({
       title: `确认${action}`,
-      content: `确定要${action}"${formData.food_name}"吗？\n\n能量: ${originalEnergy} ${originalUnit}/100g (${energyKcal.toFixed(1)} kcal)\n蛋白质: ${formData.protein_g}g\n脂肪: ${formData.fat_g}g\n碳水化合物: ${formData.carbohydrate_g}g`,
-             success: (res) => {
-         if (res.confirm) {
-           // 检查是否为编辑模式且有food_id
-           if (this.data.isEditMode && this.data.food_id) {
-             console.log('执行更新操作');
-             this.updateCustomFood(formData);
-           } else {
-             console.log('执行新增操作');
-             this.saveCustomFood(formData);
-           }
-         }
-       }
+      content: `确定要${action}"${formData.food_name}"吗？\n\n能量: ${originalEnergy} ${originalUnit}/${basisText} (${energyKcal.toFixed(1)} kcal)\n蛋白质: ${formData.protein_g}g\n脂肪: ${formData.fat_g}g\n碳水化合物: ${formData.carbohydrate_g}g${noteBlock}`,
+      success: (res) => {
+        if (res.confirm) {
+          // 检查是否为编辑模式且有food_id
+          if (this.data.isEditMode && this.data.food_id) {
+            console.log('执行更新操作');
+            this.updateCustomFood(formData);
+          } else {
+            console.log('执行新增操作');
+            this.saveCustomFood(formData);
+          }
+        }
+      }
     });
   },
 
@@ -370,11 +420,17 @@ Page({
     // 检查登录状态
     if (!app.globalData.isLoggedIn || !app.globalData.token) {
       this.setData({ submitting: false });
-      wx.showModal({
-        title: '需要登录',
-        content: '请先登录后再添加自定义食物',
-        showCancel: false
-      });
+      try {
+        await app.checkLoginAndShowModal({
+          kicker: 'CUSTOM FOOD',
+          content: '请先登录后再添加自定义食物。',
+          confirmText: '登录后继续',
+          cancelText: '稍后再说'
+        });
+        return this.saveCustomFood(formData);
+      } catch (_) {
+        return;
+      }
       return;
     }
     
@@ -424,11 +480,17 @@ Page({
     // 检查登录状态
     if (!app.globalData.isLoggedIn || !app.globalData.token) {
       this.setData({ submitting: false });
-      wx.showModal({
-        title: '需要登录',
-        content: '请先登录后再编辑自定义食物',
-        showCancel: false
-      });
+      try {
+        await app.checkLoginAndShowModal({
+          kicker: 'CUSTOM FOOD',
+          content: '请先登录后再编辑自定义食物。',
+          confirmText: '登录后继续',
+          cancelText: '稍后再说'
+        });
+        return this.updateCustomFood(formData);
+      } catch (_) {
+        return;
+      }
       return;
     }
     
@@ -483,7 +545,17 @@ Page({
             cholesterol_mg: '',
             imagePath: '',
             imageUrl: '',
-            showImagePreview: false
+            showImagePreview: false,
+            ocrSource: false,
+            ocrBasisLabel: '',
+            ocrBasisWarning: '',
+            ocrQualityHint: '',
+            ocrDetectionSummary: '',
+            ocrDetectedValuesText: '',
+            ocrRawText: '',
+            nutritionBasisText: '100g',
+            macroBasisText: 'g/100g',
+            microBasisText: 'mg/100g'
           });
           
           wx.showToast({

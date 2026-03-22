@@ -1,19 +1,47 @@
-<view class="container">
-<!-- 日期标题改为BarTitle，移除本地显示 -->
+<view class="theme-page exercise-picker-page">
+  <view class="theme-ambient theme-ambient--top"></view>
+  <view class="theme-ambient theme-ambient--side"></view>
 
-  <view class="list">
-    <block wx:for="{{items}}" wx:key="id">
-      <view class="item" bindtap="onSelect" data-type-id="{{item.type_id}}" data-method="{{item.calc_method}}">
-        <image class="icon" mode="aspectFill" src="{{item.icon || '/images/exercise-placeholder.png'}}"></image>
-        <view class="item-main">
-          <view class="title-row">
-            <view class="title">{{item.type_name}}</view>
-            <view class="method-chip">{{item.method_label}}</view>
-          </view>
-          <view class="desc" wx:if="{{item.type_desc}}">{{item.type_desc}}</view>
+  <view class="theme-shell">
+    <view class="theme-hero-card picker-hero">
+      <text class="theme-kicker">MOVE SELECTOR</text>
+      <text class="theme-hero-title">选择今天的运动类型</text>
+      <text class="theme-hero-desc">先选项目，再补速度、坡度、泳姿或强度参数，系统会按对应方法自动估算消耗。</text>
+
+      <view class="picker-hero-metrics">
+        <view class="picker-hero-metric">
+          <text class="picker-hero-label">记录日期</text>
+          <text class="picker-hero-value">{{recordDate}}</text>
+        </view>
+        <view class="picker-hero-metric">
+          <text class="picker-hero-label">可选类型</text>
+          <text class="picker-hero-value">{{items.length}}</text>
         </view>
       </view>
-    </block>
+    </view>
+
+    <view class="picker-list-card">
+      <text class="theme-inline-title">MOVE LIBRARY</text>
+      <text class="theme-section-title picker-list-title">从一张卡开始记录</text>
+      <text class="theme-section-desc">优先展示日常最常用的估算方法，方便你更快开始。</text>
+
+      <view class="list">
+        <block wx:for="{{items}}" wx:key="id">
+          <view class="item" bindtap="onSelect" data-type-id="{{item.type_id}}" data-method="{{item.calc_method}}">
+            <view class="item-icon-wrap">
+              <image class="icon" mode="aspectFill" src="{{item.icon || '/images/exercise-placeholder.png'}}"></image>
+            </view>
+            <view class="item-main">
+              <view class="title-row">
+                <view class="title">{{item.type_name}}</view>
+                <view class="method-chip">{{item.method_label}}</view>
+              </view>
+              <view class="desc" wx:if="{{item.type_desc}}">{{item.type_desc}}</view>
+            </view>
+            <text class="item-arrow">›</text>
+          </view>
+        </block>
+      </view>
+    </view>
   </view>
 </view>
-

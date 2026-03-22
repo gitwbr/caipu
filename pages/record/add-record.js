@@ -575,10 +575,15 @@ Page({
     
     // 检查登录状态
     if (!app.globalData.isLoggedIn || !app.globalData.token) {
-      wx.showModal({
-        title: '需要登录',
-        content: '请先登录后再使用OCR功能',
-        showCancel: false
+      app.checkLoginAndShowModal({
+        kicker: 'OCR ACCESS',
+        content: '请先登录后再使用 OCR 识别功能。',
+        confirmText: '登录后识别',
+        cancelText: '稍后再说'
+      }).then(() => {
+        this.uploadImage(filePath);
+      }).catch(() => {
+        this.setData({ processingImage: false });
       });
       return;
     }
@@ -624,82 +629,242 @@ Page({
     });
   },
 
+  buildOcrTextBlocks(texts) {
+    const rawLines = (texts || []).map((item) => String(item || '').trim()).filter(Boolean);
+    const compactLines = rawLines.map((line) => this.normalizeOcrLine(line, true));
+
+    return {
+      rawLines,
+      compactLines,
+      compactText: compactLines.join(''),
+      fullText: rawLines.join('\n')
+    };
+  },
+
+  normalizeOcrLine(line, compact = false) {
+    const normalized = String(line || '')
+      .replace(/[（]/g, '(')
+      .replace(/[）]/g, ')')
+      .replace(/[：]/g, ':')
+      .replace(/[，]/g, ',')
+      .trim();
+
+    return compact
+      ? normalized.replace(/\s+/g, '').replace(/:/g, '')
+      : normalized.replace(/\s+/g, ' ');
+  },
+
+  extractValueByKeywords(compactLines, compactText, keywords, unitPattern) {
+    const regex = new RegExp(`(\\d+(?:\\.\\d+)?)(?=(?:${unitPattern}))`, 'i');
+    const candidateSources = [...compactLines, compactText];
+
+    for (const source of candidateSources) {
+      for (const keyword of keywords) {
+        const keywordIndex = source.indexOf(keyword);
+        if (keywordIndex === -1) {
+          continue;
+        }
+
+        const segment = source.slice(keywordIndex, keywordIndex + 48);
+        const match = segment.match(regex);
+        if (match) {
+          return parseFloat(match[1]);
+        }
+      }
+    }
+
+    return 0;
+  },
+
+  detectNutritionBasis(compactText) {
+    if (/每(?:100|一百)(?:毫升|ml)/i.test(compactText) || /100(?:毫升|ml)/i.test(compactText)) {
+      return {
+        unit: 'ml',
+        label: '每100ml',
+        warning: ''
+      };
+    }
+
+    if (/每(?:份|一份)/.test(compactText)) {
+      return {
+        unit: 'serving',
+        label: '每份',
+        warning: ''
+      };
+    }
+
+    return {
+      unit: 'g',
+      label: '每100g',
+      warning: ''
+    };
+  },
+
+  detectFoodName(rawLines) {
+    const skipPattern = /(营养成分|营养信息|项目|参考值|NRV|能量|蛋白质|脂肪|碳水化合物|碳水|钠|每100|100g|100ml|千焦|kJ|kcal|克\(|毫克|%)/i;
+
+    for (const line of (rawLines || []).slice(0, 6)) {
+      const trimmed = String(line || '').trim();
+      const compact = this.normalizeOcrLine(trimmed, true);
+
+      if (!trimmed || skipPattern.test(compact)) {
+        continue;
+      }
+
+      if (compact.length < 2 || compact.length > 24) {
+        continue;
+      }
+
+      return trimmed;
+    }
+
+    return '';
+  },
+
+  buildOcrDetectedValuesText(nutritionData) {
+    const lines = [];
+
+    if (nutritionData.energy_value) {
+      lines.push(`能量：${nutritionData.energy_value}${nutritionData.energy_unit || ''}`);
+    }
+
+    if (nutritionData.protein_g) {
+      lines.push(`蛋白质：${nutritionData.protein_g}g`);
+    }
+
+    if (nutritionData.fat_g) {
+      lines.push(`脂肪：${nutritionData.fat_g}g`);
+    }
+
+    if (nutritionData.carbohydrate_g) {
+      lines.push(`碳水化合物：${nutritionData.carbohydrate_g}g`);
+    }
+
+    if (nutritionData.na_mg) {
+      lines.push(`钠：${nutritionData.na_mg}mg`);
+    }
+
+    return lines.join('\n');
+  },
+
+  buildOcrDetectionSummary(nutritionData) {
+    const parts = [];
+
+    if (nutritionData.energy_value) {
+      parts.push(`能量 ${nutritionData.energy_value}${nutritionData.energy_unit || ''}`);
+    }
+
+    if (nutritionData.parsed_field_count) {
+      parts.push(`命中 ${nutritionData.parsed_field_count} 项营养字段`);
+    }
+
+    return parts.join(' · ');
+  },
+
+  getOcrQualityHint(statistics) {
+    const avgConfidence = Number(statistics && statistics.avg_confidence);
+
+    if (!avgConfidence) {
+      return '';
+    }
+
+    if (avgConfidence < 0.85) {
+      return '这次识别清晰度一般，请重点核对单位、小数点和钠含量。';
+    }
+
+    return '';
+  },
+
+  showOcrFallbackOptions(rawText, basisInfo = { unit: 'g', label: '每100g', warning: '' }, qualityHint = '') {
+    wx.showActionSheet({
+      itemList: ['继续手动录入', '复制识别文字'],
+      success: (actionRes) => {
+        if (actionRes.tapIndex === 0) {
+          this.navigateToCustomFoodWithData({
+            food_name: '',
+            ocr_source: true,
+            ocr_raw_text: rawText,
+            nutrition_basis_label: basisInfo.label,
+            nutrition_basis_warning: basisInfo.warning || '这次没能自动解析出完整营养字段，请根据识别原文手动补充后再保存。',
+            ocr_quality_hint: qualityHint,
+            ocr_detection_summary: '这次需要手动确认',
+            ocr_detected_values_text: ''
+          });
+          return;
+        }
+
+        wx.setClipboardData({
+          data: rawText,
+          success: () => {
+            wx.showToast({
+              title: '已复制识别文字',
+              icon: 'success'
+            });
+          }
+        });
+      }
+    });
+  },
+
   // 处理OCR识别结果
   handleUploadResult(res) {
     console.log('=== 处理OCR识别结果 ===');
     console.log('完整响应:', res);
-    
-    // 隐藏加载提示
+
     wx.hideLoading();
     this.setData({ processingImage: false });
-    
+
     try {
-      // 解析返回的JSON数据
       const data = JSON.parse(res.data);
       console.log('解析后的数据:', data);
-      
-      // 检查响应状态
+
       if (data.success && data.texts && data.texts.length > 0) {
         console.log('识别到的文字:');
         console.log('=== 开始文字内容 ===');
         console.log(data.texts);
         console.log('=== 结束文字内容 ===');
-        
-        // 合并所有识别的文字
-        const fullText = data.texts.join('\n');
-        
-        // 尝试解析营养成分数据
+
+        const textBlocks = this.buildOcrTextBlocks(data.texts);
+        const basisInfo = this.detectNutritionBasis(textBlocks.compactText);
+        const qualityHint = this.getOcrQualityHint(data.statistics);
         const nutritionData = this.parseNutritionData(data.texts);
+
         console.log('=== 营养成分解析结果 ===');
         console.log('nutritionData:', nutritionData);
-        console.log('nutritionData类型:', typeof nutritionData);
-        console.log('nutritionData是否为null:', nutritionData === null);
-        console.log('nutritionData是否为undefined:', nutritionData === undefined);
-        
-        console.log('=== 条件判断 ===');
-        console.log('if (nutritionData) 的结果:', !!nutritionData);
-        console.log('nutritionData的布尔值:', Boolean(nutritionData));
-        
+
         if (nutritionData) {
-          console.log('=== 营养成分解析成功，直接跳转到自定义食物页面 ===');
-          // 直接跳转到自定义食物页面并填入数据
-          this.navigateToCustomFoodWithData(nutritionData);
-        } else {
-          console.log(`识别到以下文字内容：\n\n${fullText.substring(0, 500)}${fullText.length > 500 ? '...' : ''}`);
-          wx.showToast({
-            title: '识别失败',
-            icon: 'none'
-          });
-          // 无法解析营养成分，显示原始文字
-          /* wx.showModal({
-            title: 'OCR识别结果',
-            content: `识别到以下文字内容：\n\n${fullText.substring(0, 500)}${fullText.length > 500 ? '...' : ''}`,
-            showCancel: true,
-            cancelText: '关闭',
-            confirmText: '复制文字',
-            success: (modalRes) => {
-              if (modalRes.confirm) {
-                // 复制到剪贴板
-                wx.setClipboardData({
-                  data: fullText,
-                  success: () => {
-                    wx.showToast({
-                      title: '已复制到剪贴板',
-                      icon: 'success'
-                    });
-                  }
-                });
-              }
-            }
-          }); */
+          const nextPayload = {
+            ...nutritionData,
+            ocr_source: true,
+            ocr_raw_text: textBlocks.fullText,
+            ocr_quality_hint: qualityHint,
+            ocr_detection_summary: this.buildOcrDetectionSummary(nutritionData),
+            ocr_detected_values_text: this.buildOcrDetectedValuesText(nutritionData)
+          };
+
+          console.log('=== 营养成分解析成功，准备进入确认页 ===');
+          this.navigateToCustomFoodWithData(nextPayload);
+          return;
         }
-      } else {
-        console.log('识别失败或无文字内容');
+
+        console.log(`识别到以下文字内容：\n\n${textBlocks.fullText.substring(0, 500)}${textBlocks.fullText.length > 500 ? '...' : ''}`);
         wx.showToast({
-          title: '未识别到文字',
+          title: '需要手动确认',
           icon: 'none'
         });
+        this.showOcrFallbackOptions(
+          textBlocks.fullText,
+          basisInfo,
+          qualityHint
+        );
+        return;
       }
+
+      console.log('识别失败或无文字内容');
+      wx.showToast({
+        title: '未识别到文字',
+        icon: 'none'
+      });
     } catch (error) {
       console.error('解析响应数据失败:', error);
       console.log('原始响应数据:', res.data);
@@ -713,91 +878,87 @@ Page({
   // 解析营养成分数据
   parseNutritionData(texts) {
     try {
-      const text = texts.join(' ');
-      console.log('解析文本:', text);
-      
-      // 初始化营养数据
+      const textBlocks = this.buildOcrTextBlocks(texts);
+      console.log('解析文本:', textBlocks.fullText);
+
+      const basisInfo = this.detectNutritionBasis(textBlocks.compactText);
       const nutritionData = {
         food_name: '',
-        energy_kcal: 0,
+        energy_value: 0,
+        energy_unit: 'kcal',
         protein_g: 0,
         fat_g: 0,
         carbohydrate_g: 0,
-        na_mg: 0
+        na_mg: 0,
+        nutrition_basis_unit: basisInfo.unit,
+        nutrition_basis_label: basisInfo.label,
+        nutrition_basis_warning: basisInfo.warning,
+        parsed_field_count: 0
       };
-      
-             // 解析能量 (保持千焦单位)
-       const energyMatch = text.match(/(\d+(?:\.\d+)?)\s*千焦\s*\(kJ\)/);
-       if (energyMatch) {
-         const energyKj = parseFloat(energyMatch[1]);
-         nutritionData.energy_kcal = energyKj; // 保持千焦单位
-         console.log('解析到能量:', energyKj, 'kJ');
-       }
-      
-      // 解析蛋白质
-      const proteinMatch = text.match(/蛋白质[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)/);
-      if (proteinMatch) {
-        nutritionData.protein_g = parseFloat(proteinMatch[1]);
-        console.log('解析到蛋白质:', nutritionData.protein_g, 'g');
-      } else {
-        // 尝试匹配包含百分比的格式：蛋白质 29.9克(g) 50%
-        const proteinMatch2 = text.match(/蛋白质[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)[^\d]*\d+%/);
-        if (proteinMatch2) {
-          nutritionData.protein_g = parseFloat(proteinMatch2[1]);
-          console.log('解析到蛋白质(含百分比):', nutritionData.protein_g, 'g');
-        }
+
+      const energyKj = this.extractValueByKeywords(
+        textBlocks.compactLines,
+        textBlocks.compactText,
+        ['能量', 'energy'],
+        '千焦\\(kJ\\)|千焦|kJ'
+      );
+      const energyKcal = this.extractValueByKeywords(
+        textBlocks.compactLines,
+        textBlocks.compactText,
+        ['能量', 'energy'],
+        '千卡\\(kcal\\)|千卡|kcal|大卡'
+      );
+
+      if (energyKj > 0) {
+        nutritionData.energy_value = energyKj;
+        nutritionData.energy_unit = 'kJ';
+        console.log('解析到能量:', energyKj, 'kJ');
+      } else if (energyKcal > 0) {
+        nutritionData.energy_value = energyKcal;
+        nutritionData.energy_unit = 'kcal';
+        console.log('解析到能量:', energyKcal, 'kcal');
       }
-      
-      // 解析脂肪
-      const fatMatch = text.match(/脂肪[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)/);
-      if (fatMatch) {
-        nutritionData.fat_g = parseFloat(fatMatch[1]);
-        console.log('解析到脂肪:', nutritionData.fat_g, 'g');
-      } else {
-        // 尝试匹配包含百分比的格式：脂肪 5.2克(g) 百分比%
-        const fatMatch2 = text.match(/脂肪[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)[^\d]*\d+%/);
-        if (fatMatch2) {
-          nutritionData.fat_g = parseFloat(fatMatch2[1]);
-          console.log('解析到脂肪(含百分比):', nutritionData.fat_g, 'g');
-        }
-      }
-      
-      // 解析碳水化合物
-      const carbMatch = text.match(/碳水化合物[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)/);
-      if (carbMatch) {
-        nutritionData.carbohydrate_g = parseFloat(carbMatch[1]);
-        console.log('解析到碳水化合物:', nutritionData.carbohydrate_g, 'g');
-      } else {
-        // 尝试匹配包含百分比的格式：碳水化合物 9% 44.6克(g)
-        const carbMatch2 = text.match(/碳水化合物[^\d]*\d+%[^\d]*(\d+(?:\.\d+)?)\s*克\s*\(g\)/);
-        if (carbMatch2) {
-          nutritionData.carbohydrate_g = parseFloat(carbMatch2[1]);
-          console.log('解析到碳水化合物(含百分比):', nutritionData.carbohydrate_g, 'g');
-        }
-      }
-      
-      // 解析钠
-      const naMatch = text.match(/钠[^\d]*(\d+(?:\.\d+)?)\s*毫克\s*\(mg\)/);
-      if (naMatch) {
-        nutritionData.na_mg = parseFloat(naMatch[1]);
-        console.log('解析到钠:', nutritionData.na_mg, 'mg');
-      } else {
-        // 尝试匹配包含百分比的格式：钠 15% 1280毫克(mg)
-        const naMatch2 = text.match(/钠[^\d]*\d+%[^\d]*(\d+(?:\.\d+)?)\s*毫克\s*\(mg\)/);
-        if (naMatch2) {
-          nutritionData.na_mg = parseFloat(naMatch2[1]);
-          console.log('解析到钠(含百分比):', nutritionData.na_mg, 'mg');
-        }
-      }
-      
-      // 检查是否至少解析到了能量数据
-      if (nutritionData.energy_kcal > 0) {
+
+      nutritionData.protein_g = this.extractValueByKeywords(
+        textBlocks.compactLines,
+        textBlocks.compactText,
+        ['蛋白质'],
+        '克\\(g\\)|克|g'
+      );
+      nutritionData.fat_g = this.extractValueByKeywords(
+        textBlocks.compactLines,
+        textBlocks.compactText,
+        ['脂肪', '总脂肪'],
+        '克\\(g\\)|克|g'
+      );
+      nutritionData.carbohydrate_g = this.extractValueByKeywords(
+        textBlocks.compactLines,
+        textBlocks.compactText,
+        ['碳水化合物', '碳水'],
+        '克\\(g\\)|克|g'
+      );
+      nutritionData.na_mg = this.extractValueByKeywords(
+        textBlocks.compactLines,
+        textBlocks.compactText,
+        ['钠'],
+        '毫克\\(mg\\)|毫克|mg'
+      );
+
+      nutritionData.parsed_field_count = [
+        nutritionData.energy_value > 0,
+        nutritionData.protein_g > 0,
+        nutritionData.fat_g > 0,
+        nutritionData.carbohydrate_g > 0,
+        nutritionData.na_mg > 0
+      ].filter(Boolean).length;
+
+      if (nutritionData.parsed_field_count >= 2 || nutritionData.energy_value > 0) {
         console.log('解析成功:', nutritionData);
         return nutritionData;
-      } else {
-        console.log('未能解析到有效的营养成分数据');
-        return null;
       }
+
+      console.log('未能解析到有效的营养成分数据');
+      return null;
     } catch (error) {
       console.error('解析营养成分数据失败:', error);
       return null;
@@ -808,40 +969,51 @@ Page({
   navigateToCustomFoodWithData(nutritionData) {
     console.log('=== 准备跳转到自定义食物页面并填入数据 ===');
     console.log('待填入的营养数据:', nutritionData);
-    
-         // 将营养数据转换为页面需要的格式
-     const foodData = {
-       food_name: nutritionData.food_name,
-       energy_kcal: nutritionData.energy_kcal, // 这里保持千焦单位
-       protein_g: nutritionData.protein_g,
-       fat_g: nutritionData.fat_g,
-       carbohydrate_g: nutritionData.carbohydrate_g,
-       na_mg: nutritionData.na_mg,
-       // 其他字段设为0
-       fiber_g: 0,
-       moisture_g: 0,
-       vitamin_a_ug: 0,
-       vitamin_b1_mg: 0,
-       vitamin_b2_mg: 0,
-       vitamin_b3_mg: 0,
-       vitamin_e_mg: 0,
-       ca_mg: 0,
-       fe_mg: 0,
-       vitamin_c_mg: 0,
-       cholesterol_mg: 0
-     };
-    
-    // 跳转到自定义食物页面
+
+    const energyValue = nutritionData.energy_value !== undefined && nutritionData.energy_value !== null
+      ? nutritionData.energy_value
+      : '';
+    const toPrefillValue = (value) => (Number(value) > 0 ? value : '');
+
+    const foodData = {
+      food_name: nutritionData.food_name || '',
+      energy_value: toPrefillValue(energyValue) !== '' ? String(toPrefillValue(energyValue)) : '',
+      energy_unit: nutritionData.energy_unit || 'kcal',
+      protein_g: toPrefillValue(nutritionData.protein_g),
+      fat_g: toPrefillValue(nutritionData.fat_g),
+      carbohydrate_g: toPrefillValue(nutritionData.carbohydrate_g),
+      na_mg: toPrefillValue(nutritionData.na_mg),
+      // 其他字段设为空，避免把 OCR 未识别出的值误当成 0 保存
+      fiber_g: '',
+      moisture_g: '',
+      vitamin_a_ug: '',
+      vitamin_b1_mg: '',
+      vitamin_b2_mg: '',
+      vitamin_b3_mg: '',
+      vitamin_e_mg: '',
+      ca_mg: '',
+      fe_mg: '',
+      vitamin_c_mg: '',
+      cholesterol_mg: '',
+      ocr_source: !!nutritionData.ocr_source,
+      ocr_basis_label: nutritionData.nutrition_basis_label || '',
+      ocr_basis_warning: nutritionData.nutrition_basis_warning || '',
+      ocr_quality_hint: nutritionData.ocr_quality_hint || '',
+      ocr_detection_summary: nutritionData.ocr_detection_summary || '',
+      ocr_detected_values_text: nutritionData.ocr_detected_values_text || '',
+      ocr_raw_text: nutritionData.ocr_raw_text || ''
+    };
+
     const targetUrl = `/pages/record/add-custom-food?food=${encodeURIComponent(JSON.stringify(foodData))}`;
     console.log('=== 准备跳转 ===');
     console.log('目标URL:', targetUrl);
     console.log('foodData:', foodData);
-    
+
     wx.navigateTo({
       url: targetUrl,
-      success: (res) => {
+      success: (navigateRes) => {
         console.log('=== 跳转成功 ===');
-        console.log('跳转结果:', res);
+        console.log('跳转结果:', navigateRes);
       },
       fail: (err) => {
         console.error('=== 跳转失败 ===');

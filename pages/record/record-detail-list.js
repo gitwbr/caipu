@@ -125,37 +125,28 @@ Page({
   },
 
   onShow() {
+    if (this._loginPrompting) {
+      return;
+    }
+
     // 每次显示页面时检查登录状态
     if (!app.globalData.isLoggedIn) {
-      // 弹出登录确认框
-      wx.showModal({
-        title: '需要登录',
+      this._loginPrompting = true;
+      app.checkLoginAndShowModal({
+        kicker: 'RECORD ACCESS',
         content: '记录功能需要登录后才能使用，是否立即登录？',
-        confirmText: '登录',
-        cancelText: '取消',
-        success: (res) => {
-          if (res.confirm) {
-            // 用户点击登录
-            app.wxLogin().then(() => {
-              console.log('登录成功，数据已从云端获取并保存到本地');
-              this.loadDailyData();
-            }).catch((error) => {
-              console.error('登录失败:', error);
-              wx.showToast({
-                title: '登录失败',
-                icon: 'none'
-              });
-              // 登录失败时使用本地数据
-              this.loadDailyData();
-            });
-          } else {
-            // 用户取消登录，跳转到"我的"页面
-            console.log('用户取消登录，跳转到"我的"页面');
-            wx.switchTab({
-              url: '/pages/index/index'
-            });
-          }
-        }
+        confirmText: '登录后查看',
+        cancelText: '稍后再说'
+      }).then(() => {
+        console.log('登录成功，数据已从云端获取并保存到本地');
+        this.loadDailyData();
+      }).catch(() => {
+        console.log('用户取消登录，返回首页');
+        wx.switchTab({
+          url: '/pages/index/index'
+        });
+      }).finally(() => {
+        this._loginPrompting = false;
       });
     } else {
       // 已登录，直接使用本地数据

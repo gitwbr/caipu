@@ -10,9 +10,8 @@
       <view class="section-bar">
         <view class="section-left">
           <view class="section-title">🍽️ 基本信息</view>
-          
         </view>
-        <button class="icon-btn clear-icon" aria-label="清空" bindtap="onClear" style="position: relative; left: 236rpx; top: -9rpx; width: 130rpx; display: block; box-sizing: border-box">×</button>
+        <button class="section-clear-btn clear-text-btn" aria-label="清空表单" bindtap="onClear">清空</button>
       </view>
       
       <view class="form-item">
@@ -46,7 +45,7 @@
             <view class="picker-text">{{energy_units[energy_unit_index]}}</view>
           </picker>
         </view>
-        <text class="unit-hint">/100g</text>
+        <text class="unit-hint">/{{nutritionBasisText}}</text>
       </view>
 
       <!-- 图片上传（行内：左侧标题，右侧相机/缩略图） -->
@@ -62,11 +61,34 @@
           </view>
         </view>
       </view>
+
+      <view class="ocr-assist-card" wx:if="{{ocrSource}}">
+        <view class="ocr-assist-top">
+          <view class="ocr-assist-copy">
+            <text class="ocr-assist-kicker">OCR ASSIST</text>
+            <text class="ocr-assist-title">已带入营养成分表识别结果</text>
+          </view>
+        </view>
+
+        <text class="ocr-assist-summary" wx:if="{{ocrDetectionSummary}}">{{ocrDetectionSummary}}</text>
+        <text class="ocr-assist-basis" wx:if="{{ocrBasisLabel}}">OCR 原标注：{{ocrBasisLabel}}</text>
+
+        <view class="ocr-assist-warning" wx:if="{{ocrBasisWarning || ocrQualityHint}}">
+          <text class="ocr-assist-warning-text" wx:if="{{ocrBasisWarning}}">{{ocrBasisWarning}}</text>
+          <text class="ocr-assist-warning-text" wx:if="{{ocrQualityHint}}">{{ocrQualityHint}}</text>
+        </view>
+
+        <view class="ocr-assist-detected" wx:if="{{ocrDetectedValuesText}}">
+          <text class="ocr-assist-raw-label">识别到的原始数值</text>
+          <text class="ocr-assist-raw-text">{{ocrDetectedValuesText}}</text>
+        </view>
+
+      </view>
     </view>
 
     <!-- 宏量营养素 -->
     <view class="form-section">
-      <view class="section-title">🥑 宏量营养素 (g/100g)</view>
+      <view class="section-title">🥑 宏量营养素 ({{macroBasisText}})</view>
       
       <view class="form-row">
         <view class="form-item half">
@@ -218,7 +240,7 @@
 
     <!-- 矿物质 -->
     <view class="form-section">
-      <view class="section-title">🧂 矿物质 (mg/100g)</view>
+      <view class="section-title">🧂 矿物质 ({{microBasisText}})</view>
       
       <view class="form-row">
         <view class="form-item half">
@@ -264,7 +286,7 @@
       <view class="section-title">🧪 其他</view>
       
       <view class="form-item">
-        <text class="label">胆固醇 (mg/100g)</text>
+        <text class="label">胆固醇 ({{microBasisText}})</text>
         <input 
           class="input" 
           type="digit" 
@@ -273,6 +295,19 @@
           data-field="cholesterol_mg"
           bindinput="onInputChange"
         />
+      </view>
+    </view>
+
+    <view class="form-section ocr-raw-section" wx:if="{{ocrSource && ocrRawText}}">
+      <view class="section-bar">
+        <view class="section-left">
+          <view class="section-title section-title-plain">OCR 原文</view>
+        </view>
+        <button class="ocr-copy-btn ocr-copy-btn-secondary" bindtap="copyOcrRawText">复制原文</button>
+      </view>
+
+      <view class="ocr-raw-body">
+        <text class="ocr-assist-raw-text">{{ocrRawText}}</text>
       </view>
     </view>
 

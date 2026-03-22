@@ -1,5 +1,131 @@
 const app = getApp()
 
+function parseNutritionValue(val) {
+  if (typeof val === 'number') {
+    return val
+  }
+  if (!val) {
+    return 0
+  }
+  const match = String(val).match(/-?\d+(\.\d+)?/)
+  return match ? parseFloat(match[0]) : 0
+}
+
+function normalizeUnit(unit, fallback = 'g') {
+  const normalized = String(unit || '').trim().toLowerCase()
+  if (normalized === 'ml') {
+    return 'ml'
+  }
+  if (normalized === 'g') {
+    return 'g'
+  }
+  return fallback
+}
+
+function parseAmount(amount) {
+  const raw = String(amount || '').trim()
+  const match = raw.match(/(-?\d+(?:\.\d+)?)\s*(g|ml)/i)
+
+  if (!match) {
+    return {
+      raw,
+      value: null,
+      unit: ''
+    }
+  }
+
+  return {
+    raw,
+    value: Number(match[1]),
+    unit: normalizeUnit(match[2])
+  }
+}
+
+function normalizeNutritionInfo(source) {
+  const calories = parseNutritionValue(source && source.calories)
+  const protein = parseNutritionValue(source && source.protein)
+  const fat = parseNutritionValue(source && source.fat)
+  const carbohydrates = parseNutritionValue(source && (source.carbohydrates ?? source.carbs))
+
+  return {
+    calories,
+    protein,
+    fat,
+    carbohydrates,
+    carbs: carbohydrates
+  }
+}
+
+function normalizeIngredient(item = {}, index = 0) {
+  const parsedAmount = parseAmount(item.amount)
+  const weight = item.weight !== undefined && item.weight !== null && item.weight !== '' && !Number.isNaN(Number(item.weight))
+    ? Number(item.weight)
+    : parsedAmount.value
+  const basisUnit = normalizeUnit(
+    item.nutrition_basis_unit || item.nutritionBasisUnit || parsedAmount.unit || 'g',
+    parsedAmount.unit || 'g'
+  )
+  const unitNormalized = normalizeUnit(item.unitNormalized || item.unit || parsedAmount.unit || basisUnit, basisUnit)
+  const nutritionInfo = normalizeNutritionInfo(
+    item.nutrition_per_100 || item.nutritionPer100 || item.nutrition_per_100g || item.nutrition || {}
+  )
+  const amount = weight !== null && weight !== undefined && weight !== ''
+    ? `${weight}${unitNormalized}`
+    : String(item.amount || '').trim()
+
+  return {
+    ...item,
+    name: item.name || `食材${index + 1}`,
+    amount,
+    weight: weight !== null && weight !== undefined ? weight : '',
+    unit: unitNormalized,
+    unitNormalized,
+    nutrition_per_100: nutritionInfo,
+    nutrition_basis_unit: basisUnit,
+    nutritionInfo,
+    nutritionBasisLabel: `每100${basisUnit}`,
+    hasNumericAmount: weight !== null && weight !== undefined && weight !== '',
+    nutritionCalculationBlocked: false,
+    actualNutrition: null
+  }
+}
+
+function normalizeRecipeForView(recipe = {}) {
+  const nutrition = recipe.nutrition || {}
+
+  return {
+    ...recipe,
+    ingredients: Array.isArray(recipe.ingredients)
+      ? recipe.ingredients.map((item, index) => normalizeIngredient(item, index))
+      : [],
+    nutrition: {
+      calories: parseNutritionValue(nutrition.calories),
+      protein: parseNutritionValue(nutrition.protein),
+      fat: parseNutritionValue(nutrition.fat),
+      carbs: parseNutritionValue(nutrition.carbs ?? nutrition.carbohydrates)
+    }
+  }
+}
+
+function serializeIngredient(item = {}) {
+  const normalizedItem = normalizeIngredient(item)
+  const {
+    actualNutrition,
+    hasNumericAmount,
+    nutritionCalculationBlocked,
+    nutritionBasisLabel,
+    nutritionInfo,
+    ...rest
+  } = normalizedItem
+
+  return {
+    ...rest,
+    amount: normalizedItem.weight !== '' ? `${normalizedItem.weight}${normalizedItem.unitNormalized}` : normalizedItem.amount,
+    nutrition_per_100: nutritionInfo,
+    nutrition_basis_unit: normalizedItem.nutrition_basis_unit
+  }
+}
+
 Page({
   data: {
     recipe: {},
@@ -38,30 +164,11 @@ Page({
       const fav = incomingRecipeId && app.isRecipeFavorited && app.isRecipeFavorited(incomingRecipeId)
         ? app.findFavoriteByRecipeId(incomingRecipeId)
         : null;
-      const recipeToUse = fav ? { ...fav } : { ...recipe };
+      const recipeToUse = normalizeRecipeForView(fav ? { ...fav } : { ...recipe });
       const normalizedRecipeId = this.getRecipeId(recipeToUse);
       if (normalizedRecipeId) {
         recipeToUse.id = normalizedRecipeId;
         recipeToUse.recipe_id = recipeToUse.recipe_id || normalizedRecipeId;
-      }
-      // 初始化每个食材的weight和unit
-      if (recipeToUse.ingredients) {
-        recipeToUse.ingredients.forEach(item => {
-          // weight
-          if (!item.weight) {
-            const match = item.amount && item.amount.match(/\d+/);
-            if (match) {
-              item.weight = parseInt(match[0]);
-            } else {
-              item.weight = '';
-            }
-          }
-          // unit
-          if (!item.unit) {
-            const unitMatch = item.amount && item.amount.replace(/\d+/g, '');
-            item.unit = unitMatch && unitMatch.trim() ? unitMatch.trim() : 'g';
-          }
-        });
       }
       // 组装图片完整URL（用于 <image src>）
       if (recipeToUse.image_url) {
@@ -201,12 +308,7 @@ Page({
     }
     updatedRecipe.id = recipeId;
     updatedRecipe.recipe_id = updatedRecipe.recipe_id || recipeId;
-    // 确保 ingredients 的 amount 与 weight 同步为数值+单位（默认g）
-    updatedRecipe.ingredients = (updatedRecipe.ingredients || []).map(it => {
-      const unit = it.unitNormalized || it.unit || 'g';
-      const weight = Number(it.weight) || 0;
-      return { ...it, unitNormalized: unit, unit, weight, amount: `${weight}${unit}` };
-    });
+    updatedRecipe.ingredients = (updatedRecipe.ingredients || []).map((item) => serializeIngredient(item));
     const doUpdate = (imagePathOnly) => {
       if (imagePathOnly) {
         updatedRecipe.image_url = imagePathOnly;
@@ -294,6 +396,7 @@ Page({
     }
     recipeToSave.id = recipeId;
     recipeToSave.recipe_id = recipeToSave.recipe_id || recipeId;
+    recipeToSave.ingredients = (recipeToSave.ingredients || []).map((item) => serializeIngredient(item));
     const proceedFavorite = (pathOnly) => {
       if (pathOnly) {
         recipeToSave.image_url = pathOnly;
@@ -343,64 +446,71 @@ Page({
 
   // 重新计算营养信息
   recalculateNutrition() {
-    function parseNutritionValue(val) {
-      if (typeof val === 'number') return val;
-      if (!val) return 0;
-      const match = String(val).match(/-?\d+(\.\d+)?/);
-      return match ? parseFloat(match[0]) : 0;
-    }
-    const recipe = this.data.recipe;
-    let totalCalories = 0, totalProtein = 0, totalFat = 0, totalCarbs = 0;
-    recipe.ingredients.forEach(item => {
-      //console.log('食材:', item.name, 'amount:', item.amount, 'nutritionInfo:', item.nutritionInfo);
-      // Unify nutrition data source for WXML
-      item.nutritionInfo = item.nutrition_per_100g || item.nutrition || {};
+    const recipe = normalizeRecipeForView(this.data.recipe);
+    let totalCalories = 0
+    let totalProtein = 0
+    let totalFat = 0
+    let totalCarbs = 0
 
-      // Add a flag to control UI visibility
-      const match = item.amount && String(item.amount).match(/\d+/);
-      item.hasNumericAmount = !!match;
-      const amount = match ? parseFloat(match[0]) : null;
+    recipe.ingredients.forEach((item) => {
+      const parsedAmount = parseAmount(item.amount)
+      const amountValue = item.weight !== '' && item.weight !== null && item.weight !== undefined
+        ? Number(item.weight)
+        : parsedAmount.value
+      const amountUnit = normalizeUnit(item.unitNormalized || parsedAmount.unit || item.nutrition_basis_unit, item.nutrition_basis_unit)
+      const nutritionData = normalizeNutritionInfo(item.nutrition_per_100 || item.nutritionInfo || {})
+      const canCalculate = amountValue !== null && amountValue !== undefined && amountValue !== '' && amountUnit === item.nutrition_basis_unit
 
-      const nutritionData = item.nutritionInfo;
-      if (nutritionData) {
-        if (item.hasNumericAmount && amount !== null) {
-          item.actualNutrition = {
-            calories: Math.round((amount / 100) * parseNutritionValue(nutritionData.calories)),
-            protein: Math.round((amount / 100) * parseNutritionValue(nutritionData.protein) * 10) / 10,
-            fat: Math.round((amount / 100) * parseNutritionValue(nutritionData.fat) * 10) / 10,
-            carbs: Math.round((amount / 100) * (parseNutritionValue(nutritionData.carbohydrates) || parseNutritionValue(nutritionData.carbs)) * 10) / 10
-          };
-          totalCalories += item.actualNutrition.calories;
-          totalProtein += item.actualNutrition.protein;
-          totalFat += item.actualNutrition.fat;
-          totalCarbs += item.actualNutrition.carbs;
-        } else {
-          item.actualNutrition = null;
+      item.weight = amountValue !== null && amountValue !== undefined ? amountValue : ''
+      item.unit = amountUnit
+      item.unitNormalized = amountUnit
+      item.amount = amountValue !== null && amountValue !== undefined && amountValue !== ''
+        ? `${amountValue}${amountUnit}`
+        : item.amount
+      item.nutritionInfo = nutritionData
+      item.nutritionBasisLabel = `每100${item.nutrition_basis_unit}`
+      item.hasNumericAmount = amountValue !== null && amountValue !== undefined && amountValue !== ''
+      item.nutritionCalculationBlocked = !!(item.hasNumericAmount && amountUnit !== item.nutrition_basis_unit)
+
+      if (canCalculate) {
+        item.actualNutrition = {
+          calories: Math.round((amountValue / 100) * parseNutritionValue(nutritionData.calories)),
+          protein: Math.round((amountValue / 100) * parseNutritionValue(nutritionData.protein) * 10) / 10,
+          fat: Math.round((amountValue / 100) * parseNutritionValue(nutritionData.fat) * 10) / 10,
+          carbs: Math.round((amountValue / 100) * parseNutritionValue(nutritionData.carbohydrates) * 10) / 10
         }
+        totalCalories += item.actualNutrition.calories
+        totalProtein += item.actualNutrition.protein
+        totalFat += item.actualNutrition.fat
+        totalCarbs += item.actualNutrition.carbs
+      } else {
+        item.actualNutrition = null
       }
-    });
+    })
+
     recipe.nutrition = {
       calories: Math.round(totalCalories),
       protein: Math.round(totalProtein * 10) / 10,
       fat: Math.round(totalFat * 10) / 10,
       carbs: Math.round(totalCarbs * 10) / 10
-    };
-    this.setData({ recipe });
+    }
+    this.setData({ recipe })
   },
 
   // 更新食材重量（实时计算营养）
   updateIngredientWeight(e) {
-    const index = e.currentTarget.dataset.index;
-    const newWeight = parseInt(e.detail.value) || 0;
-    const recipe = this.data.recipe;
-    const ingredient = recipe.ingredients[index];
-    
-    ingredient.weight = newWeight;
-    ingredient.amount = newWeight + (ingredient.unit || 'g'); // Keep amount and weight in sync
+    const index = e.currentTarget.dataset.index
+    const value = e.detail.value
+    const newWeight = value === '' ? '' : parseNutritionValue(value)
+    const recipe = this.data.recipe
+    const ingredient = recipe.ingredients[index]
+
+    ingredient.weight = newWeight
+    ingredient.amount = newWeight === '' ? '' : `${newWeight}${ingredient.unitNormalized || ingredient.unit || 'g'}`
 
     this.setData({ recipe }, () => {
-      this.recalculateNutrition();
-    });
+      this.recalculateNutrition()
+    })
   },
 
   // 分享菜谱

@@ -12,6 +12,10 @@ App({
     userLimits: null,
     userLimitsLastUpdate: 0,
     pendingLoginPromise: null,
+    pendingWxLoginPromise: null,
+    pendingLoginResolve: null,
+    pendingLoginReject: null,
+    loginPromptConfig: null,
     pendingUserLimitsPromise: null,
     weightSummary: null,
     weightSummaryLastUpdate: 0,
@@ -440,7 +444,17 @@ App({
 
   // 微信登录
   wxLogin() {
-    return new Promise((resolve, reject) => {
+    if (this.globalData.isLoggedIn && this.globalData.token) {
+      return Promise.resolve({
+        token: this.globalData.token
+      });
+    }
+
+    if (this.globalData.pendingWxLoginPromise) {
+      return this.globalData.pendingWxLoginPromise;
+    }
+
+    const loginPromise = new Promise((resolve, reject) => {
       console.log('=== 开始微信登录流程 ===');
       console.log('服务器URL:', this.globalData.serverUrl);
       
@@ -540,7 +554,12 @@ App({
           reject(error);
         }
       });
+    }).finally(() => {
+      this.globalData.pendingWxLoginPromise = null;
     });
+
+    this.globalData.pendingWxLoginPromise = loginPromise;
+    return loginPromise;
   },
 
   // 获取用户信息
@@ -691,6 +710,10 @@ App({
     this.globalData.userLimits = null;
     this.globalData.userLimitsLastUpdate = 0;
     this.globalData.pendingLoginPromise = null;
+    this.globalData.pendingWxLoginPromise = null;
+    this.globalData.pendingLoginResolve = null;
+    this.globalData.pendingLoginReject = null;
+    this.globalData.loginPromptConfig = null;
     this.globalData.pendingUserLimitsPromise = null;
     this.invalidateWeightSummaryCache();
     wx.removeStorageSync('token');
@@ -725,7 +748,43 @@ App({
     });
   },
 
-  checkLoginAndShowModal() {
+  getLoginPromptRoute() {
+    return '/pages/login-prompt/login-prompt';
+  },
+
+  buildLoginPromptConfig(options = {}) {
+    return {
+      kicker: 'ACCOUNT ACCESS',
+      title: '需要登录',
+      content: '此功能需要登录后才能使用，是否立即登录？',
+      confirmText: '立即登录',
+      cancelText: '稍后再说',
+      showCancel: true,
+      loadingTitle: '正在连接微信账号',
+      loadingHint: '我们会同步你的个人资料、记录和收藏，慢一点是正常的。',
+      ...options
+    };
+  },
+
+  resolvePendingLoginPrompt(result = true) {
+    const resolve = this.globalData.pendingLoginResolve;
+    this.globalData.pendingLoginResolve = null;
+    this.globalData.pendingLoginReject = null;
+    if (typeof resolve === 'function') {
+      resolve(result);
+    }
+  },
+
+  rejectPendingLoginPrompt(error) {
+    const reject = this.globalData.pendingLoginReject;
+    this.globalData.pendingLoginResolve = null;
+    this.globalData.pendingLoginReject = null;
+    if (typeof reject === 'function') {
+      reject(error instanceof Error ? error : new Error(String(error || '用户取消登录')));
+    }
+  },
+
+  checkLoginAndShowModal(options = {}) {
     if (this.globalData.isLoggedIn) {
       return Promise.resolve(true);
     }
@@ -735,31 +794,29 @@ App({
     }
 
     const loginPromise = new Promise((resolve, reject) => {
-      wx.showModal({
-        title: '需要登录',
-        content: '此功能需要登录后才能使用，是否立即登录？',
-        confirmText: '登录',
-        cancelText: '取消',
-        success: (res) => {
-          if (!res.confirm) {
-            reject(new Error('用户取消登录'));
-            return;
-          }
+      this.globalData.pendingLoginResolve = resolve;
+      this.globalData.pendingLoginReject = reject;
+      this.globalData.loginPromptConfig = this.buildLoginPromptConfig(options);
 
-          this.wxLogin().then(() => {
-            resolve(true);
-          }).catch((error) => {
-            wx.showToast({
-              title: '登录失败',
-              icon: 'none'
-            });
-            reject(error);
-          });
-        },
-        fail: reject
+      const currentPage = getCurrentPages().slice(-1)[0];
+      const currentRoute = currentPage ? currentPage.route : '';
+      const loginPromptRoute = this.getLoginPromptRoute().replace(/^\//, '');
+
+      if (currentRoute === loginPromptRoute) {
+        return;
+      }
+
+      wx.navigateTo({
+        url: this.getLoginPromptRoute(),
+        fail: (error) => {
+          this.rejectPendingLoginPrompt(error);
+        }
       });
     }).finally(() => {
       this.globalData.pendingLoginPromise = null;
+      this.globalData.pendingLoginResolve = null;
+      this.globalData.pendingLoginReject = null;
+      this.globalData.loginPromptConfig = null;
     });
 
     this.globalData.pendingLoginPromise = loginPromise;

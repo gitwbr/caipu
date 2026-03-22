@@ -24,7 +24,12 @@ Page({
 
   onShow() {
     app.syncTabBar(this);
+    if (this._loginPrompting) {
+      return;
+    }
+
     if (!app.globalData.isLoggedIn) {
+      this._loginPrompting = true;
       app.checkLoginAndShowModal().then(() => {
         this.loadDailyData();
         this.loadWeightSummary();
@@ -32,6 +37,8 @@ Page({
         wx.switchTab({
           url: '/pages/index/index'
         });
+      }).finally(() => {
+        this._loginPrompting = false;
       });
       return;
     }
@@ -112,5 +119,10 @@ Page({
   // 跳转体重记录列表
   goWeightList() {
     wx.navigateTo({ url: '/pages/weight/list' });
+  },
+
+  // 直接新增体重记录
+  goWeightAdd() {
+    wx.navigateTo({ url: '/pages/weight/add' });
   }
 });
