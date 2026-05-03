@@ -15,16 +15,17 @@
     </button>
   </view>
 
-  <!-- 操作条：营养识别 + 快速记录（放在搜索框下方） -->
-  <view class="bottom-actions">
-    <button class="ocr-btn" bindtap="takePhoto">
-      <text class="ocr-icon">📷</text>
-      <text class="ocr-text">营养成分表识别</text>
-    </button>
-    <button class="quick-btn" bindtap="goQuickRecord">
-      <text class="quick-icon">⚡</text>
-      <text class="quick-text">快速记录</text>
-    </button>
+  <view class="action-spotlight">
+    <view class="quick-entry" bindtap="goQuickRecord">
+      <view class="quick-entry-badge">
+        <text class="quick-entry-badge-icon">⚡</text>
+        <text class="quick-entry-badge-text">快速记录</text>
+      </view>
+      <view class="quick-entry-copy">
+        <text class="quick-entry-desc">直接记录热量信息，跳过复杂食物记录</text>
+      </view>
+      <text class="quick-entry-arrow">→</text>
+    </view>
   </view>
 
   <!-- 主要内容区域 -->
@@ -73,15 +74,20 @@
             </view>
             <view class="food-info">
               <text class="food-name">{{item.display_name}}</text>
-              <text class="food-calories">{{item.display_energy_kcal}} kcal/100g</text>
+              <text class="food-calories">{{item.display_energy_kcal}} kcal/{{item.display_basis_label || '100g'}}</text>
             </view>
             <view class="food-add">+</view>
           </view>
         </view>
       </view>
 
+      <view class="empty-state" wx:if="{{!searching && hasSearched && searchResults.length === 0}}">
+        <text class="empty-text">没有找到相关食物</text>
+        <text class="empty-hint">关键词“{{lastSearchedKeyword}}”暂无结果，试试更短的名称或使用快速记录、自定义食物等方式添加</text>
+      </view>
+
       <!-- 最近食物 -->
-      <view class="recent-foods" wx:if="{{activeTab === 'recent' && recentFoods.length > 0 && searchResults.length === 0}}">
+      <view class="recent-foods" wx:if="{{activeTab === 'recent' && recentFoods.length > 0 && searchResults.length === 0 && !hasSearched}}">
         <view class="section-title">最近选择</view>
         <view class="food-list">
           <view 
@@ -107,7 +113,7 @@
             </view>
             <view class="food-info">
               <text class="food-name">{{item.display_name}}</text>
-              <text class="food-calories">{{item.display_energy_kcal}} kcal/100g</text>
+              <text class="food-calories">{{item.display_energy_kcal}} kcal/{{item.display_basis_label || '100g'}}</text>
             </view>
             <view class="food-add">+</view>
           </view>
@@ -115,12 +121,26 @@
       </view>
 
       <!-- 自定义食物 -->
-      <view class="custom-foods" wx:if="{{activeTab === 'custom' && searchResults.length === 0}}">
-        <view class="section-header">
-          <text class="section-title">我的自定义食物</text>
-          <view class="add-inline" bindtap="addCustomFood">
-            <view class="icon-circle success small">＋</view>
-            <text class="add-hint">添加自定义食物</text>
+      <view class="custom-foods" wx:if="{{activeTab === 'custom' && searchResults.length === 0 && !hasSearched}}">
+        <view class="custom-hero">
+          <view class="custom-hero-copy">
+            <text class="section-title">我的自定义食物</text>
+          </view>
+          <view class="custom-action-row">
+            <view class="custom-action-card custom-action-ocr" bindtap="takePhoto">
+              <text class="custom-action-icon">📷</text>
+              <view class="custom-action-copy">
+                <text class="custom-action-title">成分识别</text>
+                <text class="custom-action-desc">拍营养表导入</text>
+              </view>
+            </view>
+            <view class="custom-action-card custom-action-add" bindtap="addCustomFood">
+              <text class="custom-action-icon">＋</text>
+              <view class="custom-action-copy">
+                <text class="custom-action-title">手动添加</text>
+                <text class="custom-action-desc">自己填写</text>
+              </view>
+            </view>
           </view>
         </view>
         
@@ -148,7 +168,7 @@
             </view>
             <view class="food-info">
               <text class="food-name">{{item.food_name}}</text>
-              <text class="food-calories">{{item.energy_kcal}} kcal/100g</text>
+              <text class="food-calories">{{item.display_energy_kcal}} kcal/{{item.display_basis_label || '100g'}}</text>
             </view>
             <view class="food-actions" catchtap="stopPropagation">
               <view class="icon-circle danger" catchtap="deleteCustomFood" data-id="{{item.id}}">🗑️</view>
@@ -163,7 +183,7 @@
       </view>
 
       <!-- 新增：收藏菜谱列表 -->
-      <view class="favorites-list" wx:if="{{activeTab === 'favorites' && searchResults.length === 0}}">
+      <view class="favorites-list" wx:if="{{activeTab === 'favorites' && searchResults.length === 0 && !hasSearched}}">
         <view class="section-title">我的收藏菜谱</view>
         <view class="food-list" wx:if="{{favoriteRecipes.length > 0}}">
           <view class="food-item" wx:for="{{favoriteRecipes}}" wx:key="id" bindtap="openFavoriteRecipe" data-recipe="{{item}}">
@@ -185,7 +205,7 @@
       </view>
 
       <!-- 空状态 -->
-      <view class="empty-state" wx:if="{{activeTab === 'recent' && recentFoods.length === 0 && searchResults.length === 0}}">
+      <view class="empty-state" wx:if="{{activeTab === 'recent' && recentFoods.length === 0 && searchResults.length === 0 && !hasSearched}}">
         <text class="empty-text">暂无最近选择</text>
         <text class="empty-hint">搜索并选择食物后，会显示在这里</text>
       </view>

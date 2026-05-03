@@ -96,6 +96,7 @@
       </view>
     </view>
 
+    <!-- 调试工具（开发用，发布时可保持注释）
     <view class="menu-card tool-card">
       <text class="theme-inline-title">DEBUG TOOLS</text>
       <text class="theme-section-title menu-title">调试工具</text>
@@ -114,5 +115,6 @@
         </view>
       </view>
     </view>
+    -->
   </view>
 </view>

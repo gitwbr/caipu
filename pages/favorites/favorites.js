@@ -1,5 +1,93 @@
 const app = getApp();
 
+function parseNumericValue(value) {
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  if (value === null || value === undefined || value === '') {
+    return 0;
+  }
+
+  const match = String(value).match(/-?\d+(\.\d+)?/);
+  return match ? parseFloat(match[0]) : 0;
+}
+
+function normalizeUnit(unit, fallback = 'g') {
+  const normalized = String(unit || '').trim().toLowerCase();
+  if (normalized === 'ml') {
+    return 'ml';
+  }
+  if (normalized === 'g') {
+    return 'g';
+  }
+  return fallback;
+}
+
+function parseAmount(amount) {
+  const raw = String(amount || '').trim();
+  const match = raw.match(/(-?\d+(?:\.\d+)?)\s*(g|ml)/i);
+
+  if (!match) {
+    return {
+      raw,
+      value: null,
+      unit: ''
+    };
+  }
+
+  return {
+    raw,
+    value: Number(match[1]),
+    unit: normalizeUnit(match[2])
+  };
+}
+
+function getCalculatedCalories(recipe) {
+  if (!recipe || !Array.isArray(recipe.ingredients) || recipe.ingredients.length === 0) {
+    return null;
+  }
+
+  let totalCalories = 0;
+  let hasCalculatedIngredient = false;
+
+  recipe.ingredients.forEach((item = {}) => {
+    const parsedAmount = parseAmount(item.amount);
+    const amountValue = item.weight !== undefined && item.weight !== null && item.weight !== '' && !Number.isNaN(Number(item.weight))
+      ? Number(item.weight)
+      : parsedAmount.value;
+
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      return;
+    }
+
+    const basisUnit = normalizeUnit(
+      item.nutrition_basis_unit || item.nutritionBasisUnit || parsedAmount.unit || 'g',
+      parsedAmount.unit || 'g'
+    );
+    const amountUnit = normalizeUnit(
+      item.unitNormalized || item.unit || parsedAmount.unit || basisUnit,
+      basisUnit
+    );
+
+    if (amountUnit !== basisUnit) {
+      return;
+    }
+
+    const nutrition = item.nutrition_per_100 || item.nutritionPer100 || item.nutrition_per_100g || item.nutritionInfo || item.nutrition || {};
+    const caloriesPer100 = parseNumericValue(nutrition.calories);
+
+    if (caloriesPer100 <= 0) {
+      return;
+    }
+
+    totalCalories += (amountValue / 100) * caloriesPer100;
+    hasCalculatedIngredient = true;
+  });
+
+  return hasCalculatedIngredient ? Math.round(totalCalories) : null;
+}
+
 function getRecipeId(recipeOrId) {
   if (!recipeOrId) return '';
   if (typeof recipeOrId === 'object') {
@@ -13,15 +101,15 @@ function getCalories(recipe) {
     return null;
   }
 
-  if (recipe.nutrition && recipe.nutrition.calories != null) {
+  if (recipe.nutrition && parseNumericValue(recipe.nutrition.calories) > 0) {
     return recipe.nutrition.calories;
   }
 
-  if (recipe.nutrition_total && recipe.nutrition_total.calories != null) {
+  if (recipe.nutrition_total && parseNumericValue(recipe.nutrition_total.calories) > 0) {
     return recipe.nutrition_total.calories;
   }
 
-  return null;
+  return getCalculatedCalories(recipe);
 }
 
 function buildRecipeCard(recipe, options = {}) {
@@ -30,7 +118,12 @@ function buildRecipeCard(recipe, options = {}) {
     ? app.findFavoriteByRecipeId(recipeId)
     : null;
   const merged = favoriteRecipe
-    ? { ...recipe, ...favoriteRecipe }
+    ? {
+        ...favoriteRecipe,
+        ...recipe,
+        favoriteId: favoriteRecipe.favoriteId || recipe.favoriteId || '',
+        image_url: favoriteRecipe.image_url || recipe.image_url || ''
+      }
     : { ...recipe };
   const imagePath = merged.image_url || recipe.image_url || '';
   const calories = getCalories(merged);
@@ -94,7 +187,7 @@ Page({
   },
 
   loadRecentRecipes() {
-    const history = wx.getStorageSync('history') || [];
+    const history = app.loadHistory ? app.loadHistory() : (wx.getStorageSync('history') || []);
     const recentRecipes = history.map((recipe) => buildRecipeCard(recipe, {
       originLabel: '最近生成',
       actionLabel: '删'
@@ -151,7 +244,7 @@ Page({
   viewRecipe(e) {
     const recipe = e.currentTarget.dataset.recipe;
     const scope = e.currentTarget.dataset.scope;
-    const from = scope === 'favorites' ? 'favorites' : 'library';
+    const from = scope === 'favorites' ? 'favorites' : 'recent';
     wx.navigateTo({
       url: `/pages/recipe/recipe?from=${from}&recipe=${encodeURIComponent(JSON.stringify(recipe))}`
     });
@@ -171,12 +264,17 @@ Page({
   deleteRecent(e) {
     const recipeId = e.currentTarget.dataset.id;
     const index = Number(e.currentTarget.dataset.index);
-    const history = wx.getStorageSync('history') || [];
-    const nextHistory = recipeId
-      ? history.filter((recipe) => String(getRecipeId(recipe)) !== String(recipeId))
-      : history.filter((_, itemIndex) => itemIndex !== index);
-
-    wx.setStorageSync('history', nextHistory);
+    if (recipeId && app.removeHistoryRecipe) {
+      app.removeHistoryRecipe(recipeId);
+    } else {
+      const history = app.loadHistory ? app.loadHistory() : (wx.getStorageSync('history') || []);
+      const nextHistory = history.filter((_, itemIndex) => itemIndex !== index);
+      if (app.saveHistoryToLocal) {
+        app.saveHistoryToLocal(nextHistory);
+      } else {
+        wx.setStorageSync('history', nextHistory);
+      }
+    }
     this.loadRecentRecipes();
     wx.showToast({ title: '已删除', icon: 'success' });
   },

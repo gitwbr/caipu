@@ -3,8 +3,8 @@ App({
     // ChatGPT API配置
     //openaiApiKey: '', // 可选，后端已统一管理
     //openaiApiUrl: 'https://api.openai.com/v1/chat/completions', // 可选，后端已统一管理
-    //serverUrl: 'https://tuoshuo.top',
-    serverUrl: 'http://43.154.185.163:3001',
+    serverUrl: 'https://tuoshuo.com.cn',
+    //serverUrl: 'http://43.154.185.163:3001',
     // 登录状态管理
     isLoggedIn: false,
     userInfo: null,
@@ -120,6 +120,165 @@ App({
     return String(input);
   },
 
+  toSafeNumber(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  },
+
+  roundNumber(value, digits = 2) {
+    const num = this.toSafeNumber(value);
+    if (num === null) return null;
+    const factor = Math.pow(10, digits);
+    return Math.round(num * factor) / factor;
+  },
+
+  formatDisplayNumber(value, digits = 2) {
+    const rounded = this.roundNumber(value, digits);
+    if (rounded === null) return '';
+    return String(rounded)
+      .replace(/\.0+$/, '')
+      .replace(/(\.\d*?[1-9])0+$/, '$1');
+  },
+
+  normalizeDensity(value) {
+    const density = this.toSafeNumber(value);
+    return density !== null && density > 0 ? density : null;
+  },
+
+  normalizeFoodNutritionItem(food) {
+    if (!food || typeof food !== 'object') return food;
+    return {
+      ...food,
+      density_g_per_ml: this.normalizeDensity(food.density_g_per_ml)
+    };
+  },
+
+  normalizeCustomFood(food) {
+    if (!food || typeof food !== 'object') return food;
+    const normalized = { ...food };
+    normalized.nutrition_basis_unit = normalized.nutrition_basis_unit === 'ml' ? 'ml' : 'g';
+    if (normalized.image_url) {
+      normalized.image_url = this.normalizeImageUrlToPath(normalized.image_url);
+    }
+    return normalized;
+  },
+
+  isStandardLiquidFood(food) {
+    return !!this.normalizeDensity(food && food.density_g_per_ml);
+  },
+
+  getFoodBasisUnit(food) {
+    if (!food) return 'g';
+    if (food.type === 'custom' || Object.prototype.hasOwnProperty.call(food, 'nutrition_basis_unit')) {
+      return food.nutrition_basis_unit === 'ml' ? 'ml' : 'g';
+    }
+    return this.isStandardLiquidFood(food) ? 'ml' : 'g';
+  },
+
+  getFoodBasisLabel(food) {
+    return `100${this.getFoodBasisUnit(food)}`;
+  },
+
+  decorateFoodForDisplay(food, typeHint) {
+    if (!food || typeof food !== 'object') return food;
+
+    const type = typeHint || food.type || (Object.prototype.hasOwnProperty.call(food, 'nutrition_basis_unit') ? 'custom' : 'standard');
+    const normalized = type === 'custom'
+      ? this.normalizeCustomFood(food)
+      : this.normalizeFoodNutritionItem(food);
+    const density = type === 'standard' ? this.normalizeDensity(normalized.density_g_per_ml) : null;
+    const basisUnit = type === 'standard'
+      ? (density ? 'ml' : 'g')
+      : (normalized.nutrition_basis_unit === 'ml' ? 'ml' : 'g');
+    const basisLabel = `100${basisUnit}`;
+    const convertValue = (value) => {
+      const num = this.toSafeNumber(value);
+      if (num === null) return undefined;
+      return this.roundNumber(density ? num * density : num, 2);
+    };
+
+    return {
+      ...normalized,
+      type,
+      display_name: normalized.display_name || normalized.food_name || normalized.quick_food_name || '',
+      display_basis_unit: basisUnit,
+      display_basis_label: basisLabel,
+      display_energy_kcal: convertValue(normalized.energy_kcal) ?? 0,
+      display_protein_g: convertValue(normalized.protein_g),
+      display_fat_g: convertValue(normalized.fat_g),
+      display_carbohydrate_g: convertValue(normalized.carbohydrate_g),
+      display_fiber_g: convertValue(normalized.fiber_g),
+      display_moisture_g: convertValue(normalized.moisture_g),
+      display_vitamin_a_ug: convertValue(normalized.vitamin_a_ug),
+      display_vitamin_b1_mg: convertValue(normalized.vitamin_b1_mg),
+      display_vitamin_b2_mg: convertValue(normalized.vitamin_b2_mg),
+      display_vitamin_b3_mg: convertValue(normalized.vitamin_b3_mg),
+      display_vitamin_e_mg: convertValue(normalized.vitamin_e_mg),
+      display_vitamin_c_mg: convertValue(normalized.vitamin_c_mg),
+      display_na_mg: convertValue(normalized.na_mg),
+      display_ca_mg: convertValue(normalized.ca_mg),
+      display_fe_mg: convertValue(normalized.fe_mg),
+      display_cholesterol_mg: convertValue(normalized.cholesterol_mg),
+      image_full_url: normalized.image_url ? this.buildImageUrl(normalized.image_url) : (normalized.image_full_url || '')
+    };
+  },
+
+  normalizeDietRecord(record) {
+    if (!record || typeof record !== 'object') return record;
+    const normalized = { ...record };
+
+    if (normalized.record_type === 'quick' || normalized.record_type === 'recipe') {
+      normalized.quantity_value = null;
+      normalized.quantity_unit = null;
+      return normalized;
+    }
+
+    if (normalized.quantity_value === undefined && normalized.quantity_g !== undefined) {
+      normalized.quantity_value = normalized.quantity_g;
+    }
+
+    if (normalized.quantity_unit === undefined || normalized.quantity_unit === '') {
+      if (normalized.quantity_value !== undefined && normalized.quantity_value !== null && normalized.quantity_value !== '') {
+        normalized.quantity_unit = 'g';
+      } else {
+        normalized.quantity_unit = null;
+      }
+    }
+
+    return normalized;
+  },
+
+  getDietRecordQuantityDisplay(record, food) {
+    const normalizedRecord = this.normalizeDietRecord(record);
+    if (!normalizedRecord || normalizedRecord.record_type === 'quick' || normalizedRecord.record_type === 'recipe') {
+      return { value: '', unit: '' };
+    }
+
+    const storedQuantity = this.toSafeNumber(normalizedRecord.quantity_value);
+    if (storedQuantity === null) {
+      return { value: '', unit: normalizedRecord.quantity_unit || this.getFoodBasisUnit(food) };
+    }
+
+    if (food && (food.type === 'standard' || (!Object.prototype.hasOwnProperty.call(food, 'nutrition_basis_unit') && Object.prototype.hasOwnProperty.call(food, 'density_g_per_ml')))) {
+      const density = this.normalizeDensity(food.density_g_per_ml);
+      if (density) {
+        return {
+          value: this.formatDisplayNumber(storedQuantity / density),
+          unit: 'ml'
+        };
+      }
+      return {
+        value: this.formatDisplayNumber(storedQuantity),
+        unit: 'g'
+      };
+    }
+
+    return {
+      value: this.formatDisplayNumber(storedQuantity),
+      unit: normalizedRecord.quantity_unit || this.getFoodBasisUnit(food)
+    };
+  },
+
 
   onLaunch() {
     // 检查API密钥配置
@@ -222,6 +381,64 @@ App({
     wx.setStorageSync('favoritesLastUpdate', ts);
     this.globalData.favorites = arr;
     this.globalData.favoritesLastUpdate = ts;
+  },
+
+  loadHistory() {
+    const list = wx.getStorageSync('history') || [];
+    const normalized = Array.isArray(list)
+      ? list.map(item => this.normalizeFavoriteRecipe(item))
+      : [];
+    wx.setStorageSync('history', normalized);
+    return normalized;
+  },
+
+  saveHistoryToLocal(list) {
+    const arr = Array.isArray(list)
+      ? list.map(item => this.normalizeFavoriteRecipe(item)).slice(0, 20)
+      : [];
+    wx.setStorageSync('history', arr);
+    return arr;
+  },
+
+  findHistoryRecipeById(recipeId) {
+    const normalizedRecipeId = this.getRecipeId(recipeId);
+    const list = this.loadHistory();
+    return list.find(item => String(this.getRecipeId(item)) === String(normalizedRecipeId));
+  },
+
+  isRecipeInHistory(recipeId) {
+    return !!this.findHistoryRecipeById(recipeId);
+  },
+
+  upsertHistoryRecipe(recipe, options = {}) {
+    const normalizedRecipe = this.normalizeFavoriteRecipe(recipe);
+    const moveToTop = options.moveToTop !== false;
+    const list = this.loadHistory();
+    const existingIndex = list.findIndex(item => String(this.getRecipeId(item)) === String(normalizedRecipe.id));
+    const existing = existingIndex >= 0 ? list[existingIndex] : null;
+    const merged = existing ? { ...existing, ...normalizedRecipe } : normalizedRecipe;
+
+    if (existingIndex >= 0) {
+      list.splice(existingIndex, 1);
+    }
+
+    if (moveToTop) {
+      list.unshift(merged);
+    } else if (existingIndex >= 0) {
+      list.splice(existingIndex, 0, merged);
+    } else {
+      list.push(merged);
+    }
+
+    this.saveHistoryToLocal(list);
+    return merged;
+  },
+
+  removeHistoryRecipe(recipeId) {
+    const normalizedRecipeId = this.getRecipeId(recipeId);
+    const nextHistory = this.loadHistory().filter(item => String(this.getRecipeId(item)) !== String(normalizedRecipeId));
+    this.saveHistoryToLocal(nextHistory);
+    return nextHistory;
   },
 
   // 本地：根据 recipe_id 查找收藏项（返回 recipe 对象，含 favoriteId）
@@ -374,10 +591,12 @@ App({
   checkLoginStatus() {
     const token = wx.getStorageSync('token');
     const userInfo = wx.getStorageSync('userInfo');
+    const userLimits = wx.getStorageSync('userLimits');
     
     if (token && userInfo) {
       this.globalData.token = token;
       this.globalData.isLoggedIn = true;
+      this.globalData.userLimits = userLimits || null;
       
       // 检查本地存储的用户信息是否包含BMR，如果没有则重新计算
       if (!userInfo.bmr && userInfo.birthday && userInfo.height_cm && userInfo.weight_kg && userInfo.gender) {
@@ -933,7 +1152,8 @@ App({
     if (lastUpdate && now - lastUpdate < 24 * 60 * 60 * 1000) {
       const cachedData = wx.getStorageSync('foodNutritionData');
       if (cachedData && cachedData.length > 0) {
-        this.globalData.foodNutritionData = cachedData;
+        this.globalData.foodNutritionData = cachedData.map(item => this.normalizeFoodNutritionItem(item));
+        this.globalData.foodNutritionLastUpdate = lastUpdate;
         console.log('使用缓存的食物营养数据，共', cachedData.length, '条');
         return;
       }
@@ -948,8 +1168,9 @@ App({
       },
       success: (res) => {
         if (res.statusCode === 200 && res.data.success) {
-          const foodData = res.data.data;
+          const foodData = (res.data.data || []).map(item => this.normalizeFoodNutritionItem(item));
           this.globalData.foodNutritionData = foodData;
+          this.globalData.foodNutritionLastUpdate = now;
           wx.setStorageSync('foodNutritionData', foodData);
           wx.setStorageSync('foodNutritionLastUpdate', now);
           console.log('食物营养数据获取成功，共', foodData.length, '条');
@@ -1223,7 +1444,7 @@ App({
   // 根据ID查找营养数据
   findFoodNutritionById(id) {
     const data = this.getLocalFoodNutritionData();
-    return data.find(item => item.id === id);
+    return data.find(item => String(item.id) === String(id));
   },
 
   // --- 用户资料相关API ---
@@ -1252,12 +1473,13 @@ App({
           if (res.statusCode === 200) {
             // 后端返回格式: { message: '添加成功', record: {...} }
             // 我们需要返回记录对象本身
-            const record = res.data.record || res.data;
+            const record = this.normalizeDietRecord(res.data.record || res.data);
             // 兜底补齐本地所需字段
             if (!record.record_date) record.record_date = recordData.record_date;
             if (!record.record_time && recordData.record_time) record.record_time = recordData.record_time;
             if (!record.record_type && recordData.record_type) record.record_type = recordData.record_type;
-            if (record.quantity_g === undefined && recordData.quantity_g !== undefined) record.quantity_g = recordData.quantity_g;
+            if (record.quantity_value === undefined && recordData.quantity_value !== undefined) record.quantity_value = recordData.quantity_value;
+            if ((record.quantity_unit === undefined || record.quantity_unit === null) && recordData.quantity_unit !== undefined) record.quantity_unit = recordData.quantity_unit;
             if (record.food_id === undefined && recordData.food_id !== undefined) record.food_id = recordData.food_id;
             if (record.custom_food_id === undefined && recordData.custom_food_id !== undefined) record.custom_food_id = recordData.custom_food_id;
             // 规范日期为本地 YYYY-MM-DD
@@ -1272,13 +1494,13 @@ App({
         fail: (error) => {
           console.log('网络错误，尝试离线保存:', error);
           // 网络错误时，创建本地记录
-          const localRecord = {
+          const localRecord = this.normalizeDietRecord({
             ...recordData,
-            id: Date.now(), // 使用时间戳作为临时ID
+            id: Date.now(),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            is_offline: true // 标记为离线记录
-          };
+            is_offline: true
+          });
           
           // 添加到本地记录
           const localRecords = [...this.globalData.dietRecords, localRecord];
@@ -1350,12 +1572,13 @@ App({
           if (res.statusCode === 200) {
             // 后端返回格式: { message: '更新成功', record: {...} }
             // 我们需要返回记录对象本身
-            const record = res.data.record || res.data;
+            const record = this.normalizeDietRecord(res.data.record || res.data);
             // 兜底补齐
             if (!record.record_date) record.record_date = recordData.record_date;
             if (!record.record_time && recordData.record_time) record.record_time = recordData.record_time;
             if (!record.record_type && recordData.record_type) record.record_type = recordData.record_type;
-            if (record.quantity_g === undefined && recordData.quantity_g !== undefined) record.quantity_g = recordData.quantity_g;
+            if (record.quantity_value === undefined && recordData.quantity_value !== undefined) record.quantity_value = recordData.quantity_value;
+            if ((record.quantity_unit === undefined || record.quantity_unit === null) && recordData.quantity_unit !== undefined) record.quantity_unit = recordData.quantity_unit;
             if (record.food_id === undefined && recordData.food_id !== undefined) record.food_id = recordData.food_id;
             if (record.custom_food_id === undefined && recordData.custom_food_id !== undefined) record.custom_food_id = recordData.custom_food_id;
             record.record_date = this.toLocalYMD(record.record_date || recordData.record_date);
@@ -1370,12 +1593,12 @@ App({
           console.log('网络错误，尝试离线更新:', error);
           // 网络错误时，更新本地记录
           const localRecords = this.globalData.dietRecords.map(record => 
-            record.id == recordId ? {
+            record.id == recordId ? this.normalizeDietRecord({
               ...record,
               ...recordData,
               updated_at: new Date().toISOString(),
               is_offline: true
-            } : record
+            }) : record
           );
           
           this.saveDietRecordsToLocal(localRecords);
@@ -1470,6 +1693,7 @@ App({
       this.saveDietRecordsToLocal(validRecords);
     }
     
+    validRecords = validRecords.map(record => this.normalizeDietRecord(record));
     this.globalData.dietRecords = validRecords;
     this.globalData.dietRecordsLastUpdate = lastUpdate;
     
@@ -1485,7 +1709,7 @@ App({
     console.log('记录内容:', records);
     
     // 统一规范日期为本地 YYYY-MM-DD，便于前端按天筛选
-    const normalized = (records || []).map(r => ({
+    const normalized = (records || []).map(r => this.normalizeDietRecord({
       ...r,
       record_date: this.toLocalYMD(r.record_date)
     }));
@@ -1555,8 +1779,8 @@ App({
           carbG = food.carbohydrate_g;
         }
         
-        if (energyKcal && record.quantity_g) {
-          const ratio = record.quantity_g / 100;
+        if (energyKcal && record.quantity_value) {
+          const ratio = record.quantity_value / 100;
           totalCalories += energyKcal * ratio;
           totalProtein += (proteinG || 0) * ratio;
           totalFat += (fatG || 0) * ratio;
@@ -1572,8 +1796,8 @@ App({
           carbG = customFood.carbohydrate_g;
         }
         
-        if (energyKcal && record.quantity_g) {
-          const ratio = record.quantity_g / 100;
+        if (energyKcal && record.quantity_value) {
+          const ratio = record.quantity_value / 100;
           totalCalories += energyKcal * ratio;
           totalProtein += (proteinG || 0) * ratio;
           totalFat += (fatG || 0) * ratio;
@@ -1652,12 +1876,20 @@ App({
       // 逐个同步离线记录
       const syncPromises = offlineRecords.map(record => {
         const recordData = {
-          quantity_g: record.quantity_g,
+          record_type: record.record_type,
+          quantity_value: record.quantity_value,
+          quantity_unit: record.quantity_unit,
           record_time: record.record_time,
           record_date: record.record_date,
           notes: record.notes,
           food_id: record.food_id,
-          custom_food_id: record.custom_food_id
+          custom_food_id: record.custom_food_id,
+          quick_food_name: record.quick_food_name,
+          quick_energy_kcal: record.quick_energy_kcal,
+          quick_protein_g: record.quick_protein_g,
+          quick_fat_g: record.quick_fat_g,
+          quick_carbohydrate_g: record.quick_carbohydrate_g,
+          quick_image_url: record.quick_image_url
         };
 
         return this.addDietRecord(recordData).then(cloudRecord => {
@@ -1760,7 +1992,7 @@ App({
   // 加载本地自定义食物数据
   loadCustomFoods() {
     try {
-      const customFoods = wx.getStorageSync('customFoods') || [];
+      const customFoods = (wx.getStorageSync('customFoods') || []).map(food => this.normalizeCustomFood(food));
       const lastUpdate = wx.getStorageSync('customFoodsLastUpdate');
       
       this.globalData.customFoods = customFoods;
@@ -1775,7 +2007,7 @@ App({
     try {
       // 统一将图片URL规范为仅路径后再存库
       const normalized = (customFoods || []).map(food => {
-        const f = { ...food };
+        const f = this.normalizeCustomFood(food);
         if (f.image_url) {
           f.image_url = this.normalizeImageUrlToPath(f.image_url);
         }
@@ -1807,7 +2039,7 @@ App({
         },
         success: (res) => {
           if (res.statusCode === 200) {
-            resolve(res.data.custom_foods);
+            resolve((res.data.custom_foods || []).map(food => this.normalizeCustomFood(food)));
           } else {
             reject(new Error(res.data.error || '获取自定义食物列表失败'));
           }
@@ -1835,7 +2067,7 @@ App({
         },
         success: (res) => {
           if (res.statusCode === 200) {
-            resolve(res.data.custom_food);
+            resolve(this.normalizeCustomFood(res.data.custom_food));
           } else {
             reject(new Error(res.data.error || '添加自定义食物失败'));
           }
@@ -1863,7 +2095,7 @@ App({
         },
         success: (res) => {
           if (res.statusCode === 200) {
-            resolve(res.data.custom_food);
+            resolve(this.normalizeCustomFood(res.data.custom_food));
           } else {
             reject(new Error(res.data.error || '更新自定义食物失败'));
           }
@@ -1959,7 +2191,7 @@ App({
 
   // 根据ID查找自定义食物
   findCustomFoodById(id) {
-    return this.globalData.customFoods.find(food => food.id === id);
+    return this.globalData.customFoods.find(food => String(food.id) === String(id));
   },
 
   // 根据名称查找自定义食物

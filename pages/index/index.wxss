@@ -484,6 +484,92 @@
   line-height: 1.6;
 }
 
+.mode-switch-card {
+  margin-top: 24rpx;
+  padding: 24rpx 22rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(145deg, #fff8ef 0%, #f4e8d9 100%);
+  border: 1rpx solid rgba(154, 103, 69, 0.12);
+  box-shadow: 0 14rpx 30rpx rgba(97, 79, 55, 0.08);
+}
+
+.mode-switch-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.mode-switch-kicker {
+  color: #9b6847;
+  font-size: 22rpx;
+  letter-spacing: 4rpx;
+}
+
+.mode-switch-desc {
+  margin-top: 10rpx;
+  color: #695f55;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.mode-switch-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 18rpx;
+}
+
+.mode-pill {
+  display: flex;
+  flex-direction: column;
+  width: calc(50% - 8rpx);
+  min-height: 130rpx;
+  padding: 20rpx 18rpx;
+  border-radius: 24rpx;
+  box-sizing: border-box;
+  border: 2rpx solid rgba(67, 79, 67, 0.08);
+  box-shadow: 0 10rpx 20rpx rgba(83, 70, 51, 0.05);
+}
+
+.mode-pill-home {
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.mode-pill-creative {
+  background: rgba(255, 245, 238, 0.92);
+}
+
+.mode-pill-active {
+  color: #fff7ef;
+  border-color: transparent;
+}
+
+.mode-pill-home.mode-pill-active {
+  background: linear-gradient(145deg, #24453d 0%, #1a302a 100%);
+  box-shadow: 0 16rpx 28rpx rgba(36, 69, 61, 0.18);
+}
+
+.mode-pill-creative.mode-pill-active {
+  background: linear-gradient(145deg, #b7603b 0%, #8d4326 100%);
+  box-shadow: 0 16rpx 28rpx rgba(183, 96, 59, 0.22);
+}
+
+.mode-pill-label {
+  color: #21332d;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.mode-pill-desc {
+  margin-top: 10rpx;
+  color: #6d655c;
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.mode-pill-active .mode-pill-label,
+.mode-pill-active .mode-pill-desc {
+  color: #fff7ef;
+}
+
 .tab-grid {
   display: flex;
   flex-wrap: wrap;
@@ -845,6 +931,28 @@
   color: rgba(255, 244, 230, 0.66);
   font-size: 22rpx;
   letter-spacing: 4rpx;
+}
+
+.cta-mode-chip {
+  align-self: flex-start;
+  margin-top: 14rpx;
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+}
+
+.cta-mode-chip-home {
+  background: rgba(255, 246, 235, 0.12);
+  color: #fff1e4;
+  border: 1rpx solid rgba(255, 246, 235, 0.18);
+}
+
+.cta-mode-chip-creative {
+  background: rgba(255, 198, 154, 0.16);
+  color: #ffd8bd;
+  border: 1rpx solid rgba(255, 198, 154, 0.24);
 }
 
 .cta-title {

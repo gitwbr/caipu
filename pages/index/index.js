@@ -21,6 +21,51 @@ const AUTO_FILL_LABELS = {
 const SUPPORTING_INGREDIENTS = ['葱', '姜', '蒜', '鸡蛋', '青椒', '洋葱', '番茄', '淀粉']
 const BASIC_SEASONINGS = ['食用油', '盐', '糖', '生抽', '老抽', '料酒', '醋', '蚝油', '胡椒']
 
+const RECIPE_MODES = [
+  {
+    key: 'home',
+    label: '家常',
+    desc: '稳妥经典，优先好做'
+  },
+  {
+    key: 'creative',
+    label: '创意',
+    desc: '轻巧新颖，但不离谱'
+  }
+]
+
+const RECIPE_MODE_CONFIG = {
+  home: {
+    label: '家常',
+    stickyLabel: '家常模式',
+    emptyStickySummary: '还没选主料，AI 会按家常路线补全。',
+    autoFillLogicText: '普通家庭厨房逻辑',
+    systemInstruction: '请优先生成普通家庭真能做、步骤能照着做的菜谱，不要写得像餐厅菜单或创意料理。',
+    autoFillRule: '5. 如果只选了部分维度，未选项要自动补成最自然、最家常、最能做成的组合，不是随机乱发挥。',
+    executionRule: '8. 成品必须符合普通家庭可执行标准：食材数量控制在家常范围，步骤数量控制在 4 到 7 步左右，避免过度复杂。',
+    extraRules: [],
+    temperature: 0.66
+  },
+  creative: {
+    label: '创意',
+    stickyLabel: '创意模式',
+    emptyStickySummary: '还没选主料，AI 会按轻创意路线补全。',
+    autoFillLogicText: '家庭厨房里的轻创意逻辑',
+    systemInstruction: '请生成在普通家庭厨房里真正能做成、但比常规答案更有新意的菜谱。允许轻创意，但不要写得像餐厅菜单、网红摆盘菜或华而不实的创意料理。',
+    autoFillRule: '5. 如果只选了部分维度，未选项要自动补成合理顺口、带一点新意但依然家常可做的组合，不是随机乱发挥。',
+    executionRule: '8. 成品必须符合普通家庭可执行标准：食材数量控制在家常范围，步骤数量控制在 4 到 7 步左右，避免过度复杂；新意优先落在搭配、调味结构、口感层次、切配形式或收汁方式里，最多体现 1 到 2 个创意点。',
+    extraRules: [
+      '11. 创意必须是轻创意：尽量避开最常见的标准答案，但不要为了新而新。',
+      '12. 不允许写成餐厅菜单、分子料理、网红摆盘菜，或堆砌很多额外主菜食材的版本。'
+    ],
+    temperature: 0.82
+  }
+}
+
+function getRecipeModeConfig(modeKey = 'home') {
+  return RECIPE_MODE_CONFIG[modeKey] || RECIPE_MODE_CONFIG.home
+}
+
 function createEmptyNutrition() {
   return {
     calories: 0,
@@ -124,16 +169,74 @@ function normalizeIngredientItem(item = {}, index = 0) {
   }
 }
 
+function calculateRecipeNutritionFromIngredients(ingredients = []) {
+  let totalCalories = 0
+  let totalProtein = 0
+  let totalFat = 0
+  let totalCarbs = 0
+
+  ingredients.forEach((item = {}) => {
+    const parsedAmount = parseAmount(item.amount)
+    const amountValue = item.weight !== undefined && item.weight !== null && item.weight !== '' && !Number.isNaN(Number(item.weight))
+      ? Number(item.weight)
+      : parsedAmount.value
+
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      return
+    }
+
+    const basisUnit = normalizeUnit(
+      item.nutrition_basis_unit || item.nutritionBasisUnit || parsedAmount.unit || 'g',
+      parsedAmount.unit || 'g'
+    )
+    const amountUnit = normalizeUnit(
+      item.unitNormalized || item.unit || parsedAmount.unit || basisUnit,
+      basisUnit
+    )
+
+    if (amountUnit !== basisUnit) {
+      return
+    }
+
+    const nutritionPer100 = normalizeNutritionInfo(
+      item.nutrition_per_100 || item.nutritionPer100 || item.nutrition_per_100g || item.nutritionInfo || item.nutrition
+    )
+    const ratio = amountValue / 100
+
+    totalCalories += ratio * parseNumericValue(nutritionPer100.calories)
+    totalProtein += ratio * parseNumericValue(nutritionPer100.protein)
+    totalFat += ratio * parseNumericValue(nutritionPer100.fat)
+    totalCarbs += ratio * parseNumericValue(nutritionPer100.carbohydrates ?? nutritionPer100.carbs)
+  })
+
+  const roundedCarbs = Math.round(totalCarbs * 10) / 10
+
+  return {
+    calories: Math.round(totalCalories),
+    protein: Math.round(totalProtein * 10) / 10,
+    fat: Math.round(totalFat * 10) / 10,
+    carbs: roundedCarbs,
+    carbohydrates: roundedCarbs
+  }
+}
+
 function normalizeRecipePayload(recipe = {}) {
   const ingredients = Array.isArray(recipe.ingredients)
     ? recipe.ingredients.map((item, index) => normalizeIngredientItem(item, index))
     : []
-  const nutrition = recipe.nutrition || {}
+  const nutrition = recipe.nutrition || recipe.nutrition_total || {}
   const normalizedNutrition = {
     calories: parseNumericValue(nutrition.calories),
     protein: parseNumericValue(nutrition.protein),
     fat: parseNumericValue(nutrition.fat),
     carbs: parseNumericValue(nutrition.carbs ?? nutrition.carbohydrates)
+  }
+  const calculatedNutrition = calculateRecipeNutritionFromIngredients(ingredients)
+  const mergedNutrition = {
+    calories: normalizedNutrition.calories > 0 ? normalizedNutrition.calories : calculatedNutrition.calories,
+    protein: normalizedNutrition.protein > 0 ? normalizedNutrition.protein : calculatedNutrition.protein,
+    fat: normalizedNutrition.fat > 0 ? normalizedNutrition.fat : calculatedNutrition.fat,
+    carbs: normalizedNutrition.carbs > 0 ? normalizedNutrition.carbs : calculatedNutrition.carbs
   }
 
   return {
@@ -145,7 +248,7 @@ function normalizeRecipePayload(recipe = {}) {
     steps: Array.isArray(recipe.steps)
       ? recipe.steps.map((step) => String(step || '').trim()).filter(Boolean)
       : [],
-    nutrition: normalizedNutrition,
+    nutrition: mergedNutrition,
     tags: Array.isArray(recipe.tags) ? recipe.tags.filter(Boolean) : [],
     tips: recipe.tips || ''
   }
@@ -276,6 +379,8 @@ Page({
     kitchenEnvironmentOptions: [],
     tabOptions: TAB_OPTIONS,
     quickScenes: QUICK_SCENES,
+    recipeModes: RECIPE_MODES,
+    selectedRecipeMode: 'home',
     activeTab: 0,
     selectedIngredientNames: [],
     selectedTypeIndex: null,
@@ -337,20 +442,29 @@ Page({
   updateLoginStatus() {
     const currentApp = getApp()
     const isLoggedIn = currentApp.globalData.isLoggedIn
+    const cachedLimits = isLoggedIn
+      ? (currentApp.globalData.userLimits || wx.getStorageSync('userLimits') || null)
+      : null
 
-    this.setData({
-      isLoggedIn,
-      remainingGenerationCount: null
-    })
+    if (cachedLimits) {
+      this.setData({ isLoggedIn })
+      this.applyUserLimits(cachedLimits)
+    } else {
+      this.setData({
+        isLoggedIn,
+        userLimits: null,
+        remainingGenerationCount: null
+      })
+    }
 
     if (isLoggedIn) {
       currentApp.checkUserLimits().then((limits) => {
         this.applyUserLimits(limits)
       }).catch((error) => {
         console.error('获取用户限制失败:', error)
-        const cachedLimits = wx.getStorageSync('userLimits')
-        if (cachedLimits) {
-          this.applyUserLimits(cachedLimits)
+        const fallbackLimits = currentApp.globalData.userLimits || wx.getStorageSync('userLimits')
+        if (fallbackLimits) {
+          this.applyUserLimits(fallbackLimits)
         }
       })
     } else {
@@ -393,7 +507,7 @@ Page({
       {
         categoryName: '豆制品',
         ingredients: [
-          { name: '豆腐', selected: false }, { name: '豆皮', selected: false }, { name: '腐竹', selected: false }, { name: '豆芽', selected: false }, { name: '油豆腐', selected: false }
+          { name: '嫩豆腐', selected: false },{ name: '老豆腐', selected: false },  { name: '豆皮', selected: false }, { name: '腐竹', selected: false }, { name: '豆芽', selected: false }, { name: '油豆腐', selected: false }
         ]
       },
       {
@@ -467,6 +581,51 @@ Page({
     }
 
     return '还没选主料，AI 会按普通家庭厨房路线补全'
+  },
+
+  getModeAwareAutoFillSummaryText(state) {
+    const modeConfig = getRecipeModeConfig(state.selectedRecipeMode)
+    const autoFillFields = []
+
+    if (!state.selectedDishTypeName) {
+      autoFillFields.push(AUTO_FILL_LABELS.dishType)
+    }
+    if (!state.selectedTypeName) {
+      autoFillFields.push(AUTO_FILL_LABELS.cuisine)
+    }
+    if (!state.selectedTasteName) {
+      autoFillFields.push(AUTO_FILL_LABELS.taste)
+    }
+    if (!state.selectedMethodName) {
+      autoFillFields.push(AUTO_FILL_LABELS.method)
+    }
+    if (!state.selectedKitchenEnvironmentNames.length) {
+      autoFillFields.push(AUTO_FILL_LABELS.kitchenEnvironment)
+    }
+
+    if (!autoFillFields.length) {
+      return `约束已经足够完整，AI 会优先按${modeConfig.stickyLabel}贴合你的设定来生成。`
+    }
+
+    return `未选的 ${autoFillFields.join(' / ')} 会由 AI 按${modeConfig.autoFillLogicText}自动补全。`
+  },
+
+  getModeAwareStickyGenerateSummaryText(state) {
+    const modeConfig = getRecipeModeConfig(state.selectedRecipeMode)
+    const ingredientCount = Array.isArray(state.selectedIngredientNames) ? state.selectedIngredientNames.length : 0
+    const metaCount = Array.isArray(state.selectedSummaryItems)
+      ? state.selectedSummaryItems.filter((item) => item.kind === 'meta').length
+      : 0
+
+    if (ingredientCount > 0) {
+      return `已选 ${ingredientCount} 个食材 / ${metaCount} 项约束 · ${modeConfig.stickyLabel}`
+    }
+
+    if (metaCount > 0) {
+      return `还没选主料，已加 ${metaCount} 项约束 · ${modeConfig.stickyLabel}`
+    }
+
+    return modeConfig.emptyStickySummary
   },
 
   getMethodKitchenConflictMessage(methodName, kitchenEnvironmentNames = []) {
@@ -580,12 +739,12 @@ Page({
       selectedSummaryItems,
       selectionCount: selectedSummaryItems.length,
       selectedMetaCount: selectedSummaryItems.filter((item) => item.kind === 'meta').length,
-      stickyGenerateSummaryText: this.getStickyGenerateSummaryText({
+      stickyGenerateSummaryText: this.getModeAwareStickyGenerateSummaryText({
         ...snapshot,
         selectedSummaryItems
       }),
       activePresetKey: matchedPreset ? matchedPreset.key : '',
-      autoFillSummaryText: this.getAutoFillSummaryText(snapshot),
+      autoFillSummaryText: this.getModeAwareAutoFillSummaryText(snapshot),
       methodKitchenConflictMessage
     })
   },
@@ -593,6 +752,20 @@ Page({
   onTabChange(e) {
     const index = Number(e.currentTarget.dataset.index)
     this.setData({ activeTab: index })
+  },
+
+  onRecipeModeChange(e) {
+    const { key } = e.currentTarget.dataset
+
+    if (!key || key === this.data.selectedRecipeMode) {
+      return
+    }
+
+    this.setData({
+      selectedRecipeMode: key
+    }, () => {
+      this.refreshSelectionSummary()
+    })
   },
 
   onApplyPreset(e) {
@@ -800,6 +973,7 @@ Page({
     return {
       mainIngredients,
       hasSelectedIngredients: mainIngredients.length > 0,
+      recipeMode: this.data.selectedRecipeMode,
       dishType,
       cuisine,
       taste,
@@ -826,9 +1000,75 @@ Page({
         return Promise.reject(new Error('生成次数已达上限'))
       }
 
-      const requestData = this.buildRecipeRequestData(params)
+      const requestData = this.buildRecipeRequestDataWithMode(params)
       return this.requestGeneratedRecipe(currentApp, requestData)
     })
+  },
+
+  buildRecipeRequestDataWithMode(params) {
+    const modeConfig = getRecipeModeConfig(params.recipeMode)
+    const randomSeed = Math.floor(Math.random() * 1000000)
+    const selectedIngredientsText = params.hasSelectedIngredients
+      ? params.mainIngredients.join('、')
+      : '未指定，请先补一个最自然、普通家庭常见且与其它条件匹配的主料组合'
+    const kitchenEnvironmentText = params.kitchenEnvironment.length
+      ? params.kitchenEnvironment.join('、')
+      : '未指定，按普通家庭厨房自动补全，优先灶台锅具路线'
+    const autoFillText = params.autoFillDimensions.length
+      ? params.autoFillDimensions.join('、')
+      : '无，当前维度已完整指定'
+    const systemPrompt = [
+      '你是一位擅长中国家庭厨房的菜谱生成助手。',
+      modeConfig.systemInstruction,
+      '你必须只返回纯 JSON，不要 Markdown 代码块，不要解释文字，不要注释，不要额外顶层字段。',
+      '顶层 JSON 只能包含：name、description、ingredients、steps、tips、tags。',
+      'ingredients 必须是数组，且每一项都必须包含 name、amount、nutrition_per_100、nutrition_basis_unit。',
+      'nutrition_per_100 必须是对象，包含 calories、protein、fat、carbohydrates 四个字段。',
+      'nutrition_basis_unit 只能是 g 或 ml；amount 也只能使用 g 或 ml，例如 150g、200ml。',
+      '不要返回顶层 nutrition，也不要再使用 nutrition_per_100g 作为新字段。'
+    ].join('\n')
+    const userPrompt = [
+      '请按照以下任务生成一份家庭厨房菜谱：',
+      `随机种子：${randomSeed}`,
+      `生成模式：${modeConfig.label}`,
+      `已选主料：${selectedIngredientsText}`,
+      `菜品类型：${params.dishType || '自动补全为最自然的结果'}`,
+      `菜系风格：${params.cuisine || '自动补全为最自然的结果'}`,
+      `口味：${params.taste || '自动补全为最自然的结果'}`,
+      `烹饪方式：${params.method || '自动补全为最自然的结果'}`,
+      `厨房环境：${kitchenEnvironmentText}`,
+      `未选维度：${autoFillText}`,
+      '',
+      '执行规则：',
+      '1. 已选主料视为我手头现有的主料，必须尽量全部使用；如果天然不太搭，可以降为配角，但不能直接忽略。',
+      `2. 允许补充常见辅料：${SUPPORTING_INGREDIENTS.join('、')}。`,
+      `3. 允许补充基础调味：${BASIC_SEASONINGS.join('、')}。`,
+      '4. 不允许额外补新的主菜级食材。',
+      modeConfig.autoFillRule,
+      '6. 如果厨房环境已指定，步骤中只能使用这些设备可完成的方案；如果有潜在冲突，也必须优先生成真正能做成的版本。',
+      '7. 步骤必须写成家常做法，每步都要尽量包含关键动作，并至少体现火候、时间、状态变化中的一种。',
+      modeConfig.executionRule,
+      '9. 主料和关键辅料不要写“适量、少许、若干、约xxg、1个、2勺”这类不落地的量，必须给出明确的 g 或 ml。',
+      '10. 如某个营养值难以精确给出，请按常识合理估算，但字段不能缺失。',
+      ...modeConfig.extraRules,
+      '',
+      '返回格式要求：',
+      'A. name 为字符串，像真人会起的家常菜名。',
+      'B. description 为一句话，概括这道菜为什么适合当前主料与条件。',
+      'C. ingredients 为数组，每项格式：{ "name": "...", "amount": "150g", "nutrition_per_100": { "calories": 0, "protein": 0, "fat": 0, "carbohydrates": 0 }, "nutrition_basis_unit": "g" }。',
+      'D. steps 为字符串数组。',
+      'E. tips 为字符串。',
+      'F. tags 为短标签字符串数组。',
+      'G. 除上述 JSON 外不要输出任何多余内容。'
+    ].join('\n')
+
+    return {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: modeConfig.temperature
+    }
   },
 
   buildRecipeRequestData(params) {
@@ -922,6 +1162,7 @@ Page({
         url: currentApp.globalData.serverUrl + '/api/ai',
         method: 'POST',
         header: { 'Content-Type': 'application/json' },
+        timeout: 130000,
         data: requestData,
         success: (res) => {
           if (res.statusCode !== 200) {
@@ -962,7 +1203,8 @@ Page({
             resolve(recipe)
           })
         },
-        fail: () => {
+        fail: (error) => {
+          console.error('生成菜谱请求失败:', error)
           wx.showToast({
             title: '网络错误，请重试',
             icon: 'none'
@@ -1058,8 +1300,13 @@ Page({
   },
 
   saveToHistory(recipe) {
+    const normalizedRecipe = normalizeRecipePayload(recipe)
+    if (app.upsertHistoryRecipe) {
+      app.upsertHistoryRecipe(normalizedRecipe, { moveToTop: true })
+      return
+    }
     const history = wx.getStorageSync('history') || []
-    history.unshift(recipe)
+    history.unshift(normalizedRecipe)
     if (history.length > 20) {
       history.splice(20)
     }

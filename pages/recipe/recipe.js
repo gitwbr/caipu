@@ -91,7 +91,7 @@ function normalizeIngredient(item = {}, index = 0) {
 }
 
 function normalizeRecipeForView(recipe = {}) {
-  const nutrition = recipe.nutrition || {}
+  const nutrition = recipe.nutrition || recipe.nutrition_total || {}
 
   return {
     ...recipe,
@@ -126,10 +126,33 @@ function serializeIngredient(item = {}) {
   }
 }
 
+function serializeRecipeForStorage(recipe = {}) {
+  const normalizedRecipe = normalizeRecipeForView(recipe)
+  const recipeId = normalizedRecipe.id || normalizedRecipe.recipe_id || normalizedRecipe.recipeId || Date.now().toString()
+  const carbs = parseNutritionValue(normalizedRecipe.nutrition.carbs ?? normalizedRecipe.nutrition.carbohydrates)
+
+  return {
+    ...normalizedRecipe,
+    id: recipeId,
+    recipe_id: normalizedRecipe.recipe_id || recipeId,
+    ingredients: Array.isArray(normalizedRecipe.ingredients)
+      ? normalizedRecipe.ingredients.map((item) => serializeIngredient(item))
+      : [],
+    nutrition: {
+      calories: parseNutritionValue(normalizedRecipe.nutrition.calories),
+      protein: parseNutritionValue(normalizedRecipe.nutrition.protein),
+      fat: parseNutritionValue(normalizedRecipe.nutrition.fat),
+      carbs,
+      carbohydrates: carbs
+    }
+  }
+}
+
 Page({
   data: {
     recipe: {},
     isFavorite: false,
+    isLocalHistoryRecipe: false,
     originalNutrition: {},
     isLoggedIn: false,
     imagePath: '',
@@ -159,6 +182,7 @@ Page({
     if (options.recipe) {
       const recipe = JSON.parse(decodeURIComponent(options.recipe));
       const fromFavorites = options.from === 'favorites';
+      const fromRecent = options.from === 'recent' || options.from === 'library';
       const incomingRecipeId = this.getRecipeId(recipe);
       // 若本地已收藏，优先用收藏里的 recipe_data 覆盖（保持最新编辑状态）
       const fav = incomingRecipeId && app.isRecipeFavorited && app.isRecipeFavorited(incomingRecipeId)
@@ -179,13 +203,24 @@ Page({
         recipeToUse.favoriteId ||
         (normalizedRecipeId && app.isRecipeFavorited && app.isRecipeFavorited(normalizedRecipeId))
       );
+      const isLocalHistoryRecipe = !!(
+        normalizedRecipeId &&
+        fromRecent &&
+        app.isRecipeInHistory &&
+        app.isRecipeInHistory(normalizedRecipeId)
+      );
       this.setData({
         recipe: recipeToUse,
         originalNutrition: { ...(recipeToUse.nutrition || recipe.nutrition || {}) },
         fromFavorites,
-        isFavorite
+        isFavorite,
+        isLocalHistoryRecipe
       }, () => {
-        this.recalculateNutrition();
+        this.recalculateNutrition(() => {
+          if (isLocalHistoryRecipe) {
+            this.persistRecipeToLocalHistory({ showToast: false, moveToTop: false })
+          }
+        });
       });
       this.updateLoginStatus();
       this.checkFavoriteStatus();
@@ -217,7 +252,8 @@ Page({
         quick_fat_g: Number(total.fat || 0),
         quick_carbohydrate_g: Number(total.carbs || 0),
         quick_image_url: r.image_url || r.image_full_url || '',
-        quantity_g: 0,
+        quantity_value: null,
+        quantity_unit: null,
         record_date: dateStr,
         record_time: timeStr,
         notes: ''
@@ -294,6 +330,44 @@ Page({
     this.setData({ recipe, imagePath: '' });
   },
 
+  persistRecipeToLocalHistory(options = {}) {
+    const { showToast = true, moveToTop = false } = options
+    const currentRecipe = this.data.recipe || {}
+    const recipeId = this.getRecipeId(currentRecipe)
+
+    if (!recipeId) {
+      if (showToast) {
+        wx.showToast({ title: '缺少菜谱ID', icon: 'none' })
+      }
+      return null
+    }
+
+    const recipeToSave = serializeRecipeForStorage(currentRecipe)
+    const savedRecipe = app.upsertHistoryRecipe
+      ? app.upsertHistoryRecipe(recipeToSave, { moveToTop })
+      : recipeToSave
+    const recipeForView = normalizeRecipeForView(savedRecipe)
+
+    if (recipeForView.image_url) {
+      recipeForView.image_full_url = app.buildImageUrl(recipeForView.image_url)
+    }
+
+    this.setData({
+      recipe: recipeForView,
+      isLocalHistoryRecipe: true
+    })
+
+    if (showToast) {
+      wx.showToast({ title: '已保存', icon: 'success' })
+    }
+
+    return savedRecipe
+  },
+
+  saveRecentRecipe() {
+    this.persistRecipeToLocalHistory({ showToast: true, moveToTop: false })
+  },
+
   // 点击“更新”（仅从收藏进入时可见）：更新本地与云端收藏的 recipe_data
   updateFavoriteRecipe() {
     if (!app.globalData.isLoggedIn) {
@@ -317,6 +391,13 @@ Page({
       wx.showLoading({ title: '更新中...' });
       app.updateFavoriteWithSync(updatedRecipe)
       .then(() => {
+        if (imagePathOnly) {
+          const nextRecipe = { ...this.data.recipe, image_url: imagePathOnly, image_full_url: app.buildImageUrl(imagePathOnly) }
+          this.setData({ recipe: nextRecipe, imagePath: '' })
+        }
+        if (this.data.isLocalHistoryRecipe) {
+          this.persistRecipeToLocalHistory({ showToast: false, moveToTop: false })
+        }
         wx.hideLoading();
         wx.showToast({ title: '已更新', icon: 'success' });
         // 从收藏进入则返回收藏页，便于查看最新列表
@@ -404,12 +485,15 @@ Page({
       wx.showLoading({ title: '收藏中...' });
       app.addFavoriteWithSync(recipeToSave)
         .then(() => {
-          wx.hideLoading();
           // 将持久化后的路径回写到本地状态，并清空本地预览
           if (pathOnly) {
             const r = { ...this.data.recipe, image_url: pathOnly, image_full_url: app.buildImageUrl(pathOnly) };
             this.setData({ recipe: r, imagePath: '' });
           }
+          if (this.data.isLocalHistoryRecipe) {
+            this.persistRecipeToLocalHistory({ showToast: false, moveToTop: false })
+          }
+          wx.hideLoading();
           this.setData({ isFavorite: true });
           wx.showToast({ title: '收藏成功', icon: 'success' });
         })
@@ -445,7 +529,7 @@ Page({
   // deleteFavorite 不再暴露（由统一接口内部处理）
 
   // 重新计算营养信息
-  recalculateNutrition() {
+  recalculateNutrition(callback) {
     const recipe = normalizeRecipeForView(this.data.recipe);
     let totalCalories = 0
     let totalProtein = 0
@@ -494,7 +578,11 @@ Page({
       fat: Math.round(totalFat * 10) / 10,
       carbs: Math.round(totalCarbs * 10) / 10
     }
-    this.setData({ recipe })
+    this.setData({ recipe }, () => {
+      if (typeof callback === 'function') {
+        callback(recipe)
+      }
+    })
   },
 
   // 更新食材重量（实时计算营养）

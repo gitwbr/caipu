@@ -24,6 +24,19 @@
           bindinput="onInputChange"
         />
       </view>
+
+      <view class="form-item">
+        <text class="label required">营养基准单位</text>
+        <picker
+          class="basis-picker"
+          range="{{nutritionBasisUnits}}"
+          value="{{nutritionBasisUnitIndex}}"
+          bindchange="onBasisUnitChange"
+        >
+          <view class="basis-picker-value">每{{nutritionBasisText}}</view>
+        </picker>
+        <text class="unit-hint">记录该自定义食物时会跟随这个单位显示和计算</text>
+      </view>
       
       <view class="form-item">
         <text class="label required">能量</text>
@@ -62,28 +75,6 @@
         </view>
       </view>
 
-      <view class="ocr-assist-card" wx:if="{{ocrSource}}">
-        <view class="ocr-assist-top">
-          <view class="ocr-assist-copy">
-            <text class="ocr-assist-kicker">OCR ASSIST</text>
-            <text class="ocr-assist-title">已带入营养成分表识别结果</text>
-          </view>
-        </view>
-
-        <text class="ocr-assist-summary" wx:if="{{ocrDetectionSummary}}">{{ocrDetectionSummary}}</text>
-        <text class="ocr-assist-basis" wx:if="{{ocrBasisLabel}}">OCR 原标注：{{ocrBasisLabel}}</text>
-
-        <view class="ocr-assist-warning" wx:if="{{ocrBasisWarning || ocrQualityHint}}">
-          <text class="ocr-assist-warning-text" wx:if="{{ocrBasisWarning}}">{{ocrBasisWarning}}</text>
-          <text class="ocr-assist-warning-text" wx:if="{{ocrQualityHint}}">{{ocrQualityHint}}</text>
-        </view>
-
-        <view class="ocr-assist-detected" wx:if="{{ocrDetectedValuesText}}">
-          <text class="ocr-assist-raw-label">识别到的原始数值</text>
-          <text class="ocr-assist-raw-text">{{ocrDetectedValuesText}}</text>
-        </view>
-
-      </view>
     </view>
 
     <!-- 宏量营养素 -->

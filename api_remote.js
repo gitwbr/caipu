@@ -275,6 +275,80 @@ function getLocalTimeHHMM(dateObj = new Date(), timeZone = 'Asia/Shanghai') {
   }).format(dateObj);
 }
 
+function toNullableNumber(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function normalizeBasisUnit(unit) {
+  return unit === 'ml' ? 'ml' : 'g';
+}
+
+function roundTo(value, digits = 4) {
+  if (!Number.isFinite(value)) return null;
+  return Number(value.toFixed(digits));
+}
+
+async function resolveStandardRecordStorage(client, foodId, quantityValue, quantityUnit) {
+  const amount = toNullableNumber(quantityValue);
+  if (!amount || amount <= 0) {
+    throw new Error('缺少必要参数：摄入量');
+  }
+
+  const foodRes = await client.query(
+    'SELECT id, density_g_per_ml FROM food_nutrition_cn WHERE id = $1 LIMIT 1',
+    [foodId]
+  );
+  if (foodRes.rows.length === 0) {
+    throw new Error('标准食物不存在');
+  }
+
+  const requestedUnit = normalizeBasisUnit(quantityUnit);
+  const density = toNullableNumber(foodRes.rows[0].density_g_per_ml);
+
+  if (requestedUnit === 'ml') {
+    if (!density || density <= 0) {
+      throw new Error('该标准食物未配置密度，不能按 ml 记录');
+    }
+    return {
+      quantityValue: roundTo(amount * density),
+      quantityUnit: 'g'
+    };
+  }
+
+  return {
+    quantityValue: roundTo(amount),
+    quantityUnit: 'g'
+  };
+}
+
+async function resolveCustomRecordStorage(client, customFoodId, quantityValue, quantityUnit) {
+  const amount = toNullableNumber(quantityValue);
+  if (!amount || amount <= 0) {
+    throw new Error('缺少必要参数：摄入量');
+  }
+
+  const customRes = await client.query(
+    'SELECT id, COALESCE(nutrition_basis_unit, \'g\') AS nutrition_basis_unit FROM user_custom_foods WHERE id = $1 LIMIT 1',
+    [customFoodId]
+  );
+  if (customRes.rows.length === 0) {
+    throw new Error('自定义食物不存在');
+  }
+
+  const basisUnit = normalizeBasisUnit(customRes.rows[0].nutrition_basis_unit);
+  const requestedUnit = normalizeBasisUnit(quantityUnit);
+  if (requestedUnit !== basisUnit) {
+    throw new Error(`该自定义食物只能按 ${basisUnit} 记录`);
+  }
+
+  return {
+    quantityValue: roundTo(amount),
+    quantityUnit: basisUnit
+  };
+}
+
 // 健康检查接口
 app.get('/health', (req, res) => {
   res.json({ status: 'api-diet-ok', timestamp: new Date().toISOString() });
@@ -636,6 +710,44 @@ app.post('/api/update-user-info', async (req, res) => {
 // 百度千帆（Qianfan）OAuth token 缓存：避免每次请求都换 token
 let qianfanAccessToken = null;
 let qianfanTokenExpireTime = 0;
+
+function omitInternalAiRouteParams(params = {}) {
+  const {
+    model,
+    openai_model,
+    deepseek_model,
+    qianfan_model,
+    timeout,
+    system,
+    ...providerParams
+  } = params;
+  return providerParams;
+}
+
+function buildDeepseekRequestConfig(apiKey, timeoutMs) {
+  return {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      // 避免 Brotli 解压流在长响应场景下被上游中断时直接炸掉
+      'Accept-Encoding': 'gzip, deflate'
+    },
+    timeout: timeoutMs
+  };
+}
+
+function isRetryableDeepseekError(error) {
+  const code = error?.code || '';
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    code === 'ECONNRESET' ||
+    code === 'ECONNABORTED' ||
+    code === 'ETIMEDOUT' ||
+    message.includes('aborted') ||
+    message.includes('timeout')
+  );
+}
+
 async function getQianfanAccessToken() {
   // 提前 60 秒过期，避免边界抖动
   if (qianfanAccessToken && Date.now() < qianfanTokenExpireTime - 60000) {
@@ -686,6 +798,7 @@ app.post('/api/ai', async (req, res) => {
         return res.status(500).json({ error: '未配置OpenAI API Key' });
       }
       const openai = new OpenAI({ apiKey: openaiApiKey });
+      const providerParams = omitInternalAiRouteParams(otherParams);
       let chatMessages = messages;
       if (!Array.isArray(messages)) {
         chatMessages = [
@@ -696,7 +809,7 @@ app.post('/api/ai', async (req, res) => {
       const completionParams = {
         model: otherParams.openai_model || 'gpt-4o',
         messages: chatMessages,
-        ...otherParams
+        ...providerParams
       };
       console.error(`[AI_ROUTE] provider=openai request_model=${modelFromRequest || 'none'} source=${modelSource} actual_model=${completionParams.model}`);
       const response = await openai.chat.completions.create(completionParams);
@@ -707,6 +820,7 @@ app.post('/api/ai', async (req, res) => {
       if (!deepseekApiKey) {
         return res.status(500).json({ error: '未配置DeepSeek API Key' });
       }
+      const providerParams = omitInternalAiRouteParams(otherParams);
       let chatMessages = messages;
       if (!Array.isArray(messages)) {
         chatMessages = [
@@ -714,23 +828,46 @@ app.post('/api/ai', async (req, res) => {
           { role: 'user', content: prompt }
         ];
       }
+      const requestedDeepseekModel = otherParams.deepseek_model || process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+      const deepseekTimeout = typeof otherParams.timeout === 'number'
+        ? otherParams.timeout
+        : (requestedDeepseekModel === 'deepseek-reasoner' ? 120000 : 60000);
       const completionParams = {
-        model: otherParams.deepseek_model || 'deepseek-chat',
+        model: requestedDeepseekModel,
         messages: chatMessages,
-        ...otherParams
+        ...providerParams
       };
       console.error(`[AI_ROUTE] provider=deepseek request_model=${modelFromRequest || 'none'} source=${modelSource} actual_model=${completionParams.model}`);
-      const response = await axios.post(
-        'https://api.deepseek.com/v1/chat/completions',
-        completionParams,
-        {
-          headers: {
-            'Authorization': `Bearer ${deepseekApiKey}`,
-            'Content-Type': 'application/json'
-          }
+      try {
+        const response = await axios.post(
+          'https://api.deepseek.com/v1/chat/completions',
+          completionParams,
+          buildDeepseekRequestConfig(deepseekApiKey, deepseekTimeout)
+        );
+        aiResult = response.data;
+      } catch (deepseekError) {
+        const shouldFallbackToChat =
+          requestedDeepseekModel === 'deepseek-reasoner' &&
+          isRetryableDeepseekError(deepseekError);
+
+        if (!shouldFallbackToChat) {
+          throw deepseekError;
         }
-      );
-      aiResult = response.data;
+
+        console.warn(
+          `[AI_ROUTE] deepseek-reasoner failed with ${deepseekError.code || 'UNKNOWN'}, retrying with deepseek-chat`
+        );
+        const fallbackParams = {
+          ...completionParams,
+          model: 'deepseek-chat'
+        };
+        const fallbackResponse = await axios.post(
+          'https://api.deepseek.com/v1/chat/completions',
+          fallbackParams,
+          buildDeepseekRequestConfig(deepseekApiKey, 60000)
+        );
+        aiResult = fallbackResponse.data;
+      }
     } else if (model === 'qianfan') {
       // 百度千帆（Qianfan / 文心千帆）
       const qianfanModel =
@@ -1167,6 +1304,7 @@ app.get('/api/food-nutrition', async (req, res) => {
         food_group,
         vitamin_c_mg,
         cholesterol_mg,
+        density_g_per_ml,
         image_url
       FROM food_nutrition_cn
       ORDER BY food_name
@@ -1223,6 +1361,7 @@ app.get('/api/food-nutrition/search', async (req, res) => {
         food_group,
         vitamin_c_mg,
         cholesterol_mg,
+        density_g_per_ml,
         image_url
       FROM food_nutrition_cn
       WHERE 1=1
@@ -1327,11 +1466,11 @@ app.post('/api/diet-records', async (req, res) => {
     const { 
       food_id, 
       custom_food_id, 
-      quantity_g, 
+      quantity_value, 
+      quantity_unit, 
       record_date, 
       record_time, 
       notes,
-      // 快速记录相关字段
       record_type = 'standard',
       quick_food_name,
       quick_energy_kcal,
@@ -1340,87 +1479,97 @@ app.post('/api/diet-records', async (req, res) => {
       quick_carbohydrate_g,
       quick_image_url
     } = req.body;
-    
+
     const client = await pool.connect();
     let query, values;
-    
-    if (record_type === 'quick' || record_type === 'recipe') {
-      // 快速/菜谱记录：共用 quick_* 五个字段
-      if (!quick_food_name || !quick_energy_kcal) {
-        return res.status(400).json({ error: '快速记录缺少必要参数：食物名称和热量' });
-      }
-      
-      query = `
-        INSERT INTO diet_records (
-          user_id, record_type, quick_food_name, quick_energy_kcal, 
-          quick_protein_g, quick_fat_g, quick_carbohydrate_g, quick_image_url,
-          quantity_g, record_date, record_time, notes
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        RETURNING *;
-      `;
-      values = [
-        payload.userId, (record_type === 'recipe' ? 'recipe' : 'quick'), quick_food_name, quick_energy_kcal,
-        quick_protein_g || 0, quick_fat_g || 0, quick_carbohydrate_g || 0, quick_image_url || null,
-        quantity_g || 0, // 快速记录不需要重量，设为0
-        record_date || getLocalDateStr(), 
-        record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(), 
-        notes || null
-      ];
-    } else {
-      // 标准食物或自定义食物（原有功能）
-      if (!quantity_g) {
-        return res.status(400).json({ error: '缺少必要参数：摄入量' });
-      }
-      
-      // 验证食物信息：要么有food_id，要么有custom_food_id
-      if (!food_id && !custom_food_id) {
-        return res.status(400).json({ error: '缺少食物信息：需要food_id或custom_food_id' });
-      }
-      
-      if (food_id && custom_food_id) {
-        return res.status(400).json({ error: '不能同时指定标准食物和自定义食物' });
-      }
-      
-      if (food_id) {
-        // 标准食物
+
+    try {
+      if (record_type === 'quick' || record_type === 'recipe') {
+        if (!quick_food_name || !quick_energy_kcal) {
+          return res.status(400).json({ error: '快速记录缺少必要参数：食物名称和热量' });
+        }
+
         query = `
-          INSERT INTO diet_records (user_id, record_type, food_id, quantity_g, record_date, record_time, notes)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO diet_records (
+            user_id, record_type, quick_food_name, quick_energy_kcal,
+            quick_protein_g, quick_fat_g, quick_carbohydrate_g, quick_image_url,
+            quantity_value, quantity_unit, record_date, record_time, notes
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, NULL, $9, $10, $11)
           RETURNING *;
         `;
         values = [
-          payload.userId, 'standard', food_id, quantity_g, 
-          record_date || getLocalDateStr(), 
-          record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(), 
+          payload.userId,
+          (record_type === 'recipe' ? 'recipe' : 'quick'),
+          quick_food_name,
+          quick_energy_kcal,
+          quick_protein_g || 0,
+          quick_fat_g || 0,
+          quick_carbohydrate_g || 0,
+          quick_image_url || null,
+          record_date || getLocalDateStr(),
+          record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(),
           notes || null
         ];
       } else {
-        // 自定义食物
-        query = `
-          INSERT INTO diet_records (user_id, record_type, custom_food_id, quantity_g, record_date, record_time, notes)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING *;
-        `;
-        values = [
-          payload.userId, 'custom', custom_food_id, quantity_g, 
-          record_date || getLocalDateStr(), 
-          record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(), 
-          notes || null
-        ];
+        if (!food_id && !custom_food_id) {
+          return res.status(400).json({ error: '缺少食物信息：需要food_id或custom_food_id' });
+        }
+        if (food_id && custom_food_id) {
+          return res.status(400).json({ error: '不能同时指定标准食物和自定义食物' });
+        }
+
+        let normalizedRecord;
+        if (food_id) {
+          normalizedRecord = await resolveStandardRecordStorage(client, food_id, quantity_value, quantity_unit);
+          query = `
+            INSERT INTO diet_records (user_id, record_type, food_id, quantity_value, quantity_unit, record_date, record_time, notes)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *;
+          `;
+          values = [
+            payload.userId,
+            'standard',
+            food_id,
+            normalizedRecord.quantityValue,
+            normalizedRecord.quantityUnit,
+            record_date || getLocalDateStr(),
+            record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(),
+            notes || null
+          ];
+        } else {
+          normalizedRecord = await resolveCustomRecordStorage(client, custom_food_id, quantity_value, quantity_unit);
+          query = `
+            INSERT INTO diet_records (user_id, record_type, custom_food_id, quantity_value, quantity_unit, record_date, record_time, notes)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *;
+          `;
+          values = [
+            payload.userId,
+            'custom',
+            custom_food_id,
+            normalizedRecord.quantityValue,
+            normalizedRecord.quantityUnit,
+            record_date || getLocalDateStr(),
+            record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(),
+            notes || null
+          ];
+        }
       }
+
+      const result = await client.query(query, values);
+      return res.json({
+        message: '添加成功',
+        record: result.rows[0]
+      });
+    } finally {
+      client.release();
     }
-    
-    const result = await client.query(query, values);
-    client.release();
-    
-    res.json({
-      message: '添加成功',
-      record: result.rows[0]
-    });
   } catch (error) {
     console.error('添加饮食记录出错:', error);
-    res.status(500).json({ error: '服务器内部错误', message: error.message });
+    const message = error.message || '服务器内部错误';
+    const isBadRequest = /摄入量|食物信息|不能同时|不存在|只能按|不能按 ml/.test(message);
+    res.status(isBadRequest ? 400 : 500).json({ error: isBadRequest ? message : '服务器内部错误', message });
   }
 });
 
@@ -1438,110 +1587,37 @@ app.get('/api/diet-records', async (req, res) => {
     const { date } = req.query;
     
     const client = await pool.connect();
-    let query, values;
-    
+    let query = `
+      SELECT
+        dr.id,
+        dr.record_type,
+        dr.food_id,
+        dr.custom_food_id,
+        dr.quantity_value,
+        dr.quantity_unit,
+        dr.record_date,
+        dr.record_time,
+        dr.notes,
+        dr.created_at,
+        dr.updated_at,
+        dr.quick_food_name,
+        dr.quick_energy_kcal,
+        dr.quick_protein_g,
+        dr.quick_fat_g,
+        dr.quick_carbohydrate_g,
+        dr.quick_image_url
+      FROM diet_records dr
+      WHERE dr.user_id = $1
+    `;
+    const values = [payload.userId];
+
     if (date) {
-      // 如果指定了日期，返回该日期的记录
-      query = `
-        SELECT 
-          dr.id,
-          dr.record_type,
-          dr.food_id,
-          dr.custom_food_id,
-          dr.quantity_g,
-          dr.record_date,
-          dr.record_time,
-          dr.notes,
-          dr.created_at,
-          dr.quick_food_name,
-          dr.quick_energy_kcal,
-          dr.quick_protein_g,
-          dr.quick_fat_g,
-          dr.quick_carbohydrate_g,
-          dr.quick_image_url,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_food_name
-            ELSE COALESCE(fn.food_name, ucf.food_name)
-          END as display_name,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_energy_kcal
-            ELSE COALESCE(fn.energy_kcal, ucf.energy_kcal)
-          END as display_energy_kcal,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_protein_g
-            ELSE COALESCE(fn.protein_g, ucf.protein_g)
-          END as display_protein_g,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_fat_g
-            ELSE COALESCE(fn.fat_g, ucf.fat_g)
-          END as display_fat_g,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_carbohydrate_g
-            ELSE COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g)
-          END as display_carbohydrate_g,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_image_url
-            ELSE COALESCE(fn.image_url, ucf.image_url)
-          END as display_image_url
-        FROM diet_records dr
-        LEFT JOIN food_nutrition_cn fn ON dr.food_id = fn.id
-        LEFT JOIN user_custom_foods ucf ON dr.custom_food_id = ucf.id
-        WHERE dr.user_id = $1 AND dr.record_date = $2
-        ORDER BY dr.record_time DESC
-      `;
-      values = [payload.userId, date];
-    } else {
-      // 如果没有指定日期，返回所有记录
-      query = `
-        SELECT 
-          dr.id,
-          dr.record_type,
-          dr.food_id,
-          dr.custom_food_id,
-          dr.quantity_g,
-          dr.record_date,
-          dr.record_time,
-          dr.notes,
-          dr.created_at,
-          dr.quick_food_name,
-          dr.quick_energy_kcal,
-          dr.quick_protein_g,
-          dr.quick_fat_g,
-          dr.quick_carbohydrate_g,
-          dr.quick_image_url,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_food_name
-            ELSE COALESCE(fn.food_name, ucf.food_name)
-          END as display_name,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_energy_kcal
-            ELSE COALESCE(fn.energy_kcal, ucf.energy_kcal)
-          END as display_energy_kcal,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_protein_g
-            ELSE COALESCE(fn.protein_g, ucf.protein_g)
-          END as display_protein_g,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_fat_g
-            ELSE COALESCE(fn.fat_g, ucf.fat_g)
-          END as display_fat_g,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_carbohydrate_g
-            ELSE COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g)
-          END as display_carbohydrate_g,
-          CASE 
-            WHEN dr.record_type IN ('quick','recipe') THEN dr.quick_image_url
-            ELSE COALESCE(fn.image_url, ucf.image_url)
-          END as display_image_url
-        FROM diet_records dr
-        LEFT JOIN food_nutrition_cn fn ON dr.food_id = fn.id
-        LEFT JOIN user_custom_foods ucf ON dr.custom_food_id = ucf.id
-        WHERE dr.user_id = $1
-        ORDER BY dr.record_date DESC, dr.record_time DESC
-      `;
-      values = [payload.userId];
+      query += ` AND dr.record_date = $2`;
+      values.push(date);
     }
-    
+
+    query += ` ORDER BY dr.record_date DESC, dr.record_time DESC`;
+
     const result = await client.query(query, values);
     client.release();
     
@@ -1572,7 +1648,8 @@ app.put('/api/diet-records/:id', async (req, res) => {
     const { 
       food_id, 
       custom_food_id, 
-      quantity_g, 
+      quantity_value, 
+      quantity_unit, 
       record_date, 
       record_time, 
       notes,
@@ -1584,91 +1661,110 @@ app.put('/api/diet-records/:id', async (req, res) => {
       quick_carbohydrate_g,
       quick_image_url
     } = req.body;
-    
+
     const client = await pool.connect();
     let query, values;
-    
-    if (record_type === 'quick') {
-      // 快速记录更新
-      query = `
-        UPDATE diet_records
-        SET 
-          quick_food_name = $1,
-          quick_energy_kcal = $2,
-          quick_protein_g = $3,
-          quick_fat_g = $4,
-          quick_carbohydrate_g = $5,
-          quick_image_url = $6,
-          record_date = $7,
-          record_time = $8,
-          notes = $9,
-          updated_at = NOW()
-        WHERE id = $10 AND user_id = $11
-        RETURNING *;
-      `;
-      values = [
-        quick_food_name || '快速记录',
-        quick_energy_kcal,
-        quick_protein_g,
-        quick_fat_g,
-        quick_carbohydrate_g,
-        quick_image_url,
-        record_date || getLocalDateStr(),
-        record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(),
-        notes,
-        id,
-        payload.userId
-      ];
-    } else {
-      // 标准食物或自定义食物更新
-      if (!quantity_g) {
-        return res.status(400).json({ error: '缺少必要参数：摄入量' });
-      }
-      
-      // 验证食物信息：要么有food_id，要么有custom_food_id
-      if (!food_id && !custom_food_id) {
-        return res.status(400).json({ error: '缺少食物信息：需要food_id或custom_food_id' });
-      }
-      
-      if (food_id && custom_food_id) {
-        return res.status(400).json({ error: '不能同时指定标准食物和自定义食物' });
-      }
-      
-      if (food_id) {
-        // 标准食物
+
+    try {
+      if (record_type === 'quick' || record_type === 'recipe') {
         query = `
           UPDATE diet_records
-          SET food_id = $1, custom_food_id = NULL, quantity_g = $2, record_date = $3, record_time = $4, notes = $5, updated_at = NOW()
-          WHERE id = $6 AND user_id = $7
+          SET 
+            quick_food_name = $1,
+            quick_energy_kcal = $2,
+            quick_protein_g = $3,
+            quick_fat_g = $4,
+            quick_carbohydrate_g = $5,
+            quick_image_url = $6,
+            quantity_value = NULL,
+            quantity_unit = NULL,
+            record_date = $7,
+            record_time = $8,
+            notes = $9,
+            updated_at = NOW()
+          WHERE id = $10 AND user_id = $11
           RETURNING *;
         `;
-        values = [food_id, quantity_g, record_date || getLocalDateStr(), record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(), notes, id, payload.userId];
+        values = [
+          quick_food_name || '快速记录',
+          quick_energy_kcal,
+          quick_protein_g || 0,
+          quick_fat_g || 0,
+          quick_carbohydrate_g || 0,
+          quick_image_url || null,
+          record_date || getLocalDateStr(),
+          record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(),
+          notes || null,
+          id,
+          payload.userId
+        ];
       } else {
-        // 自定义食物
-        query = `
-          UPDATE diet_records
-          SET food_id = NULL, custom_food_id = $1, quantity_g = $2, record_date = $3, record_time = $4, notes = $5, updated_at = NOW()
-          WHERE id = $6 AND user_id = $7
-          RETURNING *;
-        `;
-        values = [custom_food_id, quantity_g, record_date || getLocalDateStr(), record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(), notes, id, payload.userId];
+        if (!food_id && !custom_food_id) {
+          return res.status(400).json({ error: '缺少食物信息：需要food_id或custom_food_id' });
+        }
+        if (food_id && custom_food_id) {
+          return res.status(400).json({ error: '不能同时指定标准食物和自定义食物' });
+        }
+
+        let normalizedRecord;
+        if (food_id) {
+          normalizedRecord = await resolveStandardRecordStorage(client, food_id, quantity_value, quantity_unit);
+          query = `
+            UPDATE diet_records
+            SET food_id = $1, custom_food_id = NULL, quantity_value = $2, quantity_unit = $3,
+                record_date = $4, record_time = $5, notes = $6, updated_at = NOW()
+            WHERE id = $7 AND user_id = $8
+            RETURNING *;
+          `;
+          values = [
+            food_id,
+            normalizedRecord.quantityValue,
+            normalizedRecord.quantityUnit,
+            record_date || getLocalDateStr(),
+            record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(),
+            notes || null,
+            id,
+            payload.userId
+          ];
+        } else {
+          normalizedRecord = await resolveCustomRecordStorage(client, custom_food_id, quantity_value, quantity_unit);
+          query = `
+            UPDATE diet_records
+            SET food_id = NULL, custom_food_id = $1, quantity_value = $2, quantity_unit = $3,
+                record_date = $4, record_time = $5, notes = $6, updated_at = NOW()
+            WHERE id = $7 AND user_id = $8
+            RETURNING *;
+          `;
+          values = [
+            custom_food_id,
+            normalizedRecord.quantityValue,
+            normalizedRecord.quantityUnit,
+            record_date || getLocalDateStr(),
+            record_time ? record_time.substring(0, 5) : getLocalTimeHHMM(),
+            notes || null,
+            id,
+            payload.userId
+          ];
+        }
       }
+
+      const result = await client.query(query, values);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: '记录不存在或无权限修改' });
+      }
+
+      return res.json({
+        message: '更新成功',
+        record: result.rows[0]
+      });
+    } finally {
+      client.release();
     }
-    
-    const result = await client.query(query, values);
-    client.release();
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: '记录不存在或无权限修改' });
-    }
-    
-    res.json({
-      message: '更新成功',
-      record: result.rows[0]
-    });
   } catch (error) {
     console.error('更新饮食记录出错:', error);
-    res.status(500).json({ error: '服务器内部错误', message: error.message });
+    const message = error.message || '服务器内部错误';
+    const isBadRequest = /摄入量|食物信息|不能同时|不存在|只能按|不能按 ml/.test(message);
+    res.status(isBadRequest ? 400 : 500).json({ error: isBadRequest ? message : '服务器内部错误', message });
   }
 });
 
@@ -1710,7 +1806,7 @@ app.delete('/api/diet-records/:id', async (req, res) => {
     let imagePath = null;
     
     // 如果是快速记录且有图片，提取图片路径
-    if (record.record_type === 'quick' && record.quick_image_url) {
+    if ((record.record_type === 'quick' || record.record_type === 'recipe') && record.quick_image_url) {
       console.log('检测到快速记录且有图片URL');
       try {
         // quick_image_url 可能是完整URL或路径，统一转为文件系统路径
@@ -1784,10 +1880,10 @@ app.get('/api/daily-calorie-summary', async (req, res) => {
     const client = await pool.connect();
     const query = `
       SELECT 
-        SUM(dr.quantity_g * COALESCE(fn.energy_kcal, ucf.energy_kcal) / 100) as total_calories,
-        SUM(dr.quantity_g * COALESCE(fn.protein_g, ucf.protein_g) / 100) as total_protein,
-        SUM(dr.quantity_g * COALESCE(fn.fat_g, ucf.fat_g) / 100) as total_fat,
-        SUM(dr.quantity_g * COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g) / 100) as total_carbs,
+        SUM(dr.quantity_value * COALESCE(fn.energy_kcal, ucf.energy_kcal) / 100) as total_calories,
+        SUM(dr.quantity_value * COALESCE(fn.protein_g, ucf.protein_g) / 100) as total_protein,
+        SUM(dr.quantity_value * COALESCE(fn.fat_g, ucf.fat_g) / 100) as total_fat,
+        SUM(dr.quantity_value * COALESCE(fn.carbohydrate_g, ucf.carbohydrate_g) / 100) as total_carbs,
         COUNT(*) as record_count
       FROM diet_records dr
       LEFT JOIN food_nutrition_cn fn ON dr.food_id = fn.id
@@ -1831,7 +1927,8 @@ app.get('/api/user-custom-foods', async (req, res) => {
     const query = `
       SELECT id, food_name, energy_kcal, protein_g, fat_g, carbohydrate_g, fiber_g,
              moisture_g, vitamin_a_ug, vitamin_b1_mg, vitamin_b2_mg, vitamin_b3_mg, vitamin_e_mg,
-             na_mg, ca_mg, fe_mg, vitamin_c_mg, cholesterol_mg, image_url, created_at, updated_at
+             na_mg, ca_mg, fe_mg, vitamin_c_mg, cholesterol_mg, nutrition_basis_unit,
+             image_url, created_at, updated_at
       FROM user_custom_foods
       WHERE user_id = $1
       ORDER BY updated_at DESC
@@ -1879,6 +1976,7 @@ app.post('/api/user-custom-foods', async (req, res) => {
       fe_mg,
       vitamin_c_mg,
       cholesterol_mg,
+      nutrition_basis_unit,
       image_url
     } = req.body;
     
@@ -1891,9 +1989,9 @@ app.post('/api/user-custom-foods', async (req, res) => {
       INSERT INTO user_custom_foods (
         user_id, food_name, energy_kcal, protein_g, fat_g, carbohydrate_g, fiber_g,
         moisture_g, vitamin_a_ug, vitamin_b1_mg, vitamin_b2_mg, vitamin_b3_mg, vitamin_e_mg,
-        na_mg, ca_mg, fe_mg, vitamin_c_mg, cholesterol_mg, image_url
+        na_mg, ca_mg, fe_mg, vitamin_c_mg, cholesterol_mg, nutrition_basis_unit, image_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING *;
     `;
     
@@ -1916,6 +2014,7 @@ app.post('/api/user-custom-foods', async (req, res) => {
       fe_mg || 0,
       vitamin_c_mg || 0,
       cholesterol_mg || 0,
+      normalizeBasisUnit(nutrition_basis_unit),
       normalizeToPathOnly(image_url) || null
     ]);
     client.release();
@@ -1964,6 +2063,7 @@ app.put('/api/user-custom-foods/:id', async (req, res) => {
       fe_mg,
       vitamin_c_mg,
       cholesterol_mg,
+      nutrition_basis_unit,
       image_url
     } = req.body;
     
@@ -1990,15 +2090,17 @@ app.put('/api/user-custom-foods/:id', async (req, res) => {
       UPDATE user_custom_foods
       SET food_name = $1, energy_kcal = $2, protein_g = $3, fat_g = $4, carbohydrate_g = $5, fiber_g = $6,
           moisture_g = $7, vitamin_a_ug = $8, vitamin_b1_mg = $9, vitamin_b2_mg = $10, vitamin_b3_mg = $11, vitamin_e_mg = $12,
-          na_mg = $13, ca_mg = $14, fe_mg = $15, vitamin_c_mg = $16, cholesterol_mg = $17, image_url = $18, updated_at = NOW()
-      WHERE id = $19 AND user_id = $20
+          na_mg = $13, ca_mg = $14, fe_mg = $15, vitamin_c_mg = $16, cholesterol_mg = $17,
+          nutrition_basis_unit = $18, image_url = $19, updated_at = NOW()
+      WHERE id = $20 AND user_id = $21
       RETURNING *;
     `;
 
     const result = await client.query(query, [
       food_name, energy_kcal, protein_g || 0, fat_g || 0, carbohydrate_g || 0, fiber_g || 0,
       moisture_g || 0, vitamin_a_ug || 0, vitamin_b1_mg || 0, vitamin_b2_mg || 0, vitamin_b3_mg || 0, vitamin_e_mg || 0,
-      na_mg || 0, ca_mg || 0, fe_mg || 0, vitamin_c_mg || 0, cholesterol_mg || 0, newImagePathname, id, payload.userId
+      na_mg || 0, ca_mg || 0, fe_mg || 0, vitamin_c_mg || 0, cholesterol_mg || 0,
+      normalizeBasisUnit(nutrition_basis_unit), newImagePathname, id, payload.userId
     ]);
     client.release();
 

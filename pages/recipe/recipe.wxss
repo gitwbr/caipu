@@ -37,32 +37,109 @@
 }
 
 .recipe-toolbar {
-  margin-top: 22rpx;
+  margin-top: 28rpx;
 }
 
 .favorite-pill {
-  display: inline-flex;
+  position: relative;
+  display: flex;
   align-items: center;
-  padding: 12rpx 18rpx;
+  justify-content: space-between;
+  width: 100%;
+  padding: 22rpx 24rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #ffe3bf 0%, #f6c37b 52%, #e29a57 100%);
+  box-shadow: 0 20rpx 36rpx rgba(10, 14, 12, 0.22), inset 0 1rpx 0 rgba(255, 255, 255, 0.34);
+  border: 1rpx solid rgba(255, 246, 235, 0.24);
+  box-sizing: border-box;
+  overflow: hidden;
+  transform: translateY(0);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.favorite-pill::after {
+  content: '';
+  position: absolute;
+  top: -24rpx;
+  right: 26rpx;
+  width: 120rpx;
+  height: 120rpx;
   border-radius: 999rpx;
-  background: rgba(255, 244, 230, 0.12);
+  background: rgba(255, 251, 244, 0.24);
+  filter: blur(8rpx);
 }
 
 .favorite-pill-active {
-  background: #b85e3a;
+  background: linear-gradient(135deg, #e5f0d4 0%, #b8d194 52%, #7c9b61 100%);
+  box-shadow: 0 20rpx 36rpx rgba(9, 24, 17, 0.24), inset 0 1rpx 0 rgba(255, 255, 255, 0.28);
+}
+
+.favorite-pill-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+}
+
+.favorite-pill-kicker {
+  color: rgba(43, 30, 19, 0.7);
+  font-size: 18rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+}
+
+.favorite-pill-active .favorite-pill-kicker {
+  color: rgba(29, 54, 35, 0.7);
 }
 
 .favorite-pill-icon {
-  margin-right: 10rpx;
-  color: #fff6eb;
-  font-size: 22rpx;
+  color: #2a1a0f;
+  font-size: 28rpx;
   font-weight: 700;
 }
 
 .favorite-pill-text {
-  color: #fff6eb;
-  font-size: 24rpx;
-  font-weight: 600;
+  margin-top: 8rpx;
+  color: #2f1d11;
+  font-size: 31rpx;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.favorite-pill-active .favorite-pill-text,
+.favorite-pill-active .favorite-pill-icon,
+.favorite-pill-active .favorite-pill-action {
+  color: #1c3624;
+}
+
+.favorite-pill-meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 132rpx;
+  margin-left: 20rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 22rpx;
+  background: rgba(255, 252, 246, 0.42);
+  box-shadow: inset 0 1rpx 0 rgba(255, 255, 255, 0.3);
+}
+
+.favorite-pill-active .favorite-pill-meta {
+  background: rgba(246, 252, 239, 0.42);
+}
+
+.favorite-pill-action {
+  margin-top: 6rpx;
+  color: #4b3320;
+  font-size: 20rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
 }
 
 .utility-card {

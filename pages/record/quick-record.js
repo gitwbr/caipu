@@ -197,7 +197,8 @@ Page({
       quick_protein_g: this.data.protein_g ? parseFloat(this.data.protein_g) : 0,
       quick_fat_g: this.data.fat_g ? parseFloat(this.data.fat_g) : 0,
       quick_carbohydrate_g: this.data.carbohydrate_g ? parseFloat(this.data.carbohydrate_g) : 0,
-      quantity_g: 0, // 快速记录不需要重量，设为0
+      quantity_value: null,
+      quantity_unit: null,
       notes: this.data.notes.trim(),
       record_date: this.data.recordDate,
       record_time: this.data.recordTime,

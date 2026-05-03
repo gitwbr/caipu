@@ -111,6 +111,22 @@
       <text class="section-desc">不需要一次想全。你先定主料和关键约束，剩下的维度会由 AI 按普通家庭厨房逻辑自动补全。</text>
     </view>
 
+    <view class="mode-switch-card">
+      <view class="mode-switch-copy">
+        <text class="mode-switch-kicker">RECIPE MODE</text>
+        <text class="mode-switch-desc" wx:if="{{selectedRecipeMode === 'creative'}}">保留家常可做的底线，但让搭配、调味和成品表达多一点记忆点。</text>
+        <text class="mode-switch-desc" wx:else>优先稳妥、顺手、经典的家庭路线，适合想快速得到靠谱结果时使用。</text>
+      </view>
+      <view class="mode-switch-row">
+        <block wx:for="{{recipeModes}}" wx:key="key">
+          <view class="mode-pill mode-pill-{{item.key}} {{selectedRecipeMode === item.key ? 'mode-pill-active' : ''}}" bindtap="onRecipeModeChange" data-key="{{item.key}}">
+            <text class="mode-pill-label">{{item.label}}</text>
+            <text class="mode-pill-desc">{{item.desc}}</text>
+          </view>
+        </block>
+      </view>
+    </view>
+
     <view class="tab-grid">
       <block wx:for="{{tabOptions}}" wx:key="key">
         <view class="tab-card {{activeTab === index ? 'tab-card-active' : ''}}" bindtap="onTabChange" data-index="{{index}}">
@@ -218,6 +234,7 @@
     <view class="cta-card">
       <view class="cta-copy">
         <text class="cta-kicker">AI COOK MODE</text>
+        <view class="cta-mode-chip {{selectedRecipeMode === 'creative' ? 'cta-mode-chip-creative' : 'cta-mode-chip-home'}}">{{selectedRecipeMode === 'creative' ? '轻创意' : '家常'}}</view>
         <text class="cta-title" wx:if="{{selectedIngredientNames.length > 0}}">你的食材组合已经准备好了</text>
         <text class="cta-title" wx:else>没选食材也能开始，AI 会按偏好补全更自然的主料组合</text>
         <text class="cta-desc" wx:if="{{isLoggedIn}}">生成后会进入菜谱详情，并自动记录到最近历史；营养会按每 100g 或每 100ml 自动兼容。</text>

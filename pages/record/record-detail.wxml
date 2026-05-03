@@ -18,22 +18,22 @@
         <view class="nutrition-item">
           <text class="nutrition-label">卡路里</text>
           <text class="nutrition-value">{{food.display_energy_kcal}}</text>
-          <text class="nutrition-unit">kcal/100g</text>
+          <text class="nutrition-unit">kcal/{{food.display_basis_label || '100g'}}</text>
         </view>
         <view class="nutrition-item" wx:if="{{food.protein_g !== undefined}}">
           <text class="nutrition-label">蛋白质</text>
           <text class="nutrition-value">{{food.protein_g}}</text>
-          <text class="nutrition-unit">g/100g</text>
+          <text class="nutrition-unit">g/{{food.display_basis_label || '100g'}}</text>
         </view>
         <view class="nutrition-item" wx:if="{{food.fat_g !== undefined}}">
           <text class="nutrition-label">脂肪</text>
           <text class="nutrition-value">{{food.fat_g}}</text>
-          <text class="nutrition-unit">g/100g</text>
+          <text class="nutrition-unit">g/{{food.display_basis_label || '100g'}}</text>
         </view>
         <view class="nutrition-item" wx:if="{{food.carbohydrate_g !== undefined}}">
           <text class="nutrition-label">碳水化合物</text>
           <text class="nutrition-value">{{food.carbohydrate_g}}</text>
-          <text class="nutrition-unit">g/100g</text>
+          <text class="nutrition-unit">g/{{food.display_basis_label || '100g'}}</text>
         </view>
       </view>
     </view>
@@ -56,7 +56,7 @@
           <text class="quantity-label">当前数量</text>
           <view class="quantity-main">
             <text class="quantity-value">{{keypadValue || quantity || '0'}}</text>
-            <text class="quantity-unit">克</text>
+            <text class="quantity-unit">{{quantityUnit}}</text>
           </view>
         </view>
       </view>

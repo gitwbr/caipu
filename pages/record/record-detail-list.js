@@ -194,6 +194,7 @@ Page({
       allRecords = [];
     }
     
+    allRecords = allRecords.map(record => app.normalizeDietRecord(record));
     console.log('本地所有记录数量:', allRecords.length);
     
     // 筛选指定日期的记录
@@ -232,55 +233,61 @@ Page({
     
     // 获取食物信息并格式化记录
     const formattedRecords = dailyRecords.map(record => {
-      let foodInfo = null;
+      let displayFood = null;
       let calculatedCalories = '0.0';
       let imageUrl = '';
-      
+      let quantityDisplay = { value: '', unit: '' };
+
       if (record.record_type === 'quick' || record.record_type === 'recipe') {
-        // 快速记录
-        foodInfo = {
+        displayFood = {
           food_name: record.quick_food_name || (record.record_type === 'recipe' ? '菜谱' : '快速记录'),
-          energy_kcal: parseFloat(record.quick_energy_kcal) || 0,
+          display_name: record.quick_food_name || (record.record_type === 'recipe' ? '菜谱' : '快速记录'),
+          display_energy_kcal: parseFloat(record.quick_energy_kcal) || 0,
           protein_g: parseFloat(record.quick_protein_g) || 0,
           fat_g: parseFloat(record.quick_fat_g) || 0,
           carbohydrate_g: parseFloat(record.quick_carbohydrate_g) || 0
         };
-        // 快速记录直接使用记录的热量，不需要计算
         calculatedCalories = (parseFloat(record.quick_energy_kcal) || 0).toFixed(1);
-        // 快速记录图片直接来自记录表
         imageUrl = record.quick_image_url ? app.buildImageUrl(record.quick_image_url) : '';
       } else if (record.food_id) {
-        // 标准食物
-        foodInfo = app.findFoodNutritionById(record.food_id);
-        if (foodInfo && record.quantity_g) {
-          calculatedCalories = ((foodInfo.energy_kcal * record.quantity_g / 100) || 0).toFixed(1);
-        }
-        if (foodInfo && foodInfo.image_url) {
-          imageUrl = app.buildImageUrl(foodInfo.image_url);
+        const standardFood = app.findFoodNutritionById(record.food_id);
+        if (standardFood) {
+          displayFood = app.decorateFoodForDisplay(standardFood, 'standard');
+          quantityDisplay = app.getDietRecordQuantityDisplay(record, displayFood);
+          if (quantityDisplay.value) {
+            calculatedCalories = ((Number(displayFood.display_energy_kcal || 0) * Number(quantityDisplay.value)) / 100).toFixed(1);
+          }
+          if (displayFood.image_url) {
+            imageUrl = app.buildImageUrl(displayFood.image_url);
+          }
         }
       } else if (record.custom_food_id) {
-        // 自定义食物
-        foodInfo = app.findCustomFoodById(record.custom_food_id);
-        if (foodInfo && record.quantity_g) {
-          calculatedCalories = ((foodInfo.energy_kcal * record.quantity_g / 100) || 0).toFixed(1);
-        }
-        if (foodInfo && foodInfo.image_url) {
-          imageUrl = app.buildImageUrl(foodInfo.image_url);
+        const customFood = app.findCustomFoodById(record.custom_food_id);
+        if (customFood) {
+          displayFood = app.decorateFoodForDisplay(customFood, 'custom');
+          quantityDisplay = app.getDietRecordQuantityDisplay(record, displayFood);
+          if (quantityDisplay.value) {
+            calculatedCalories = ((Number(displayFood.display_energy_kcal || 0) * Number(quantityDisplay.value)) / 100).toFixed(1);
+          }
+          if (displayFood.image_url) {
+            imageUrl = app.buildImageUrl(displayFood.image_url);
+          }
         }
       }
-      
+
       return {
         ...record,
-        food_name: foodInfo ? foodInfo.food_name : '未知食物',
-        energy_kcal: foodInfo ? foodInfo.energy_kcal : 0,
-        protein_g: foodInfo ? foodInfo.protein_g : 0,
-        fat_g: foodInfo ? foodInfo.fat_g : 0,
-        carbohydrate_g: foodInfo ? foodInfo.carbohydrate_g : 0,
+        food_name: displayFood ? (displayFood.display_name || displayFood.food_name) : '未知食物',
+        energy_kcal: displayFood ? (displayFood.display_energy_kcal || displayFood.energy_kcal || 0) : 0,
+        protein_g: displayFood ? (displayFood.protein_g || 0) : 0,
+        fat_g: displayFood ? (displayFood.fat_g || 0) : 0,
+        carbohydrate_g: displayFood ? (displayFood.carbohydrate_g || 0) : 0,
         calculated_calories: calculatedCalories,
         image_full_url: imageUrl,
-        record_type_display: record.record_type === 'quick' ? '快速记录' : 
-                            record.record_type === 'recipe' ? '菜谱' :
-                            record.record_type === 'custom' ? '自定义' : '标准'
+        quantity_display: quantityDisplay.value !== '' ? `${app.formatDisplayNumber(quantityDisplay.value)}${quantityDisplay.unit}` : '',
+        record_type_display: record.record_type === 'quick' ? '快速记录' :
+          record.record_type === 'recipe' ? '菜谱' :
+          record.record_type === 'custom' ? '自定义' : '标准'
       };
     });
     
@@ -339,19 +346,27 @@ Page({
         totalCarbs += parseFloat(r.quick_carbohydrate_g || 0);
       } else if (r.food_id) {
         const f = app.findFoodNutritionById(r.food_id);
-        if (f && r.quantity_g) {
-          const ratio = r.quantity_g / 100;
-          totalProtein += (parseFloat(f.protein_g || 0) * ratio);
-          totalFat += (parseFloat(f.fat_g || 0) * ratio);
-          totalCarbs += (parseFloat(f.carbohydrate_g || 0) * ratio);
+        if (f) {
+          const displayFood = app.decorateFoodForDisplay(f, 'standard');
+          const quantityDisplay = app.getDietRecordQuantityDisplay(r, displayFood);
+          if (quantityDisplay.value) {
+            const ratio = Number(quantityDisplay.value) / 100;
+            totalProtein += (parseFloat(displayFood.protein_g || 0) * ratio);
+            totalFat += (parseFloat(displayFood.fat_g || 0) * ratio);
+            totalCarbs += (parseFloat(displayFood.carbohydrate_g || 0) * ratio);
+          }
         }
       } else if (r.custom_food_id) {
         const f = app.findCustomFoodById(r.custom_food_id);
-        if (f && r.quantity_g) {
-          const ratio = r.quantity_g / 100;
-          totalProtein += (parseFloat(f.protein_g || 0) * ratio);
-          totalFat += (parseFloat(f.fat_g || 0) * ratio);
-          totalCarbs += (parseFloat(f.carbohydrate_g || 0) * ratio);
+        if (f) {
+          const displayFood = app.decorateFoodForDisplay(f, 'custom');
+          const quantityDisplay = app.getDietRecordQuantityDisplay(r, displayFood);
+          if (quantityDisplay.value) {
+            const ratio = Number(quantityDisplay.value) / 100;
+            totalProtein += (parseFloat(displayFood.protein_g || 0) * ratio);
+            totalFat += (parseFloat(displayFood.fat_g || 0) * ratio);
+            totalCarbs += (parseFloat(displayFood.carbohydrate_g || 0) * ratio);
+          }
         }
       }
     }

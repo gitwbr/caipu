@@ -17,6 +17,9 @@ Page({
     ocrDetectionSummary: '',
     ocrDetectedValuesText: '',
     ocrRawText: '',
+    nutrition_basis_unit: 'g',
+    nutritionBasisUnits: ['g', 'ml'],
+    nutritionBasisUnitIndex: 0,
     nutritionBasisText: '100g',
     macroBasisText: 'g/100g',
     microBasisText: 'mg/100g',
@@ -97,11 +100,12 @@ Page({
     return String(value);
   },
 
-  resolveBasisDisplay() {
+  resolveBasisDisplay(unit = 'g') {
+    const normalizedUnit = unit === 'ml' ? 'ml' : 'g';
     return {
-      nutritionBasisText: '100g',
-      macroBasisText: 'g/100g',
-      microBasisText: 'mg/100g'
+      nutritionBasisText: normalizedUnit === 'ml' ? '100ml' : '100g',
+      macroBasisText: normalizedUnit === 'ml' ? 'g/100ml' : 'g/100g',
+      microBasisText: normalizedUnit === 'ml' ? 'mg/100ml' : 'mg/100g'
     };
   },
 
@@ -116,13 +120,16 @@ Page({
     const energyValue = hasExplicitEnergyValue ? food.energy_value : (food.energy_kcal || '');
     const energyUnit = String(food.energy_unit || 'kcal').toLowerCase();
     const energyUnitIndex = energyUnit === 'kj' ? 1 : 0;
-    const basisDisplay = this.resolveBasisDisplay(food.ocr_basis_label || '');
+    const basisUnit = food.nutrition_basis_unit === 'ml' ? 'ml' : 'g';
+    const basisDisplay = this.resolveBasisDisplay(basisUnit);
     
     this.setData({
       food_id: food.id || null, // 确保food_id不为undefined
       food_name: food.food_name || '',
       energy_value: this.formatFieldValue(energyValue),
       energy_unit_index: energyUnitIndex,
+      nutrition_basis_unit: basisUnit,
+      nutritionBasisUnitIndex: basisUnit === 'ml' ? 1 : 0,
       protein_g: this.formatFieldValue(food.protein_g),
       fat_g: this.formatFieldValue(food.fat_g),
       carbohydrate_g: this.formatFieldValue(food.carbohydrate_g),
@@ -173,6 +180,16 @@ Page({
       energy_unit_index: index
     });
     console.log('选择能量单位:', this.data.energy_units[index]);
+  },
+
+  onBasisUnitChange(e) {
+    const index = Number(e.detail.value) || 0;
+    const basisUnit = this.data.nutritionBasisUnits[index] === 'ml' ? 'ml' : 'g';
+    this.setData({
+      nutrition_basis_unit: basisUnit,
+      nutritionBasisUnitIndex: basisUnit === 'ml' ? 1 : 0,
+      ...this.resolveBasisDisplay(basisUnit)
+    });
   },
 
   copyOcrRawText() {
@@ -379,7 +396,8 @@ Page({
       ca_mg: parseFloat(this.data.ca_mg) || 0,
       fe_mg: parseFloat(this.data.fe_mg) || 0,
       vitamin_c_mg: parseFloat(this.data.vitamin_c_mg) || 0,
-      cholesterol_mg: parseFloat(this.data.cholesterol_mg) || 0
+      cholesterol_mg: parseFloat(this.data.cholesterol_mg) || 0,
+      nutrition_basis_unit: this.data.nutrition_basis_unit
     };
     
     console.log('表单数据:', formData);
@@ -528,6 +546,8 @@ Page({
              food_name: '',
              energy_value: '',
              energy_unit_index: 0,
+            nutrition_basis_unit: 'g',
+            nutritionBasisUnitIndex: 0,
             protein_g: '',
             fat_g: '',
             carbohydrate_g: '',
@@ -545,6 +565,7 @@ Page({
             cholesterol_mg: '',
             imagePath: '',
             imageUrl: '',
+            imageFullUrl: '',
             showImagePreview: false,
             ocrSource: false,
             ocrBasisLabel: '',
@@ -553,9 +574,7 @@ Page({
             ocrDetectionSummary: '',
             ocrDetectedValuesText: '',
             ocrRawText: '',
-            nutritionBasisText: '100g',
-            macroBasisText: 'g/100g',
-            microBasisText: 'mg/100g'
+            ...this.resolveBasisDisplay('g')
           });
           
           wx.showToast({

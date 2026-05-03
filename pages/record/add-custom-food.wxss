@@ -283,6 +283,27 @@
   display: block;
 }
 
+.basis-picker {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 20rpx;
+  border-radius: 18rpx;
+  background: #f7efe5;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.basis-picker-value {
+  width: 100%;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  color: #20332d;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
 .ocr-assist-card {
   margin-top: 20rpx;
   padding: 24rpx 22rpx;

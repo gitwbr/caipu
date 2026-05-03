@@ -586,3 +586,138 @@ UPDATE user_limits SET daily_ocr_count = COALESCE(daily_ocr_count, 0);
 UPDATE user_limits SET daily_ocr_limit = 3 WHERE daily_ocr_limit IS NULL;
 
 */
+
+## 食物记录单位改造迁移 SQL
+
+```sql
+BEGIN;
+
+-- 1) 标准食物：增加密度字段（仅用于将 ml 录入换算回 g）
+ALTER TABLE food_nutrition_cn
+ADD COLUMN IF NOT EXISTS density_g_per_ml DECIMAL(10,4);
+
+COMMENT ON COLUMN food_nutrition_cn.density_g_per_ml IS '标准食物密度：每 1ml 对应多少克；仅用于液体食物录入时 ml -> g 换算';
+
+-- 2) 自定义食物：增加营养基准单位
+ALTER TABLE user_custom_foods
+ADD COLUMN IF NOT EXISTS nutrition_basis_unit VARCHAR(10);
+
+UPDATE user_custom_foods
+SET nutrition_basis_unit = 'g'
+WHERE nutrition_basis_unit IS NULL OR nutrition_basis_unit = '';
+
+ALTER TABLE user_custom_foods
+ALTER COLUMN nutrition_basis_unit SET DEFAULT 'g';
+
+ALTER TABLE user_custom_foods
+ALTER COLUMN nutrition_basis_unit SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'chk_user_custom_foods_nutrition_basis_unit'
+  ) THEN
+    ALTER TABLE user_custom_foods
+    ADD CONSTRAINT chk_user_custom_foods_nutrition_basis_unit
+    CHECK (nutrition_basis_unit IN ('g', 'ml'));
+  END IF;
+END $$;
+
+COMMENT ON COLUMN user_custom_foods.nutrition_basis_unit IS '自定义食物营养基准单位：g 或 ml';
+
+-- 3) 饮食记录：quantity_g -> quantity_value，并新增 quantity_unit
+ALTER TABLE diet_records
+DROP CONSTRAINT IF EXISTS check_food_type;
+
+ALTER TABLE diet_records
+DROP CONSTRAINT IF EXISTS diet_records_record_type_check;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'diet_records'
+      AND column_name = 'quantity_g'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'diet_records'
+      AND column_name = 'quantity_value'
+  ) THEN
+    ALTER TABLE diet_records RENAME COLUMN quantity_g TO quantity_value;
+  END IF;
+END $$;
+
+ALTER TABLE diet_records
+ALTER COLUMN quantity_value DROP NOT NULL;
+
+ALTER TABLE diet_records
+ADD COLUMN IF NOT EXISTS quantity_unit VARCHAR(10);
+
+UPDATE diet_records
+SET quantity_unit = 'g'
+WHERE record_type IN ('standard', 'custom')
+  AND quantity_value IS NOT NULL
+  AND (quantity_unit IS NULL OR quantity_unit = '');
+
+UPDATE diet_records
+SET quantity_value = NULL,
+    quantity_unit = NULL
+WHERE record_type IN ('quick', 'recipe');
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'chk_diet_records_quantity_unit'
+  ) THEN
+    ALTER TABLE diet_records
+    ADD CONSTRAINT chk_diet_records_quantity_unit
+    CHECK (quantity_unit IS NULL OR quantity_unit IN ('g', 'ml'));
+  END IF;
+END $$;
+
+ALTER TABLE diet_records
+ADD CONSTRAINT diet_records_record_type_check
+CHECK (record_type IN ('standard', 'custom', 'quick', 'recipe'));
+
+ALTER TABLE diet_records
+ADD CONSTRAINT check_food_type CHECK (
+  (
+    record_type = 'standard'
+    AND food_id IS NOT NULL
+    AND custom_food_id IS NULL
+    AND quick_food_name IS NULL
+    AND quantity_value IS NOT NULL
+    AND quantity_value > 0
+    AND quantity_unit IS NOT NULL
+  ) OR (
+    record_type = 'custom'
+    AND food_id IS NULL
+    AND custom_food_id IS NOT NULL
+    AND quick_food_name IS NULL
+    AND quantity_value IS NOT NULL
+    AND quantity_value > 0
+    AND quantity_unit IS NOT NULL
+  ) OR (
+    record_type IN ('quick', 'recipe')
+    AND food_id IS NULL
+    AND custom_food_id IS NULL
+    AND quick_food_name IS NOT NULL
+    AND quick_energy_kcal IS NOT NULL
+    AND quantity_value IS NULL
+    AND quantity_unit IS NULL
+  )
+);
+
+COMMENT ON COLUMN diet_records.quantity_value IS '摄入量数值；标准食物最终统一存 g，自定义食物按自身基准单位存';
+COMMENT ON COLUMN diet_records.quantity_unit IS '摄入量单位：g 或 ml；标准食物最终统一落 g，自定义食物按自身基准单位落库';
+
+COMMIT;
+```

@@ -37,6 +37,7 @@
       </view>
     </view>
 
+    <!--
     <view class="theme-surface feedback-template-card">
       <text class="theme-inline-title">COPY TEMPLATE</text>
       <text class="theme-section-title help-section-title">一键复制反馈模板</text>
@@ -48,5 +49,7 @@
 
       <button class="btn-primary template-btn" bindtap="copyFeedbackTemplate">复制反馈模板</button>
     </view>
+     -->
   </view>
+ 
 </view>

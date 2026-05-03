@@ -2,7 +2,7 @@
   <view class="theme-ambient theme-ambient--top"></view>
   <view class="theme-ambient theme-ambient--side"></view>
 
-  <view class="theme-shell theme-shell--detail recipe-shell {{isFavorite ? 'recipe-shell--with-actions' : ''}}">
+  <view class="theme-shell theme-shell--detail recipe-shell {{(isFavorite || isLocalHistoryRecipe) ? 'recipe-shell--with-actions' : ''}}">
     <view class="recipe-hero">
       <text class="theme-kicker">AI RECIPE NOTE</text>
       <text class="theme-hero-title">{{recipe.name}}</text>
@@ -14,8 +14,14 @@
 
       <view class="recipe-toolbar">
         <view class="favorite-pill {{isFavorite ? 'favorite-pill-active' : ''}}" bindtap="toggleFavorite">
-          <text class="favorite-pill-icon">{{isFavorite ? '藏' : '收'}}</text>
-          <text class="favorite-pill-text">{{isFavorite ? '已收藏' : '收藏菜谱'}}</text>
+          <view class="favorite-pill-copy">
+            <text class="favorite-pill-kicker">{{isFavorite ? 'FAVORITE SAVED' : 'SAVE THIS RECIPE'}}</text>
+            <text class="favorite-pill-text">{{isFavorite ? '已收藏，可继续更新这道菜谱' : '收藏菜谱'}}</text>
+          </view>
+          <view class="favorite-pill-meta">
+            <text class="favorite-pill-icon">{{isFavorite ? '藏' : '收'}}</text>
+            <text class="favorite-pill-action">{{isFavorite ? '已保存' : '点我收藏'}}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -136,9 +142,10 @@
       <view class="tips-content">{{recipe.tips}}</view>
     </view>
 
-    <view class="sticky-actions" wx:if="{{isFavorite}}">
+    <view class="sticky-actions" wx:if="{{isFavorite || isLocalHistoryRecipe}}">
       <button class="btn-secondary sticky-btn sticky-btn-left" bindtap="recordRecipeToDiet">记录到饮食</button>
-      <button class="btn-primary sticky-btn sticky-btn-right" bindtap="updateFavoriteRecipe">更新改动</button>
+      <button wx:if="{{isFavorite}}" class="btn-primary sticky-btn sticky-btn-right" bindtap="updateFavoriteRecipe">更新改动</button>
+      <button wx:elif="{{isLocalHistoryRecipe}}" class="btn-primary sticky-btn sticky-btn-right" bindtap="saveRecentRecipe">保存</button>
     </view>
   </view>
 </view>

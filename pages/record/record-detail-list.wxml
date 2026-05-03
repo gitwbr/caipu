@@ -143,7 +143,7 @@
             <view class="food-details">
               <text class="food-quantity" wx:if="{{item.record_type === 'recipe'}}">菜谱记录</text>
               <text class="food-quantity" wx:elif="{{item.record_type === 'quick'}}">快速记录</text>
-              <text class="food-quantity" wx:else>{{item.quantity_g}}g</text>
+              <text class="food-quantity" wx:else>{{item.quantity_display}}</text>
               <text class="food-time" wx:if="{{item.record_time}}">{{item.record_time}}</text>
             </view>
           </view>
